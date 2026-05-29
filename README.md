@@ -13,8 +13,9 @@ verschieben.
 
 - 🔌 **Arbeitspreis** der laufenden 15-Minuten-Tarifzone (ct/kWh)
 - 💶 **Gesamtpreis** in EUR/kWh inkl. Nebenkosten – fürs Energie-Dashboard
-- 🧾 **Nebenkosten** (Steuern/Abgaben) automatisch eingerechnet, mit
-  zeitlich befristeten Sätzen (z. B. gesenkte Elektrizitätsabgabe bis Ende 2026)
+- 🧾 **Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe (mit
+  befristeter Senkung bis Ende 2026) und netzgebietsabhängige **Netzentgelte**
+  inkl. **Sommer-Nieder-Arbeitspreis (SNAP)** für Netzebene 7
 - 🚦 **Tarifzone** (Off-Peak / Shoulder / Peak) als eigener Status-Sensor
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchstpreis von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
@@ -86,9 +87,11 @@ aufgebaut:
 1. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 2. Nach **smartENERGY smartTIMES** suchen.
 3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
+4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
+   Netzgebiet“ lässt die Netzentgelte weg.
 
-Die Brutto-/Netto-Einstellung lässt sich später jederzeit über
-**Konfigurieren** bei der Integration ändern.
+Beide Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
+Integration ändern.
 
 ## Sensoren
 
@@ -131,36 +134,57 @@ Dieser Sensor enthält den Gesamtpreis inkl. Nebenkosten (siehe Abschnitt
 entsprechen, was du tatsächlich zahlst, sollte die Brutto-Einstellung
 (inkl. USt.) aktiv sein – das ist die Voreinstellung.
 
-### Nebenkosten (Steuern und Abgaben)
+### Nebenkosten (Steuern, Abgaben und Netzentgelte)
 
 In Österreich ist ein großer Teil des Strompreises *nicht* der Arbeitspreis,
 sondern Steuern/Abgaben und Netzentgelte. Der **Gesamtpreis**-Sensor
 (`…_gesamtpreis_eur_kwh`) rechnet diese Nebenkosten ein.
 
-Aktuell berücksichtigt:
+**Steuern/Abgaben** (bundeseinheitlich, in `surcharges.py`):
 
 | Position             | Regelsatz   | Hinweis                                              |
 |----------------------|-------------|------------------------------------------------------|
-| Elektrizitätsabgabe  | 1,5 ct/kWh  | bundeseinheitlich; **bis 31.12.2026 auf 0,1 ct/kWh gesenkt** |
+| Elektrizitätsabgabe  | 1,5 ct/kWh  | **bis 31.12.2026 auf 0,1 ct/kWh gesenkt** |
 
-Die Sätze sind in `surcharges.py` als **datierte Tabelle** hinterlegt – jeder
-Eintrag kennt seinen Gültigkeitszeitraum. Dadurch greift z. B. ab dem
-01.01.2027 automatisch wieder der Regelsatz der Elektrizitätsabgabe, ohne dass
-ein Update nötig ist. Weitere Positionen (z. B. Netzentgelte) lassen sich dort
-mit wenigen Zeilen ergänzen.
+Die Sätze sind als **datierte Tabelle** hinterlegt – jeder Eintrag kennt seinen
+Gültigkeitszeitraum. Dadurch greift z. B. ab dem 01.01.2027 automatisch wieder
+der Regelsatz der Elektrizitätsabgabe, ohne dass ein Update nötig ist.
 
-> Die Nebenkosten werden netto verrechnet; die USt. (20 %) wird – wie in
-> Österreich üblich – auf die **Summe** aus Arbeitspreis und Abgaben angewendet.
-> Sie erscheinen daher nur dann brutto, wenn die Brutto-Einstellung aktiv ist.
+**Netzentgelte** (netzgebietsabhängig, in `grid_fees.py`, Stand 2026):
+
+Für das gewählte Netzgebiet werden die per-kWh-Netzentgelte auf **Netzebene 7**
+mit **Viertelstundenmessung (IME)** berücksichtigt:
+
+- **Netznutzungsentgelt-Arbeitspreis** – normal bzw. reduziert im SNAP-Fenster,
+- **Netzverlustentgelt** – konstant.
+
+Der **Sommer-Nieder-Arbeitspreis (SNAP)** senkt den Netz-Arbeitspreis vom
+**1. April bis 30. September täglich von 10:00–16:00 Uhr** um 20 %. Voraussetzung
+ist die für smartTIMES ohnehin nötige Viertelstundenmessung. Das Attribut
+`snap_active` zeigt, ob das Fenster gerade gilt.
+
+> Der **Netznutzungs-Leistungspreis** (Kapazitätsentgelt, €/kW nach Spitzenlast)
+> wird **nicht** eingerechnet – er ist keine ct/kWh-Größe und hängt nicht davon
+> ab, *wann* eine kWh bezogen wird.
+
+> Hinweis: Die Netzentgelte ändern sich jährlich. Die hinterlegten Werte sind
+> Stand 2026 und sollten zum Jahreswechsel aktualisiert werden.
+
+> Alle Nebenkosten werden netto verrechnet; die USt. (20 %) wird – wie in
+> Österreich üblich – auf die **Summe** aus Arbeitspreis, Abgaben und
+> Netzentgelten angewendet. Sie erscheinen daher nur dann brutto, wenn die
+> Brutto-Einstellung aktiv ist.
 
 Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 
 | Attribut                  | Beschreibung                                          |
 |---------------------------|-------------------------------------------------------|
 | `working_price_ct_kwh`    | Reiner Arbeitspreis (ct/kWh)                          |
-| `surcharges_ct_kwh`       | Nebenkosten je Position, z. B. `{electricity_tax: 0.12}` |
+| `surcharges_ct_kwh`       | Nebenkosten je Position, z. B. `{electricity_tax: 0.12, grid_usage: 4.04, grid_loss: 0.84}` |
 | `surcharges_total_ct_kwh` | Summe aller Nebenkosten (ct/kWh)                      |
 | `total_ct_kwh`            | Gesamtpreis (ct/kWh) – entspricht dem Sensorwert × 100 |
+| `grid_zone`               | Gewähltes Netzgebiet (oder `null`)                    |
+| `snap_active`             | `true`, wenn gerade der SNAP gilt                     |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz          |
 
 ### Sensor „Tarifzone"

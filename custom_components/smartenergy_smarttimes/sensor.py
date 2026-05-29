@@ -29,6 +29,7 @@ from .const import (
     VAT_RATE,
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
+from .grid_fees import is_snap
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -246,9 +247,10 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         price = data.current()
         # Nebenkosten anhand des aktuellen Intervalls bestimmen, damit die
         # Aufschlüsselung exakt zum Sensorwert passt.
-        moment = price.start if price else None
+        moment = price.start if price else dt_util.now()
         working_price = data.value(price) if price else None
         surcharges_total = data.surcharges_total(moment)
+        zone = data.grid_zone
         return {
             "vat_included": data.include_vat,
             "vat_rate": VAT_RATE,
@@ -261,4 +263,6 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
                 if working_price is not None
                 else None
             ),
+            "grid_zone": zone.name if zone else None,
+            "snap_active": is_snap(moment) if zone else False,
         }

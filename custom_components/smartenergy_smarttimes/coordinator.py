@@ -22,7 +22,11 @@ from .const import (
     STATUS_SHOULDER,
     VAT_RATE,
 )
-from .surcharges import surcharge_breakdown, total_surcharge_ct_per_kwh
+from .grid_fees import GridZone
+from .surcharges import (
+    surcharge_breakdown as tax_breakdown,
+    total_surcharge_ct_per_kwh as total_tax_ct_per_kwh,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +42,7 @@ class SmartTimesData:
     prices: list[MarketPrice] = field(default_factory=list)
     basic_fees: list[FeeEntry] = field(default_factory=list)
     basic_fee_unit: str | None = None
+    grid_zone: GridZone | None = None
 
     def current(self, moment: datetime | None = None) -> MarketPrice | None:
         """Der für ``moment`` (Standard: jetzt) gültige Preis-Eintrag."""
@@ -70,32 +75,42 @@ class SmartTimesData:
             return net_value * (1.0 + VAT_RATE)
         return net_value
 
+    def _grid_fee_net(self, moment: datetime) -> float:
+        """Netto-Netzentgelt (ct/kWh) zu ``moment`` (0, wenn kein Netzgebiet)."""
+        if self.grid_zone is None:
+            return 0.0
+        return self.grid_zone.total_ct_per_kwh(moment)
+
+    def _surcharges_net(self, moment: datetime) -> float:
+        """Summe aller Nebenkosten (Abgaben + Netzentgelte) netto in ct/kWh."""
+        day = dt_util.as_local(moment).date()
+        return total_tax_ct_per_kwh(day) + self._grid_fee_net(moment)
+
     def all_in_value(self, price: MarketPrice) -> float:
         """Gesamtpreis (Arbeitspreis + Nebenkosten) in ct/kWh.
 
-        Die Nebenkosten gelten je nach Kalendertag des Intervalls. Die USt. wird
+        Die Nebenkosten gelten je nach Zeitpunkt des Intervalls (Abgaben nach
+        Kalendertag, Netzentgelte zusätzlich nach SNAP-Fenster). Die USt. wird
         – wie in Österreich üblich – auf die *Summe* aus Arbeitspreis und
         Abgaben/Netzentgelten erhoben, daher wird hier netto summiert und die
         Steuer einmal am Ende angewendet.
         """
-        day = dt_util.as_local(price.start).date()
-        net = price.net_ct_per_kwh + total_surcharge_ct_per_kwh(day)
+        net = price.net_ct_per_kwh + self._surcharges_net(price.start)
         return round(self._apply_vat(net), 4)
 
     def surcharge_breakdown(self, moment: datetime | None = None) -> dict[str, float]:
         """Nebenkosten je Position in ct/kWh (gemäß Brutto-/Netto-Einstellung)."""
         moment = moment or dt_util.now()
         day = dt_util.as_local(moment).date()
-        return {
-            key: round(self._apply_vat(net), 4)
-            for key, net in surcharge_breakdown(day).items()
-        }
+        items = dict(tax_breakdown(day))
+        if self.grid_zone is not None:
+            items.update(self.grid_zone.breakdown(moment))
+        return {key: round(self._apply_vat(net), 4) for key, net in items.items()}
 
     def surcharges_total(self, moment: datetime | None = None) -> float:
         """Summe aller Nebenkosten in ct/kWh (gemäß Brutto-/Netto-Einstellung)."""
         moment = moment or dt_util.now()
-        day = dt_util.as_local(moment).date()
-        return round(self._apply_vat(total_surcharge_ct_per_kwh(day)), 4)
+        return round(self._apply_vat(self._surcharges_net(moment)), 4)
 
     def basic_fee(self, moment: datetime | None = None) -> float | None:
         """Die für ``moment`` gültige Grundgebühr (gemäß Brutto-/Netto-Einstellung)."""
@@ -182,6 +197,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         entry: ConfigEntry,
         client: SmartTimesApiClient,
         include_vat: bool,
+        grid_zone: GridZone | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -192,6 +208,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         )
         self._client = client
         self._include_vat = include_vat
+        self._grid_zone = grid_zone
         self._last_fetch: datetime | None = None
         self._last_result: SmartTimesResult | None = None
 
@@ -239,4 +256,5 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             prices=result.prices,
             basic_fees=result.basic_fees,
             basic_fee_unit=result.basic_fee_unit,
+            grid_zone=self._grid_zone,
         )

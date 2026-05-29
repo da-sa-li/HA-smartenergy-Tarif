@@ -14,13 +14,46 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import selector
 
 from .api import SmartTimesApiClient, SmartTimesApiError
-from .const import CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT, DOMAIN
+from .const import (
+    CONF_GRID_ZONE,
+    CONF_INCLUDE_VAT,
+    DEFAULT_GRID_ZONE,
+    DEFAULT_INCLUDE_VAT,
+    DOMAIN,
+    GRID_ZONE_NONE,
+)
+from .grid_fees import GRID_ZONES
 
 _LOGGER = logging.getLogger(__name__)
 
 TITLE = "smartENERGY smartTIMES"
+
+
+def _grid_zone_selector() -> selector.SelectSelector:
+    """Dropdown zur Auswahl des Netzgebiets (für die Netzentgelte)."""
+    options = [GRID_ZONE_NONE, *GRID_ZONES]
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+            translation_key="grid_zone",
+        )
+    )
+
+
+def _schema(include_vat: bool, grid_zone: str) -> vol.Schema:
+    """Gemeinsames Schema für Einrichtung und Optionen."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_INCLUDE_VAT, default=include_vat): bool,
+            vol.Required(
+                CONF_GRID_ZONE, default=grid_zone
+            ): _grid_zone_selector(),
+        }
+    )
 
 
 class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -53,19 +86,17 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
                     options={
                         CONF_INCLUDE_VAT: user_input.get(
                             CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT
-                        )
+                        ),
+                        CONF_GRID_ZONE: user_input.get(
+                            CONF_GRID_ZONE, DEFAULT_GRID_ZONE
+                        ),
                     },
                 )
 
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_INCLUDE_VAT, default=DEFAULT_INCLUDE_VAT
-                ): bool,
-            }
-        )
         return self.async_show_form(
-            step_id="user", data_schema=schema, errors=errors
+            step_id="user",
+            data_schema=_schema(DEFAULT_INCLUDE_VAT, DEFAULT_GRID_ZONE),
+            errors=errors,
         )
 
     @staticmethod
@@ -87,12 +118,11 @@ class SmartTimesOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(data=user_input)
 
-        current = self.config_entry.options.get(
-            CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT
+        options = self.config_entry.options
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_schema(
+                options.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
+                options.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE),
+            ),
         )
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_INCLUDE_VAT, default=current): bool,
-            }
-        )
-        return self.async_show_form(step_id="init", data_schema=schema)

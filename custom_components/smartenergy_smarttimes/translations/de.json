@@ -5,7 +5,11 @@
         "title": "smartENERGY smartTIMES",
         "description": "Ruft die smartTIMES-Tarifpreise von smartENERGY ab. Es ist kein API-Schlüssel erforderlich.",
         "data": {
-          "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen"
+          "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
+          "grid_zone": "Netzgebiet (für die Netzentgelte)"
+        },
+        "data_description": {
+          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
       }
     },
@@ -21,8 +25,33 @@
       "init": {
         "title": "smartTIMES Optionen",
         "data": {
-          "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen"
+          "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
+          "grid_zone": "Netzgebiet (für die Netzentgelte)"
+        },
+        "data_description": {
+          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
+      }
+    }
+  },
+  "selector": {
+    "grid_zone": {
+      "options": {
+        "none": "Kein Netzgebiet (Netzentgelte nicht einrechnen)",
+        "burgenland": "Burgenland",
+        "kaernten": "Kärnten",
+        "klagenfurt": "Klagenfurt",
+        "niederoesterreich": "Niederösterreich",
+        "oberoesterreich": "Oberösterreich",
+        "linz": "Linz",
+        "salzburg": "Salzburg",
+        "steiermark": "Steiermark",
+        "graz": "Graz",
+        "tirol": "Tirol",
+        "innsbruck": "Innsbruck",
+        "vorarlberg": "Vorarlberg",
+        "wien": "Wien",
+        "kleinwalsertal": "Kleinwalsertal"
       }
     }
   },

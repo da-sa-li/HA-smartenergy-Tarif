@@ -29,6 +29,11 @@ TARIFF_STATUSES: Final = [STATUS_OFF_PEAK, STATUS_SHOULDER, STATUS_PEAK]
 CONF_INCLUDE_VAT: Final = "include_vat"
 DEFAULT_INCLUDE_VAT: Final = True
 
+# Auswahl des Netzgebiets für die Netzentgelte. "none" = nicht einrechnen.
+CONF_GRID_ZONE: Final = "grid_zone"
+GRID_ZONE_NONE: Final = "none"
+DEFAULT_GRID_ZONE: Final = GRID_ZONE_NONE
+
 # Wie oft der Koordinator die Entitäten neu berechnet (aktueller Preis).
 # Die eigentlichen API-Aufrufe werden intern stärker gedrosselt
 # (siehe MIN_FETCH_INTERVAL), damit die API nicht unnötig belastet wird.
