@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -16,6 +17,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import SmartTimesApiClient, SmartTimesApiError
 from .const import CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT, DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 
 TITLE = "smartENERGY smartTIMES"
 
@@ -39,7 +42,9 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
             client = SmartTimesApiClient(session)
             try:
                 await client.async_get_prices()
-            except SmartTimesApiError:
+            except SmartTimesApiError as err:
+                # Genaue Ursache ins Log schreiben, damit sie diagnostizierbar ist.
+                _LOGGER.error("Einrichtung von smartTIMES fehlgeschlagen: %s", err)
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_create_entry(

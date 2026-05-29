@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -13,6 +14,13 @@ from homeassistant.util import dt as dt_util
 from .const import API_TIMEOUT, API_URL, VAT_RATE
 
 _LOGGER = logging.getLogger(__name__)
+
+# Manche APIs antworten ohne einen "echten" User-Agent mit 403 – daher setzen
+# wir einen.
+REQUEST_HEADERS = {
+    "Accept": "application/json",
+    "User-Agent": "HomeAssistant-smartTIMES/1.0",
+}
 
 
 class SmartTimesApiError(Exception):
@@ -79,17 +87,29 @@ class SmartTimesApiClient:
             async with asyncio.timeout(API_TIMEOUT):
                 response = await self._session.get(
                     API_URL,
-                    headers={"Accept": "application/json"},
+                    headers=REQUEST_HEADERS,
                 )
+                text = await response.text()
                 response.raise_for_status()
-                payload = await response.json()
         except asyncio.TimeoutError as err:
             raise SmartTimesApiError(
-                "Zeitüberschreitung beim Abruf der smartTIMES-API"
+                f"Zeitüberschreitung beim Abruf der smartTIMES-API ({API_URL})"
+            ) from err
+        except aiohttp.ClientResponseError as err:
+            raise SmartTimesApiError(
+                f"smartTIMES-API antwortete mit HTTP {err.status} ({err.message})"
             ) from err
         except aiohttp.ClientError as err:
             raise SmartTimesApiError(
-                f"Fehler beim Abruf der smartTIMES-API: {err}"
+                f"Netzwerkfehler beim Abruf der smartTIMES-API: {err}"
+            ) from err
+
+        try:
+            payload = json.loads(text)
+        except ValueError as err:
+            snippet = text[:200].replace("\n", " ")
+            raise SmartTimesApiError(
+                f"Ungültige (kein JSON) Antwort der smartTIMES-API. Auszug: {snippet!r}"
             ) from err
 
         return self._parse(payload)
@@ -123,7 +143,10 @@ class SmartTimesApiClient:
         if not isinstance(raw_values, list):
             raw_values = energy.get("data")
         if not isinstance(raw_values, list) or not raw_values:
-            raise SmartTimesApiError("Die API hat keine Preisdaten geliefert")
+            raise SmartTimesApiError(
+                "Die API hat keine Preisdaten geliefert. Vorhandene Felder: "
+                f"oberste Ebene={sorted(payload)}, energyPrice={sorted(energy)}"
+            )
 
         delta = timedelta(minutes=interval_minutes)
         prices: list[MarketPrice] = []
