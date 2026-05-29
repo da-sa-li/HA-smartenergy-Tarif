@@ -26,6 +26,7 @@ from .const import (
     UNIT_CT_PER_KWH,
     UNIT_EUR_PER_KWH,
     UNIT_EUR_PER_MONTH,
+    VAT_RATE,
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
 
@@ -44,8 +45,9 @@ def _current_value(data: SmartTimesData) -> StateType:
 
 
 def _current_value_eur(data: SmartTimesData) -> StateType:
+    """Gesamtpreis (Arbeitspreis + Nebenkosten) in EUR/kWh."""
     price = data.current()
-    return round(data.value(price) / 100.0, 5) if price else None
+    return round(data.all_in_value(price) / 100.0, 5) if price else None
 
 
 def _today_values(data: SmartTimesData) -> list[float]:
@@ -78,8 +80,8 @@ def _status(data: SmartTimesData) -> StateType:
 
 SENSORS: tuple[SmartTimesSensorDescription, ...] = (
     SmartTimesSensorDescription(
-        key="current_price",
-        translation_key="current_price",
+        key="working_price",
+        translation_key="working_price",
         icon="mdi:flash",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=3,
@@ -182,7 +184,9 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         """Zusätzliche Attribute für ausgewählte Sensoren."""
         if self.entity_description.key == "tariff_status":
             return self._status_attributes()
-        if self.entity_description.key != "current_price":
+        if self.entity_description.key == "current_price_eur":
+            return self._all_in_attributes()
+        if self.entity_description.key != "working_price":
             return None
 
         data = self.coordinator.data
@@ -234,4 +238,27 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "level_prices": data.level_prices(),
             "next_status": next_status,
             "next_status_start": next_start.isoformat() if next_start else None,
+        }
+
+    def _all_in_attributes(self) -> dict:
+        """Aufschlüsselung des Gesamtpreises (Arbeitspreis + Nebenkosten)."""
+        data = self.coordinator.data
+        price = data.current()
+        # Nebenkosten anhand des aktuellen Intervalls bestimmen, damit die
+        # Aufschlüsselung exakt zum Sensorwert passt.
+        moment = price.start if price else None
+        working_price = data.value(price) if price else None
+        surcharges_total = data.surcharges_total(moment)
+        return {
+            "vat_included": data.include_vat,
+            "vat_rate": VAT_RATE,
+            "unit_ct": UNIT_CT_PER_KWH,
+            "working_price_ct_kwh": working_price,
+            "surcharges_ct_kwh": data.surcharge_breakdown(moment),
+            "surcharges_total_ct_kwh": surcharges_total,
+            "total_ct_kwh": (
+                round(working_price + surcharges_total, 4)
+                if working_price is not None
+                else None
+            ),
         }

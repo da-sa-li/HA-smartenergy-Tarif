@@ -22,6 +22,7 @@ from .const import (
     STATUS_SHOULDER,
     VAT_RATE,
 )
+from .surcharges import surcharge_breakdown, total_surcharge_ct_per_kwh
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,8 +61,41 @@ class SmartTimesData:
         return [price for price in self.prices if price.end > moment]
 
     def value(self, price: MarketPrice) -> float:
-        """Preis eines Eintrags gemäß Brutto-/Netto-Einstellung."""
+        """Arbeitspreis eines Eintrags gemäß Brutto-/Netto-Einstellung."""
         return price.price(self.include_vat)
+
+    def _apply_vat(self, net_value: float) -> float:
+        """Wendet die USt. gemäß Brutto-/Netto-Einstellung auf einen Nettowert an."""
+        if self.include_vat:
+            return net_value * (1.0 + VAT_RATE)
+        return net_value
+
+    def all_in_value(self, price: MarketPrice) -> float:
+        """Gesamtpreis (Arbeitspreis + Nebenkosten) in ct/kWh.
+
+        Die Nebenkosten gelten je nach Kalendertag des Intervalls. Die USt. wird
+        – wie in Österreich üblich – auf die *Summe* aus Arbeitspreis und
+        Abgaben/Netzentgelten erhoben, daher wird hier netto summiert und die
+        Steuer einmal am Ende angewendet.
+        """
+        day = dt_util.as_local(price.start).date()
+        net = price.net_ct_per_kwh + total_surcharge_ct_per_kwh(day)
+        return round(self._apply_vat(net), 4)
+
+    def surcharge_breakdown(self, moment: datetime | None = None) -> dict[str, float]:
+        """Nebenkosten je Position in ct/kWh (gemäß Brutto-/Netto-Einstellung)."""
+        moment = moment or dt_util.now()
+        day = dt_util.as_local(moment).date()
+        return {
+            key: round(self._apply_vat(net), 4)
+            for key, net in surcharge_breakdown(day).items()
+        }
+
+    def surcharges_total(self, moment: datetime | None = None) -> float:
+        """Summe aller Nebenkosten in ct/kWh (gemäß Brutto-/Netto-Einstellung)."""
+        moment = moment or dt_util.now()
+        day = dt_util.as_local(moment).date()
+        return round(self._apply_vat(total_surcharge_ct_per_kwh(day)), 4)
 
     def basic_fee(self, moment: datetime | None = None) -> float | None:
         """Die für ``moment`` gültige Grundgebühr (gemäß Brutto-/Netto-Einstellung)."""

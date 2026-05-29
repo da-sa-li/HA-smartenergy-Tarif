@@ -11,7 +11,10 @@ verschieben.
 
 ## Funktionen
 
-- 🔌 **Aktueller Strompreis** der laufenden 15-Minuten-Tarifzone
+- 🔌 **Arbeitspreis** der laufenden 15-Minuten-Tarifzone (ct/kWh)
+- 💶 **Gesamtpreis** in EUR/kWh inkl. Nebenkosten – fürs Energie-Dashboard
+- 🧾 **Nebenkosten** (Steuern/Abgaben) automatisch eingerechnet, mit
+  zeitlich befristeten Sätzen (z. B. gesenkte Elektrizitätsabgabe bis Ende 2026)
 - 🚦 **Tarifzone** (Off-Peak / Shoulder / Peak) als eigener Status-Sensor
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchstpreis von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
@@ -91,16 +94,25 @@ Die Brutto-/Netto-Einstellung lässt sich später jederzeit über
 
 | Sensor                                          | Beschreibung                                |
 |-------------------------------------------------|---------------------------------------------|
-| `sensor.smartenergy_smarttimes_aktueller_preis` | Preis der aktuell gültigen Tarifzone (ct/kWh) |
-| `sensor.smartenergy_smarttimes_aktueller_preis_eur_kwh` | Aktueller Preis in **EUR/kWh** (fürs Energie-Dashboard) |
-| `sensor.smartenergy_smarttimes_durchschnittspreis_heute` | Durchschnittspreis des heutigen Tages |
-| `sensor.smartenergy_smarttimes_niedrigster_preis_heute`  | Günstigster Preis heute              |
-| `sensor.smartenergy_smarttimes_hochster_preis_heute`     | Teuerster Preis heute                |
+| `sensor.smartenergy_smarttimes_arbeitspreis`    | **Reiner Arbeitspreis** der aktuell gültigen Tarifzone (ct/kWh) |
+| `sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh` | **Gesamtpreis inkl. Nebenkosten** in **EUR/kWh** (fürs Energie-Dashboard) |
+| `sensor.smartenergy_smarttimes_durchschnittspreis_heute` | Durchschnittlicher Arbeitspreis des heutigen Tages |
+| `sensor.smartenergy_smarttimes_niedrigster_preis_heute`  | Günstigster Arbeitspreis heute       |
+| `sensor.smartenergy_smarttimes_hochster_preis_heute`     | Teuerster Arbeitspreis heute         |
 | `sensor.smartenergy_smarttimes_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
 | `sensor.smartenergy_smarttimes_tarifzone`               | Aktuelle Tarifzone (Off-Peak/Shoulder/Peak) |
 
-Die ct/kWh-Sensoren dienen der gut lesbaren Anzeige; der Grundgebühr-Sensor
-verwendet **EUR/Monat**.
+Der **Arbeitspreis**-Sensor (ct/kWh) enthält ausschließlich den Energiepreis und
+dient der gut lesbaren Anzeige bzw. dem Vergleich der Tarifzonen. Der
+**Gesamtpreis**-Sensor (EUR/kWh) rechnet zusätzlich die Nebenkosten (Steuern und
+Abgaben) ein und eignet sich daher fürs Energie-Dashboard. Der
+Grundgebühr-Sensor verwendet **EUR/Monat**.
+
+> ℹ️ **Hinweis für Updates von einer älteren Version:** Der frühere Sensor
+> `…_aktueller_preis` heißt jetzt `…_arbeitspreis`. Bestehende Installationen
+> behalten ihre einmal vergebene Entity-ID für den EUR/kWh-Sensor
+> (`…_aktueller_preis_eur_kwh`); inhaltlich enthält dieser nun den Gesamtpreis.
+> Passe ggf. Dashboards und Automatisierungen an.
 
 ### Energie-Dashboard
 
@@ -109,13 +121,47 @@ verwendet **EUR/Monat**.
 > des Preissensors direkt als **EUR/kWh**.
 
 Verwende daher fürs Energie-Dashboard den Sensor
-`sensor.smartenergy_smarttimes_aktueller_preis_eur_kwh` (Einheit **EUR/kWh**):
+`sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh` (Einheit **EUR/kWh**):
 
 Einstellungen → Dashboards → Energie → Netzverbrauch → *Entität mit aktuellem
 Preis verwenden* → diesen Sensor auswählen.
 
-Damit die Kosten dem entsprechen, was du tatsächlich zahlst, sollte die
-Brutto-Einstellung (inkl. USt.) aktiv sein – das ist die Voreinstellung.
+Dieser Sensor enthält den Gesamtpreis inkl. Nebenkosten (siehe Abschnitt
+[Nebenkosten](#nebenkosten-steuern-und-abgaben)). Damit die Kosten dem
+entsprechen, was du tatsächlich zahlst, sollte die Brutto-Einstellung
+(inkl. USt.) aktiv sein – das ist die Voreinstellung.
+
+### Nebenkosten (Steuern und Abgaben)
+
+In Österreich ist ein großer Teil des Strompreises *nicht* der Arbeitspreis,
+sondern Steuern/Abgaben und Netzentgelte. Der **Gesamtpreis**-Sensor
+(`…_gesamtpreis_eur_kwh`) rechnet diese Nebenkosten ein.
+
+Aktuell berücksichtigt:
+
+| Position             | Regelsatz   | Hinweis                                              |
+|----------------------|-------------|------------------------------------------------------|
+| Elektrizitätsabgabe  | 1,5 ct/kWh  | bundeseinheitlich; **bis 31.12.2026 auf 0,1 ct/kWh gesenkt** |
+
+Die Sätze sind in `surcharges.py` als **datierte Tabelle** hinterlegt – jeder
+Eintrag kennt seinen Gültigkeitszeitraum. Dadurch greift z. B. ab dem
+01.01.2027 automatisch wieder der Regelsatz der Elektrizitätsabgabe, ohne dass
+ein Update nötig ist. Weitere Positionen (z. B. Netzentgelte) lassen sich dort
+mit wenigen Zeilen ergänzen.
+
+> Die Nebenkosten werden netto verrechnet; die USt. (20 %) wird – wie in
+> Österreich üblich – auf die **Summe** aus Arbeitspreis und Abgaben angewendet.
+> Sie erscheinen daher nur dann brutto, wenn die Brutto-Einstellung aktiv ist.
+
+Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
+
+| Attribut                  | Beschreibung                                          |
+|---------------------------|-------------------------------------------------------|
+| `working_price_ct_kwh`    | Reiner Arbeitspreis (ct/kWh)                          |
+| `surcharges_ct_kwh`       | Nebenkosten je Position, z. B. `{electricity_tax: 0.12}` |
+| `surcharges_total_ct_kwh` | Summe aller Nebenkosten (ct/kWh)                      |
+| `total_ct_kwh`            | Gesamtpreis (ct/kWh) – entspricht dem Sensorwert × 100 |
+| `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz          |
 
 ### Sensor „Tarifzone"
 
@@ -149,9 +195,9 @@ automation:
 
 > Die genauen Entity-IDs können je nach Spracheinstellung abweichen.
 
-### Attribute des Sensors „Aktueller Preis“
+### Attribute des Sensors „Arbeitspreis“
 
-Der Sensor `Aktueller Preis` enthält zusätzlich umfangreiche Attribute:
+Der Sensor `Arbeitspreis` enthält zusätzlich umfangreiche Attribute:
 
 | Attribut            | Beschreibung                                              |
 |---------------------|-----------------------------------------------------------|
@@ -177,7 +223,7 @@ automation:
   - alias: "Boiler bei günstigem Strom einschalten"
     trigger:
       - platform: numeric_state
-        entity_id: sensor.smartenergy_smarttimes_aktueller_preis
+        entity_id: sensor.smartenergy_smarttimes_arbeitspreis
         below: 10            # ct/kWh
     action:
       - action: switch.turn_on
@@ -196,7 +242,7 @@ header:
   title: smartTIMES Preise
   show: true
 series:
-  - entity: sensor.smartenergy_smarttimes_aktueller_preis
+  - entity: sensor.smartenergy_smarttimes_arbeitspreis
     name: Preis
     type: column
     data_generator: |

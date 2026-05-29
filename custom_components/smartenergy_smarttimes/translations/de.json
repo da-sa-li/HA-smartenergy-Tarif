@@ -28,11 +28,11 @@
   },
   "entity": {
     "sensor": {
-      "current_price": {
-        "name": "Aktueller Preis"
+      "working_price": {
+        "name": "Arbeitspreis"
       },
       "current_price_eur": {
-        "name": "Aktueller Preis (EUR/kWh)"
+        "name": "Gesamtpreis (EUR/kWh)"
       },
       "average_today": {
         "name": "Durchschnittspreis heute"
