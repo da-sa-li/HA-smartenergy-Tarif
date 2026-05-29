@@ -1,0 +1,45 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "smartENERGY smartTIMES",
+        "description": "Ruft die smartTIMES-Tarifpreise von smartENERGY ab. Es ist kein API-Schlüssel erforderlich.",
+        "data": {
+          "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur smartTIMES-API fehlgeschlagen."
+    },
+    "abort": {
+      "already_configured": "smartTIMES ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "smartTIMES Optionen",
+        "data": {
+          "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_price": {
+        "name": "Aktueller Preis"
+      },
+      "average_today": {
+        "name": "Durchschnittspreis heute"
+      },
+      "lowest_today": {
+        "name": "Niedrigster Preis heute"
+      },
+      "highest_today": {
+        "name": "Höchster Preis heute"
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "smartENERGY smartTIMES",
+        "description": "Fetches the smartTIMES tariff prices from smartENERGY. No API key is required.",
+        "data": {
+          "include_vat": "Show prices including 20% VAT (gross)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the smartTIMES API."
+    },
+    "abort": {
+      "already_configured": "smartTIMES is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "smartTIMES options",
+        "data": {
+          "include_vat": "Show prices including 20% VAT (gross)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_price": {
+        "name": "Current price"
+      },
+      "average_today": {
+        "name": "Average price today"
+      },
+      "lowest_today": {
+        "name": "Lowest price today"
+      },
+      "highest_today": {
+        "name": "Highest price today"
+      }
+    }
+  }
+}
