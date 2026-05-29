@@ -13,9 +13,10 @@ verschieben.
 
 - 🔌 **Arbeitspreis** der laufenden 15-Minuten-Tarifzone (ct/kWh)
 - 💶 **Gesamtpreis** in EUR/kWh inkl. Nebenkosten – fürs Energie-Dashboard
-- 🧾 **Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe (mit
-  befristeter Senkung bis Ende 2026) und netzgebietsabhängige **Netzentgelte**
-  inkl. **Sommer-Nieder-Arbeitspreis (SNAP)** für Netzebene 7
+- 🧾 **Variable Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe (mit
+  befristeter Senkung bis Ende 2026), Erneuerbaren-Förderbeitrag und
+  netzgebietsabhängige **Netzentgelte** inkl. **Sommer-Nieder-Arbeitspreis
+  (SNAP)** für Netzebene 7
 - 🚦 **Tarifzone** (Off-Peak / Shoulder / Peak) als eigener Status-Sensor
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchstpreis von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
@@ -142,13 +143,15 @@ sondern Steuern/Abgaben und Netzentgelte. Der **Gesamtpreis**-Sensor
 
 **Steuern/Abgaben** (bundeseinheitlich, in `surcharges.py`):
 
-| Position             | Regelsatz   | Hinweis                                              |
-|----------------------|-------------|------------------------------------------------------|
-| Elektrizitätsabgabe  | 1,5 ct/kWh  | **bis 31.12.2026 auf 0,1 ct/kWh gesenkt** |
+| Position                   | Satz (NE 7) | Hinweis                                              |
+|----------------------------|-------------|------------------------------------------------------|
+| Elektrizitätsabgabe        | 1,5 ct/kWh  | **bis 31.12.2026 auf 0,1 ct/kWh gesenkt** |
+| Erneuerbaren-Förderbeitrag | 0,364 ct/kWh | Verordnung 2026; 2022–2024 ausgesetzt, seit 2025 wieder aktiv |
 
 Die Sätze sind als **datierte Tabelle** hinterlegt – jeder Eintrag kennt seinen
 Gültigkeitszeitraum. Dadurch greift z. B. ab dem 01.01.2027 automatisch wieder
-der Regelsatz der Elektrizitätsabgabe, ohne dass ein Update nötig ist.
+der Regelsatz der Elektrizitätsabgabe, ohne dass ein Update nötig ist. Der
+Erneuerbaren-Förderbeitrag wird jährlich neu festgelegt (Wert Stand 2026).
 
 **Netzentgelte** (netzgebietsabhängig, in `grid_fees.py`, Stand 2026):
 
@@ -180,7 +183,7 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 | Attribut                  | Beschreibung                                          |
 |---------------------------|-------------------------------------------------------|
 | `working_price_ct_kwh`    | Reiner Arbeitspreis (ct/kWh)                          |
-| `surcharges_ct_kwh`       | Nebenkosten je Position, z. B. `{electricity_tax: 0.12, grid_usage: 4.04, grid_loss: 0.84}` |
+| `surcharges_ct_kwh`       | Nebenkosten je Position, z. B. `{electricity_tax: 0.12, renewable_support: 0.44, grid_usage: 4.04, grid_loss: 0.84}` |
 | `surcharges_total_ct_kwh` | Summe aller Nebenkosten (ct/kWh)                      |
 | `total_ct_kwh`            | Gesamtpreis (ct/kWh) – entspricht dem Sensorwert × 100 |
 | `grid_zone`               | Gewähltes Netzgebiet (oder `null`)                    |

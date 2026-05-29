@@ -78,9 +78,21 @@ ELECTRICITY_TAX: Final = Surcharge(
     ),
 )
 
-# Alle bekannten Nebenkostenpositionen. Weitere (z. B. Netzentgelte) lassen sich
-# hier ergänzen.
-SURCHARGES: Final[tuple[Surcharge, ...]] = (ELECTRICITY_TAX,)
+# Erneuerbaren-Förderbeitrag (vormals Ökostromförderbeitrag), bundeseinheitlich
+# je Netzebene festgelegt. Netzebene 7 (mit Messung): 0,364 ct/kWh laut
+# Erneuerbaren-Förderbeitragsverordnung 2026 (BGBl. II Nr. 301/2025).
+# 2022–2024 ausgesetzt, seit 01.01.2025 wieder aktiv.
+# Hinweis: Wird jährlich neu festgelegt – Wert ist Stand 2026 und sollte zum
+# Jahreswechsel aktualisiert werden.
+RENEWABLE_SUPPORT: Final = Surcharge(
+    key="renewable_support",
+    name="Erneuerbaren-Förderbeitrag",
+    rates=(DatedRate(rate=0.364, since=date(2026, 1, 1)),),
+)
+
+# Alle bekannten Nebenkostenpositionen (bundeseinheitliche Abgaben). Die
+# zonenabhängigen Netzentgelte stecken in ``grid_fees.py``.
+SURCHARGES: Final[tuple[Surcharge, ...]] = (ELECTRICITY_TAX, RENEWABLE_SUPPORT)
 
 
 def surcharge_breakdown(day: date) -> dict[str, float]:
