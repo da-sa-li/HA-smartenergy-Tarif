@@ -3,7 +3,7 @@
 Eine [Home Assistant](https://www.home-assistant.io/) Integration für den
 dynamischen Stromtarif **smartTIMES** des österreichischen Anbieters
 [smartENERGY](https://www.smartenergy.at/). Sie ruft die öffentliche
-smartTIMES-Preis-API ab und stellt die viertelstündlichen Tarifpreise als
+smartTIMES-Preis-API ab und stellt die stündlichen Tarifpreise als
 Sensoren bereit – ideal, um Verbraucher automatisch in günstige Tarifzonen zu
 verschieben.
 
