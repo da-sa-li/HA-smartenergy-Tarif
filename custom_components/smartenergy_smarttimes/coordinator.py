@@ -128,18 +128,22 @@ class SmartTimesData:
         return max(1, round(self.cheap_hours * per_hour))
 
     def _cheap_starts(self, day) -> set[datetime]:
-        """Startzeiten der ``cheap_hours`` günstigsten Intervalle eines Tages.
+        """Startzeiten der günstigsten Intervalle eines Tages.
 
-        Es werden exakt so viele Intervalle gewählt, wie ``cheap_hours`` ergibt
-        (Gleichstand wird zugunsten der früheren Uhrzeit aufgelöst), damit die
-        markierte Dauer vorhersehbar bleibt.
+        Es werden mindestens so viele Intervalle gewählt, wie ``cheap_hours``
+        ergibt. Teilen sich mehrere Intervalle den Preis des teuersten noch
+        gewählten Intervalls (Gleichstand am Schwellwert), werden *alle* davon
+        markiert – auch wenn dadurch mehr als ``cheap_hours`` zustande kommen.
+        So bleibt keine gleich günstige Stunde unberücksichtigt.
         """
         prices = self.for_day(day)
         if not prices:
             return set()
-        ranked = sorted(prices, key=lambda p: (self.all_in_value(p), p.start))
+        valued = [(self.all_in_value(p), p) for p in prices]
+        ranked = sorted(valued, key=lambda item: (item[0], item[1].start))
         count = min(self._cheap_count(), len(ranked))
-        return {p.start for p in ranked[:count]}
+        cutoff_value = ranked[count - 1][0]
+        return {p.start for value, p in valued if value <= cutoff_value}
 
     def is_cheap(self, price: MarketPrice) -> bool:
         """Ob ein Intervall zu den günstigsten Stunden seines Tages zählt."""

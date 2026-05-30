@@ -208,8 +208,9 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 Statt fester Tarifzonen markiert dieser Sensor die **günstigsten Stunden des
 Tages nach Gesamtkosten** – also inklusive Netzentgelten und SNAP. Er ist `on`,
 solange das laufende Intervall zu den günstigsten `cheap_hours` (Standard 4 h)
-des Tages zählt. Bei Preisgleichheit werden die früheren Intervalle bevorzugt,
-damit die markierte Dauer vorhersehbar bleibt.
+des Tages zählt. Teilen sich am Schwellwert mehrere Intervalle denselben Preis,
+werden **alle** davon markiert – auch wenn dadurch mehr Stunden als `cheap_hours`
+zusammenkommen. So bleibt keine gleich günstige Stunde unberücksichtigt.
 
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
