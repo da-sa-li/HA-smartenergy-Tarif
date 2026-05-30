@@ -56,7 +56,8 @@ https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 2. Nach **smartENERGY smartTIMES** suchen.
 3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
-   Netzgebiet" lässt die Netzentgelte weg.
+   Netzgebiet" lässt die Netzentgelte weg. Das Netzgebiet steht im
+   Netzzugangsvertrag des Netzbetreibers.
 
 Diese Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
 Integration ändern.
