@@ -89,14 +89,6 @@ entfernen.
 | `sensor.smartenergy_smarttimes_hochster_gesamtpreis_heute`     | Teuerster **Gesamtpreis** heute (ct/kWh) |
 | `sensor.smartenergy_smarttimes_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
 
-Der **Arbeitspreis**-Sensor (ct/kWh) enthält ausschließlich den Energiepreis und
-dient der gut lesbaren Anzeige bzw. dem Vergleich der Tarifzonen. Der
-**Gesamtpreis**-Sensor (EUR/kWh) rechnet zusätzlich alle variablen Nebenkosten
-(Steuern, Abgaben, Netzentgelte) ein und eignet sich daher fürs Energie-Dashboard
-und als Entscheidungsgrundlage fürs Schalten. Die Tageskennzahlen beziehen sich
-ebenfalls auf den **Gesamtpreis** (ct/kWh). Der Grundgebühr-Sensor verwendet
-**EUR/Monat**.
-
 ### Nebenkosten (Steuern, Abgaben und Netzentgelte)
 
 In Österreich ist ein großer Teil des Strompreises *nicht* der Arbeitspreis,
