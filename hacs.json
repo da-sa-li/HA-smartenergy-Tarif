@@ -2,5 +2,6 @@
   "name": "smartENERGY smartTIMES",
   "content_in_root": false,
   "render_readme": true,
+  "country": "AT",
   "homeassistant": "2025.3.0"
 }
