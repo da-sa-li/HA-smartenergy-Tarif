@@ -194,18 +194,6 @@ Solche Enden sind im Attribut `cheap_windows` mit `soft_end: true` markiert.
 | `prices_tomorrow`   | Liste aller morgigen Preise (sofern verfügbar)            |
 | `prices`            | Vollständige Preisliste                                   |
 
-## Hinweise
-
-- Die smartTIMES-API gibt die Preise für den nächsten Tag typischerweise ab
-  17:00 Uhr bekannt. Vorher bleibt `prices_tomorrow` leer.
-- Die API wird im Normalbetrieb **einmal täglich** abgerufen: kurz nach 17:00 Uhr
-  (mit einem kleinen, instanzspezifischen Jitter von bis zu 20 Minuten, damit
-  viele Home-Assistant-Installationen den API-Server nicht gleichzeitig belasten).
-  Sind die gespeicherten Preise noch nicht für den nächsten Tag verfügbar,
-  wird alle 30 Minuten nachversucht.  Der Sensorwert für den aktuellen Preis
-  wird dennoch minütlich neu berechnet, damit der Wechsel zur vollen Stunde
-  sofort korrekt angezeigt wird.
-
 ## Lizenz
 
 Siehe [LICENSE](LICENSE).
