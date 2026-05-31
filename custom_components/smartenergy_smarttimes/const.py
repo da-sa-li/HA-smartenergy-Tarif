@@ -54,7 +54,21 @@ JITTER_ON_MAX_SECONDS: Final = 600
 JITTER_OFF_SPAN_SECONDS: Final = 600
 
 # Wie oft der Koordinator die Entitäten neu berechnet (aktueller Preis).
-# Die eigentlichen API-Aufrufe werden intern stärker gedrosselt
-# (siehe MIN_FETCH_INTERVAL), damit die API nicht unnötig belastet wird.
+# Die eigentlichen API-Aufrufe werden intern stark gedrosselt (siehe unten),
+# damit die API nicht unnötig belastet wird.
 RECALC_INTERVAL_MINUTES: Final = 1
-MIN_FETCH_INTERVAL_MINUTES: Final = 30
+
+# Ab dieser Stunde (Lokalzeit) enthält die API-Antwort auch Preise für den
+# nächsten Tag.
+NEXT_DAY_PRICES_HOUR: Final = 17
+
+# Wartezeit zwischen Wiederholungsversuchen: greift, wenn der Abruf ab
+# NEXT_DAY_PRICES_HOUR noch keine Morgen-Preise liefert oder ein Abruf
+# fehlgeschlagen ist (und bereits Daten vorhanden sind).
+FETCH_RETRY_INTERVAL_MINUTES: Final = 30
+
+# Maximaler Jitter für den täglichen Abruf (Gleichverteilung
+# 0 .. FETCH_JITTER_MINUTES-1 Minuten, deterministisch aus der
+# Config-Entry-ID).  Verteilt die Abrufe verschiedener HA-Instanzen auf ein
+# 20-Minuten-Fenster nach NEXT_DAY_PRICES_HOUR.
+FETCH_JITTER_MINUTES: Final = 20
