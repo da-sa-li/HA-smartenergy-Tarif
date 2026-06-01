@@ -42,14 +42,22 @@
           "description": "Create a sensor for one appliance. It is on while the current hour is among the cheapest of the day.",
           "data": {
             "name": "Name (e.g. boiler, wallbox)",
-            "cheap_hours": "Cheap hours per day"
+            "cheap_hours": "Cheap hours per day",
+            "cheap_mode": "Cheap-hours logic"
+          },
+          "data_description": {
+            "cheap_mode": "\"Cheapest individual hours\": the cheapest quarter-hours of the day — they may be spread across the day (e.g. boiler, wallbox). \"Consecutive block\": a single cheapest window in one piece — for appliances with a fixed run time that must not be interrupted (washing machine, dishwasher)."
           }
         },
         "reconfigure": {
           "title": "Edit cheap-hour sensor",
           "data": {
             "name": "Name (e.g. boiler, wallbox)",
-            "cheap_hours": "Cheap hours per day"
+            "cheap_hours": "Cheap hours per day",
+            "cheap_mode": "Cheap-hours logic"
+          },
+          "data_description": {
+            "cheap_mode": "\"Cheapest individual hours\": the cheapest quarter-hours of the day — they may be spread across the day (e.g. boiler, wallbox). \"Consecutive block\": a single cheapest window in one piece — for appliances with a fixed run time that must not be interrupted (washing machine, dishwasher)."
           }
         }
       },
@@ -64,6 +72,12 @@
     }
   },
   "selector": {
+    "cheap_mode": {
+      "options": {
+        "individual": "Cheapest individual hours (may be split)",
+        "consecutive": "Consecutive block (uninterrupted)"
+      }
+    },
     "grid_zone": {
       "options": {
         "none": "No grid area (don't include grid fees)",

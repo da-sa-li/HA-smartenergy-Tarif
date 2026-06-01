@@ -21,10 +21,14 @@ from homeassistant.helpers import selector
 
 from .api import SmartTimesApiClient, SmartTimesApiError
 from .const import (
+    CHEAP_MODE_CONSECUTIVE,
+    CHEAP_MODE_INDIVIDUAL,
     CONF_CHEAP_HOURS,
+    CONF_CHEAP_MODE,
     CONF_GRID_ZONE,
     CONF_INCLUDE_VAT,
     DEFAULT_CHEAP_HOURS,
+    DEFAULT_CHEAP_MODE,
     DEFAULT_GRID_ZONE,
     DEFAULT_INCLUDE_VAT,
     DOMAIN,
@@ -63,6 +67,17 @@ def _cheap_hours_selector() -> selector.NumberSelector:
     )
 
 
+def _cheap_mode_selector() -> selector.SelectSelector:
+    """Auswahl der Logik: günstigste Einzelstunden oder zusammenhängender Block."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[CHEAP_MODE_INDIVIDUAL, CHEAP_MODE_CONSECUTIVE],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+            translation_key="cheap_mode",
+        )
+    )
+
+
 def _schema(include_vat: bool, grid_zone: str) -> vol.Schema:
     """Gemeinsames Schema für Einrichtung und Optionen."""
     return vol.Schema(
@@ -76,9 +91,11 @@ def _schema(include_vat: bool, grid_zone: str) -> vol.Schema:
 
 
 def _cheap_hour_schema(
-    name: str | None = None, cheap_hours: float = DEFAULT_CHEAP_HOURS
+    name: str | None = None,
+    cheap_hours: float = DEFAULT_CHEAP_HOURS,
+    cheap_mode: str = DEFAULT_CHEAP_MODE,
 ) -> vol.Schema:
-    """Schema für einen „Günstige Stunde"-Untereintrag (Name + Stundenzahl).
+    """Schema für einen „Günstige Stunde"-Untereintrag (Name, Stundenzahl, Logik).
 
     Der Name wird hier nur als ``str`` typisiert, damit das Schema für das
     Frontend serialisierbar bleibt (Callables/Validatoren wie ``vol.All`` mit
@@ -96,6 +113,9 @@ def _cheap_hour_schema(
             vol.Required(
                 CONF_CHEAP_HOURS, default=cheap_hours
             ): _cheap_hours_selector(),
+            vol.Required(
+                CONF_CHEAP_MODE, default=cheap_mode
+            ): _cheap_mode_selector(),
         }
     )
 
@@ -195,7 +215,10 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
             else:
                 return self.async_create_entry(
                     title=name,
-                    data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
+                    data={
+                        CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS],
+                        CONF_CHEAP_MODE: user_input[CONF_CHEAP_MODE],
+                    },
                 )
         return self.async_show_form(
             step_id="user",
@@ -207,6 +230,11 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                     user_input.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS)
                     if user_input
                     else DEFAULT_CHEAP_HOURS
+                ),
+                cheap_mode=(
+                    user_input.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
+                    if user_input
+                    else DEFAULT_CHEAP_MODE
                 ),
             ),
             errors=errors,
@@ -227,9 +255,13 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                     self._get_entry(),
                     subentry,
                     title=name,
-                    data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
+                    data={
+                        CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS],
+                        CONF_CHEAP_MODE: user_input[CONF_CHEAP_MODE],
+                    },
                 )
         stored_cheap_hours = subentry.data.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS)
+        stored_cheap_mode = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=_cheap_hour_schema(
@@ -244,6 +276,11 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                     user_input.get(CONF_CHEAP_HOURS, stored_cheap_hours)
                     if user_input is not None
                     else stored_cheap_hours
+                ),
+                cheap_mode=(
+                    user_input.get(CONF_CHEAP_MODE, stored_cheap_mode)
+                    if user_input is not None
+                    else stored_cheap_mode
                 ),
             ),
             errors=errors,

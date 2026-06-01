@@ -16,7 +16,10 @@ günstige Tarifzonen.
   Erneuerbaren-Förderbeitrag und netzgebietsabhängige **Netzentgelte** inkl.
   **Sommer-Nieder-Arbeitspreis (SNAP)** für Netzebene 7
 - 🟢 **Günstige Stunde** als Binary-Sensor – `on` in den günstigsten Stunden des
-  Tages (nach **Gesamtkosten**), ideal zum Schalten von Boiler & Co.
+  Tages (nach **Gesamtkosten**), ideal zum Schalten von Boiler & Co. Wahlweise
+  als **günstigste Einzelstunden** (dürfen über den Tag verteilt sein) oder als
+  **zusammenhängender Block „am Stück"** für Geräte mit fester Laufzeit
+  (Waschmaschine, Geschirrspüler)
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchst-**Gesamtpreis** von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
 - 🗓️ **Vollständige Preisvorschau** für heute und morgen als Attribute
@@ -68,7 +71,14 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 1. Bei der Integration unter **smartTIMES Strompreishelfer** auf **Untereintrag
    hinzufügen** (bzw. **Günstige-Stunde-Sensor hinzufügen**) klicken.
 2. Einen **Namen** (z. B. „Boiler“) und die **günstigen Stunden pro Tag** angeben.
-3. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
+3. Die **Logik der günstigen Stunden** wählen:
+   - **Günstigste Einzelstunden** (Standard): die billigsten Viertelstunden des
+     Tages – sie dürfen über den Tag verteilt (zerteilt) sein. Ideal für
+     Verbraucher ohne feste Laufzeit (Boiler, Wallbox).
+   - **Zusammenhängender Block**: ein einziges günstigstes Zeitfenster „am
+     Stück". Wichtig für Geräte mit fester, ununterbrochener Laufzeit
+     (Waschmaschine, Geschirrspüler).
+4. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
 
 Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeiten oder entfernen.
 
@@ -135,8 +145,18 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 
 Dieser Sensor ist `on` während der **günstigsten Stunden des Tages nach
 Gesamtkosten** (inkl. Netzentgelte und SNAP). Die Stundenanzahl wird je
-Untereintrag über `cheap_hours` konfiguriert. Teilen sich mehrere Intervalle
-denselben Grenzpreis, werden alle davon markiert.
+Untereintrag über `cheap_hours` konfiguriert.
+
+Die **Auswahllogik** (`cheap_mode`) legt fest, *wie* die günstigen Stunden
+bestimmt werden:
+
+- **Günstigste Einzelstunden** (`individual`, Standard): die billigsten
+  Intervalle des Tages – sie dürfen über den Tag verteilt (zerteilt) sein.
+  Teilen sich mehrere Intervalle denselben Grenzpreis, werden alle davon
+  markiert.
+- **Zusammenhängender Block** (`consecutive`): das günstigste *lückenlose*
+  Zeitfenster aus `cheap_hours` „am Stück" – für Geräte, deren Laufzeit nicht
+  unterbrochen werden darf (Waschmaschine, Geschirrspüler).
 
 **Last-Glättung (Jitter):** Damit nicht alle Verbraucher gleichzeitig schalten
 und Lastspitzen erzeugen, verschiebt jeder Sensor seine Schaltflanken um einen
@@ -149,6 +169,7 @@ zeigt das Attribut `jitter_offset_seconds`.
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
 | `cheap_hours`        | Konfigurierte Anzahl günstiger Stunden pro Tag           |
+| `cheap_mode`         | Auswahllogik: `individual` (Einzelstunden) oder `consecutive` (Block) |
 | `threshold_ct_kwh`   | Höchster Gesamtpreis unter den günstigen Intervallen     |
 | `current_price_ct_kwh` | Aktueller Gesamtpreis (ct/kWh)                         |
 | `jitter_offset_seconds` | Konstanter Einschalt-Versatz dieses Sensors (Sekunden) |

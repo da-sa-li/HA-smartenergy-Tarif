@@ -42,14 +42,22 @@
           "description": "Sensor für einen Verbraucher anlegen. Er ist aktiv, solange die laufende Stunde zu den günstigsten des Tages zählt.",
           "data": {
             "name": "Name (z. B. Boiler, Wallbox)",
-            "cheap_hours": "Günstige Stunden pro Tag"
+            "cheap_hours": "Günstige Stunden pro Tag",
+            "cheap_mode": "Logik der günstigen Stunden"
+          },
+          "data_description": {
+            "cheap_mode": "„Günstigste Einzelstunden“: die billigsten Viertelstunden des Tages – sie dürfen über den Tag verteilt sein (z. B. Boiler, Wallbox). „Zusammenhängender Block“: ein günstigstes Zeitfenster am Stück – für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen (Waschmaschine, Geschirrspüler)."
           }
         },
         "reconfigure": {
           "title": "Günstige-Stunde-Sensor bearbeiten",
           "data": {
             "name": "Name (z. B. Boiler, Wallbox)",
-            "cheap_hours": "Günstige Stunden pro Tag"
+            "cheap_hours": "Günstige Stunden pro Tag",
+            "cheap_mode": "Logik der günstigen Stunden"
+          },
+          "data_description": {
+            "cheap_mode": "„Günstigste Einzelstunden“: die billigsten Viertelstunden des Tages – sie dürfen über den Tag verteilt sein (z. B. Boiler, Wallbox). „Zusammenhängender Block“: ein günstigstes Zeitfenster am Stück – für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen (Waschmaschine, Geschirrspüler)."
           }
         }
       },
@@ -64,6 +72,12 @@
     }
   },
   "selector": {
+    "cheap_mode": {
+      "options": {
+        "individual": "Günstigste Einzelstunden (dürfen verteilt sein)",
+        "consecutive": "Zusammenhängender Block (am Stück)"
+      }
+    },
     "grid_zone": {
       "options": {
         "none": "Kein Netzgebiet (Netzentgelte nicht einrechnen)",
