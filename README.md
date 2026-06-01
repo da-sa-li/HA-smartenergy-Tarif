@@ -1,9 +1,10 @@
 # smartTIMES Strompreishelfer – Home Assistant Integration
 
 Eine [Home Assistant](https://www.home-assistant.io/) Integration für den
-dynamischen Stromtarif **smartTIMES** von [smartENERGY](https://www.smartenergy.at/),
-die stündliche Tarifpreise als Sensoren bereitstellt – ideal zum automatischen
-Schalten von Verbrauchern in günstige Tarifzonen.
+dynamischen Stromtarif **[smartTIMES](https://www.smartenergy.at/smarttimes)**
+von [smartENERGY](https://www.smartenergy.at/), die stündliche Tarifpreise als
+Sensoren bereitstellt – ideal zum automatischen Schalten von Verbrauchern in
+günstige Tarifzonen.
 
 > Diese Integration ist ein Community-Projekt und steht in keiner Verbindung zu smartENERGY oder der Energie Steiermark Kunden GmbH.
 
@@ -11,22 +12,21 @@ Schalten von Verbrauchern in günstige Tarifzonen.
 
 - 🔌 **Arbeitspreis** der laufenden Tarifzone (ct/kWh)
 - 💶 **Gesamtpreis** in EUR/kWh inkl. aller variablen Nebenkosten – fürs Energie-Dashboard
-- 🧾 **Variable Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe (mit
-  befristeter Senkung bis Ende 2026), Erneuerbaren-Förderbeitrag und
-  netzgebietsabhängige **Netzentgelte** inkl. **Sommer-Nieder-Arbeitspreis
-  (SNAP)** für Netzebene 7
+- 🧾 **Variable Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe,
+  Erneuerbaren-Förderbeitrag und netzgebietsabhängige **Netzentgelte** inkl.
+  **Sommer-Nieder-Arbeitspreis (SNAP)** für Netzebene 7
 - 🟢 **Günstige Stunde** als Binary-Sensor – `on` in den günstigsten Stunden des
   Tages (nach **Gesamtkosten**), ideal zum Schalten von Boiler & Co.
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchst-**Gesamtpreis** von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
 - 🗓️ **Vollständige Preisvorschau** für heute und morgen als Attribute
-  (z. B. für Diagramme oder Automatisierungen)
 - 💶 Umschaltbar zwischen **Brutto** (inkl. 20 % USt.) und **Netto**
 - ⚙️ Komplette Einrichtung über die **Benutzeroberfläche** (kein YAML, kein API-Schlüssel)
 
 ## Datenquelle
 
-Die Integration verwendet die öffentliche smartTIMES-API:
+Die Integration verwendet die öffentliche smartTIMES-API
+([API-Dokumentation von smartENERGY](https://www.smartenergy.at/api-schnittstellen-smarttimes)):
 
 ```
 https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
@@ -84,46 +84,36 @@ Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeit
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute`     | Teuerster **Gesamtpreis** heute (ct/kWh) |
 | `sensor.smarttimes_strompreishelfer_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
 
-Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis (ct/kWh). Der
+Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis. Der
 **Gesamtpreis**-Sensor (EUR/kWh) addiert Steuern, Abgaben und Netzentgelte und
 ist die richtige Wahl fürs Energie-Dashboard und zum Schalten. Tageskennzahlen
 und Günstige-Stunde-Sensor beziehen sich auf den **Gesamtpreis**.
 
 ### Nebenkosten (Steuern, Abgaben und Netzentgelte)
 
-Der **Gesamtpreis**-Sensor (`…_gesamtpreis_eur_kwh`) addiert zum Arbeitspreis
-die in Österreich anfallenden Steuern/Abgaben und Netzentgelte.
-
-**Steuern/Abgaben** (bundeseinheitlich, in `surcharges.py`):
+Der **Gesamtpreis**-Sensor addiert zum Arbeitspreis die in Österreich
+anfallenden Steuern/Abgaben (bundeseinheitlich, in `surcharges.py`) und die
+netzgebietsabhängigen Netzentgelte (in `grid_fees.py`, Stand 2026):
 
 | Position                   | Satz (NE 7) | Hinweis                                              |
 |----------------------------|-------------|------------------------------------------------------|
-| Elektrizitätsabgabe        | 1,5 ct/kWh  | **bis 31.12.2026 auf 0,1 ct/kWh gesenkt** |
-| Erneuerbaren-Förderbeitrag | 0,364 ct/kWh | Verordnung 2026; 2022–2024 ausgesetzt, seit 2025 wieder aktiv |
+| [Elektrizitätsabgabe](https://www.usp.gv.at/themen/steuern-finanzen/weitere-steuern-und-abgaben/verbrauchsteuern_und_energieabgaben/elektrizitaetsabgabe.html) | 1,5 ct/kWh | **bis 31.12.2026 auf 0,1 ct/kWh gesenkt**, ab 01.01.2027 wieder Regelsatz |
+| [Erneuerbaren-Förderbeitrag](https://www.e-control.at/konsumenten/oekostrom-foerdersystem) | 0,364 ct/kWh | Verordnung 2026; 2022–2024 ausgesetzt, seit 2025 wieder aktiv |
 
-Ab dem 01.01.2027 greift automatisch wieder der Regelsatz der Elektrizitätsabgabe.
+Für das gewählte Netzgebiet werden die per-kWh-[Netzentgelte](https://www.e-control.at/industrie/strom/strompreis/systemnutzungsentgelte)
+auf **Netzebene 7** mit **Viertelstundenmessung (IME)** berücksichtigt:
+**Netznutzungsentgelt-Arbeitspreis** (normal bzw. im SNAP-Fenster reduziert) und
+konstantes **Netzverlustentgelt**.
 
-**Netzentgelte** (netzgebietsabhängig, in `grid_fees.py`, Stand 2026):
+Der **[Sommer-Nieder-Arbeitspreis (SNAP)](https://www.e-control.at/sommer-nieder-arbeitspreis)**
+senkt den Netz-Arbeitspreis vom **1. April bis 30. September täglich von
+10:00–16:00 Uhr** um 20 % (Attribut `snap_active` zeigt, ob er gerade gilt).
 
-Für das gewählte Netzgebiet werden die per-kWh-Netzentgelte auf **Netzebene 7**
-mit **Viertelstundenmessung (IME)** berücksichtigt:
-
-- **Netznutzungsentgelt-Arbeitspreis** – normal bzw. reduziert im SNAP-Fenster,
-- **Netzverlustentgelt** – konstant.
-
-Der **Sommer-Nieder-Arbeitspreis (SNAP)** senkt den Netz-Arbeitspreis vom
-**1. April bis 30. September täglich von 10:00–16:00 Uhr** um 20 %. Das Attribut
-`snap_active` zeigt, ob das Fenster gerade gilt.
-
-> Der **Netznutzungs-Leistungspreis** (Kapazitätsentgelt, €/kW nach Spitzenlast)
-> wird **nicht** eingerechnet – er ist keine ct/kWh-Größe und hängt nicht davon
-> ab, *wann* eine kWh bezogen wird.
-
-> Hinweis: Die Netzentgelte ändern sich jährlich. Die hinterlegten Werte sind
-> Stand 2026 und sollten zum Jahreswechsel aktualisiert werden.
-
-> Alle Nebenkosten werden netto verrechnet; die USt. (20 %) wird auf die **Summe**
-> aus Arbeitspreis, Abgaben und Netzentgelten angewendet.
+> Hinweise: Der **Netznutzungs-Leistungspreis** (Kapazitätsentgelt, €/kW nach
+> Spitzenlast) wird **nicht** eingerechnet – er ist keine ct/kWh-Größe. Die
+> Netzentgelte ändern sich jährlich (hinterlegt: Stand 2026) und sollten zum
+> Jahreswechsel aktualisiert werden. Alle Nebenkosten werden netto verrechnet;
+> die USt. (20 %) wird auf die **Summe** angewendet.
 
 Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 
@@ -144,27 +134,16 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 
 Dieser Sensor ist `on` während der **günstigsten Stunden des Tages nach
 Gesamtkosten** (inkl. Netzentgelte und SNAP). Die Stundenanzahl wird je
-Untereintrag über `cheap_hours` konfiguriert (z. B. Boiler 4 h, Wallbox 8 h).
-Teilen sich mehrere Intervalle denselben Grenzpreis, werden alle davon markiert.
+Untereintrag über `cheap_hours` konfiguriert. Teilen sich mehrere Intervalle
+denselben Grenzpreis, werden alle davon markiert.
 
-#### Last-Glättung (Jitter)
-
-Gleichzeitiges Schalten vieler Verbraucher erzeugt Lastspitzen, die die
-Netzstabilität belasten. Um das zu vermeiden, verschiebt jeder Sensor seine
-Schaltflanken um einen kleinen deterministischen Versatz: Einschalten mit bis
-zu 10 Minuten Verzögerung, Ausschalten symmetrisch um die Blockgrenze. Der
-Versatz ist je Sensor stabil und reproduzierbar – das Schaltfenster verschiebt
-sich nur als Ganzes und wird nicht zerteilt. Den genauen Versatz zeigt das
-Attribut `jitter_offset_seconds`.
-
-**Gleichstandsbedingt verlängerte Blöcke:** Zieht die Gleichstands-Mechanik
-(siehe oben) am Schwellwert zusätzliche Intervalle hinein, ist der Block ohnehin
-schon länger als konfiguriert. Damit sich das **nicht** auch noch über das
-Ausschalt-Jitter in die nächste (teurere) Preiszone fortsetzt, wird das
-Ausschalten an einem solchen Blockende **rückwärts** gelegt: Versatz in
-**[−600 s, 0 s]** (Erwartungswert −5 min), also **immer vor oder genau auf** der
-Blockgrenze – weiterhin gejittert, aber ohne in die nächste Zone auszugreifen.
-Solche Enden sind im Attribut `cheap_windows` mit `soft_end: true` markiert.
+**Last-Glättung (Jitter):** Damit nicht alle Verbraucher gleichzeitig schalten
+und Lastspitzen erzeugen, verschiebt jeder Sensor seine Schaltflanken um einen
+kleinen, je Sensor stabilen Versatz (Einschalten bis +10 min). An
+gleichstandsbedingt verlängerten Blockenden wird das Ausschalten **rückwärts**
+gelegt ([−600 s, 0 s]), um nicht in die nächste, teurere Zone auszugreifen;
+solche Enden sind in `cheap_windows` mit `soft_end: true` markiert. Den Versatz
+zeigt das Attribut `jitter_offset_seconds`.
 
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
@@ -186,13 +165,10 @@ Solche Enden sind im Attribut `cheap_windows` mit `soft_end: true` markiert.
 | `interval_minutes`  | Länge eines Preisintervalls in Minuten                    |
 | `vat_included`      | `true`, wenn die Preise brutto (inkl. USt.) sind          |
 | `current_start` / `current_end` | Beginn/Ende des aktuellen Preisintervalls     |
-| `next_price`        | Arbeitspreis des nächsten Intervalls                      |
-| `next_price_start`  | Beginn des nächsten Intervalls                            |
+| `next_price` / `next_price_start` | Arbeitspreis und Beginn des nächsten Intervalls |
 | `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen           |
 | `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit        |
-| `prices_today`      | Liste aller heutigen Preise (`start`, `end`, `price`)     |
-| `prices_tomorrow`   | Liste aller morgigen Preise (sofern verfügbar)            |
-| `prices`            | Vollständige Preisliste                                   |
+| `prices_today` / `prices_tomorrow` / `prices` | Heutige, morgige und vollständige Preisliste |
 
 ## Lizenz
 
