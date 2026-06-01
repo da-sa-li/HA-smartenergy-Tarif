@@ -35,7 +35,7 @@ from .grid_fees import GRID_ZONES
 
 _LOGGER = logging.getLogger(__name__)
 
-TITLE = "smartENERGY smartTIMES"
+TITLE = "smartTIMES Strompreishelfer"
 
 
 def _grid_zone_selector() -> selector.SelectSelector:

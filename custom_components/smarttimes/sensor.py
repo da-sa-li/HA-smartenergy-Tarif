@@ -165,7 +165,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name="smartENERGY smartTIMES",
+            name="smartTIMES Strompreishelfer",
             manufacturer="smartENERGY",
             model="smartTIMES",
             entry_type=DeviceEntryType.SERVICE,

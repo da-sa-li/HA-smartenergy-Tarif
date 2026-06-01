@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "smartENERGY smartTIMES",
+        "title": "smartTIMES Strompreishelfer",
         "description": "Ruft die smartTIMES-Tarifpreise von smartENERGY ab. Es ist kein API-Schlüssel erforderlich.",
         "data": {
           "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",

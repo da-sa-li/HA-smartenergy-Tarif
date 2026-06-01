@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Final
 
-DOMAIN: Final = "smartenergy_smarttimes"
+DOMAIN: Final = "smarttimes"
 
 # Öffentliche smartTIMES-Tarifpreis-API von smartENERGY (kein API-Key nötig).
 # Doku: https://www.smartenergy.at/api-schnittstellen-smarttimes
