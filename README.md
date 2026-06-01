@@ -106,7 +106,8 @@ Ab dem 01.01.2027 greift automatisch wieder der Regelsatz der Elektrizitätsabga
 **Netzentgelte** (netzgebietsabhängig, in `grid_fees.py`, Stand 2026):
 
 Für das gewählte Netzgebiet werden die per-kWh-Netzentgelte auf **Netzebene 7**
-mit **Viertelstundenmessung (IME)** berücksichtigt:
+mit **Viertelstundenmessung (IME)** in der Tarifvariante **ohne Leistungsmessung**
+(„nicht gemessene Leistung") berücksichtigt:
 
 - **Netznutzungsentgelt-Arbeitspreis** – normal bzw. reduziert im SNAP-Fenster,
 - **Netzverlustentgelt** – konstant.
