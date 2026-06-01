@@ -98,10 +98,11 @@ netzgebietsabhängigen Netzentgelte (in `grid_fees.py`, Stand 2026):
 | Position                   | Satz (NE 7) | Hinweis                                              |
 |----------------------------|-------------|------------------------------------------------------|
 | [Elektrizitätsabgabe](https://www.usp.gv.at/themen/steuern-finanzen/weitere-steuern-und-abgaben/verbrauchsteuern_und_energieabgaben/elektrizitaetsabgabe.html) | 1,5 ct/kWh | **bis 31.12.2026 auf 0,1 ct/kWh gesenkt**, ab 01.01.2027 wieder Regelsatz |
-| [Erneuerbaren-Förderbeitrag](https://www.e-control.at/konsumenten/oekostrom-foerdersystem) | 0,364 ct/kWh | Verordnung 2026; 2022–2024 ausgesetzt, seit 2025 wieder aktiv |
+| [Erneuerbaren-Förderbeitrag](https://www.e-control.at/konsumenten/oekostrom-foerdersystem) | 0,62 ct/kWh | Verordnung 2026 (Variante ohne Leistungsmessung); 2022–2024 ausgesetzt, seit 2025 wieder aktiv |
 
 Für das gewählte Netzgebiet werden die per-kWh-[Netzentgelte](https://www.e-control.at/industrie/strom/strompreis/systemnutzungsentgelte)
-auf **Netzebene 7** mit **Viertelstundenmessung (IME)** berücksichtigt:
+auf **Netzebene 7** mit **Viertelstundenmessung (IME)** in der Tarifvariante
+**ohne Leistungsmessung** („nicht gemessene Leistung") berücksichtigt:
 **Netznutzungsentgelt-Arbeitspreis** (normal bzw. im SNAP-Fenster reduziert) und
 konstantes **Netzverlustentgelt**.
 

@@ -11,9 +11,11 @@ Annahmen (vom Anwendungsfall gedeckt): Haushaltskunden liegen auf Netzebene 7
 und haben für den smartTIMES-Tarif ohnehin ein Smart Meter mit aktiver
 Viertelstundenmessung (IME) – damit gilt der SNAP automatisch.
 
-Der **Leistungspreis (LP)** ist ein Kapazitätsentgelt (€/kW nach Spitzenlast)
-und lässt sich nicht sinnvoll in einen ct/kWh-Preis umrechnen; er wird hier
-bewusst nicht berücksichtigt.
+Zugrunde gelegt wird die Tarifvariante **ohne Leistungsmessung** ("nicht
+gemessene Leistung"): Haushaltskunden ohne Lastprofilzähler zahlen einen reinen
+Arbeitspreis ohne separaten Leistungspreis (€/kW nach Spitzenlast). Ein solcher
+Leistungspreis ließe sich ohnehin nicht sinnvoll in einen ct/kWh-Preis umrechnen
+und wird hier daher nicht berücksichtigt.
 
 Alle Sätze sind **netto** in ct/kWh; die USt. wird – wie beim Arbeitspreis und
 den Abgaben – erst am Ende auf die Summe angewendet (siehe Coordinator).
@@ -67,27 +69,28 @@ class GridZone:
         return self.usage_rate(moment) + self.loss
 
 
-# Netzentgelte 2026, Netzebene 7, mit Viertelstundenmessung. Netto in ct/kWh.
+# Netzentgelte 2026, Netzebene 7, Viertelstundenmessung (IME), Tarifvariante
+# ohne Leistungsmessung ("nicht gemessene Leistung"). Netto in ct/kWh.
 # Reihenfolge: usage_ap, usage_snap, loss.
 GRID_ZONES: Final[dict[str, GridZone]] = {
-    "burgenland": GridZone("burgenland", "Burgenland", 5.83, 4.66, 0.000),
-    "kaernten": GridZone("kaernten", "Kärnten", 5.47, 4.38, 0.368),
-    "klagenfurt": GridZone("klagenfurt", "Klagenfurt", 4.36, 3.49, 0.578),
+    "burgenland": GridZone("burgenland", "Burgenland", 8.46, 6.77, 0.000),
+    "kaernten": GridZone("kaernten", "Kärnten", 9.67, 7.74, 0.368),
+    "klagenfurt": GridZone("klagenfurt", "Klagenfurt", 6.90, 5.52, 0.578),
     "niederoesterreich": GridZone(
-        "niederoesterreich", "Niederösterreich", 6.65, 5.32, 0.384
+        "niederoesterreich", "Niederösterreich", 8.79, 7.03, 0.384
     ),
     "oberoesterreich": GridZone(
-        "oberoesterreich", "Oberösterreich", 4.68, 3.74, 0.528
+        "oberoesterreich", "Oberösterreich", 6.29, 5.03, 0.528
     ),
-    "linz": GridZone("linz", "Linz", 3.26, 2.61, 0.487),
-    "salzburg": GridZone("salzburg", "Salzburg", 3.91, 3.13, 0.357),
-    "steiermark": GridZone("steiermark", "Steiermark", 6.78, 5.42, 0.336),
-    "graz": GridZone("graz", "Graz", 4.23, 3.38, 0.658),
-    "tirol": GridZone("tirol", "Tirol", 3.66, 2.93, 0.293),
-    "innsbruck": GridZone("innsbruck", "Innsbruck", 5.72, 4.58, 0.453),
-    "vorarlberg": GridZone("vorarlberg", "Vorarlberg", 2.84, 2.27, 0.393),
-    "wien": GridZone("wien", "Wien", 4.21, 3.37, 0.700),
-    "kleinwalsertal": GridZone("kleinwalsertal", "Kleinwalsertal", 11.40, 9.12, 0.401),
+    "linz": GridZone("linz", "Linz", 5.57, 4.46, 0.487),
+    "salzburg": GridZone("salzburg", "Salzburg", 6.59, 5.27, 0.357),
+    "steiermark": GridZone("steiermark", "Steiermark", 8.82, 7.06, 0.336),
+    "graz": GridZone("graz", "Graz", 5.17, 4.14, 0.658),
+    "tirol": GridZone("tirol", "Tirol", 6.81, 5.45, 0.293),
+    "innsbruck": GridZone("innsbruck", "Innsbruck", 8.03, 6.42, 0.453),
+    "vorarlberg": GridZone("vorarlberg", "Vorarlberg", 4.96, 3.97, 0.393),
+    "wien": GridZone("wien", "Wien", 6.98, 5.58, 0.700),
+    "kleinwalsertal": GridZone("kleinwalsertal", "Kleinwalsertal", 17.73, 14.18, 0.401),
 }
 
 
