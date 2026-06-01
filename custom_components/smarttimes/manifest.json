@@ -1,5 +1,5 @@
 {
-  "domain": "smartenergy_smarttimes",
+  "domain": "smarttimes",
   "name": "smartTIMES Strompreishelfer",
   "codeowners": ["@da-sa-li"],
   "config_flow": true,

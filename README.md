@@ -44,7 +44,7 @@ https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 
 ### Manuell
 
-1. Den Ordner `custom_components/smartenergy_smarttimes` in das
+1. Den Ordner `custom_components/smarttimes` in das
    `custom_components`-Verzeichnis deiner Home-Assistant-Konfiguration kopieren.
 2. Home Assistant neu starten.
 
@@ -76,13 +76,13 @@ Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeit
 
 | Sensor / Entität                                | Beschreibung                                |
 |-------------------------------------------------|---------------------------------------------|
-| `sensor.smartenergy_smarttimes_arbeitspreis`    | **Reiner Arbeitspreis** der aktuell gültigen Tarifzone (ct/kWh) |
-| `sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh` | **Gesamtpreis inkl. aller variablen Nebenkosten** in **EUR/kWh** (fürs Energie-Dashboard) |
+| `sensor.smarttimes_strompreishelfer_arbeitspreis`    | **Reiner Arbeitspreis** der aktuell gültigen Tarifzone (ct/kWh) |
+| `sensor.smarttimes_strompreishelfer_gesamtpreis_eur_kwh` | **Gesamtpreis inkl. aller variablen Nebenkosten** in **EUR/kWh** (fürs Energie-Dashboard) |
 | `binary_sensor.<name>_gunstige_stunde` *(je Untereintrag)* | `on` in den günstigsten Stunden des Tages (nach **Gesamtkosten**); ein Sensor je angelegtem Untereintrag |
-| `sensor.smartenergy_smarttimes_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (ct/kWh) |
-| `sensor.smartenergy_smarttimes_niedrigster_gesamtpreis_heute`  | Günstigster **Gesamtpreis** heute (ct/kWh) |
-| `sensor.smartenergy_smarttimes_hochster_gesamtpreis_heute`     | Teuerster **Gesamtpreis** heute (ct/kWh) |
-| `sensor.smartenergy_smarttimes_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
+| `sensor.smarttimes_strompreishelfer_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (ct/kWh) |
+| `sensor.smarttimes_strompreishelfer_niedrigster_gesamtpreis_heute`  | Günstigster **Gesamtpreis** heute (ct/kWh) |
+| `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute`     | Teuerster **Gesamtpreis** heute (ct/kWh) |
+| `sensor.smarttimes_strompreishelfer_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
 
 Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis (ct/kWh). Der
 **Gesamtpreis**-Sensor (EUR/kWh) addiert Steuern, Abgaben und Netzentgelte und
