@@ -82,7 +82,9 @@ ELECTRICITY_TAX: Final = Surcharge(
 # je Netzebene festgelegt. Netzebene 7, ohne Leistungsmessung ("nicht gemessene
 # Leistung"): 0,62 ct/kWh laut Erneuerbaren-Förderbeitragsverordnung 2026
 # (BGBl. II Nr. 301/2025).
-# 2022–2024 ausgesetzt, seit 01.01.2025 wieder aktiv.
+# 2022–2024 ausgesetzt, seit 01.01.2025 wieder aktiv. Hinterlegt ist nur der ab
+# 2026 gültige Satz – die Integration bewertet ausschließlich Gegenwart/Zukunft,
+# ein separater 2025-Satz ist daher nicht nötig.
 # Hinweis: Wird jährlich neu festgelegt – Wert ist Stand 2026 und sollte zum
 # Jahreswechsel aktualisiert werden.
 RENEWABLE_SUPPORT: Final = Surcharge(
