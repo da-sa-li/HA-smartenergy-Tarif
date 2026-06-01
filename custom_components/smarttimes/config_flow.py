@@ -68,11 +68,15 @@ def _cheap_hours_selector() -> selector.NumberSelector:
 
 
 def _cheap_mode_selector() -> selector.SelectSelector:
-    """Auswahl der Logik: günstigste Einzelstunden oder zusammenhängender Block."""
+    """Auswahl der Logik: günstigste Einzelstunden oder zusammenhängender Block.
+
+    ``LIST`` rendert die Optionen als Auswahl-Buttons (Radio-Buttons) statt als
+    Dropdown – beide Modi sind so auf einen Blick sichtbar.
+    """
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=[CHEAP_MODE_INDIVIDUAL, CHEAP_MODE_CONSECUTIVE],
-            mode=selector.SelectSelectorMode.DROPDOWN,
+            mode=selector.SelectSelectorMode.LIST,
             translation_key="cheap_mode",
         )
     )
