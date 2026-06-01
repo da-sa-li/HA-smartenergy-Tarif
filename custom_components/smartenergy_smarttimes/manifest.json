@@ -1,6 +1,6 @@
 {
   "domain": "smartenergy_smarttimes",
-  "name": "smartENERGY smartTIMES",
+  "name": "smartTIMES Strompreishelfer",
   "codeowners": ["@da-sa-li"],
   "config_flow": true,
   "documentation": "https://github.com/da-sa-li/ha-smarttimes-tarif",
@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/da-sa-li/ha-smarttimes-tarif/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.1.0"
+  "version": "1.0.0"
 }

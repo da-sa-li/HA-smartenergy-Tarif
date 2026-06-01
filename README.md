@@ -1,4 +1,4 @@
-# smartENERGY smartTIMES – Home Assistant Integration
+# smartTIMES Strompreishelfer – Home Assistant Integration
 
 Eine [Home Assistant](https://www.home-assistant.io/) Integration für den
 dynamischen Stromtarif **smartTIMES** von [smartENERGY](https://www.smartenergy.at/),
@@ -40,7 +40,7 @@ https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 
 1. HACS öffnen → oben rechts auf die drei Punkte → **Benutzerdefinierte Repositories**.
 2. Repository-URL dieses Projekts eintragen, Kategorie **Integration** wählen und hinzufügen.
-3. Die Integration **smartENERGY smartTIMES** suchen, herunterladen und Home Assistant neu starten.
+3. Die Integration **smartTIMES Strompreishelfer** suchen, herunterladen und Home Assistant neu starten.
 
 ### Manuell
 
@@ -51,7 +51,7 @@ https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 ## Einrichtung
 
 1. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
-2. Nach **smartENERGY smartTIMES** suchen.
+2. Nach **smartTIMES Strompreishelfer** suchen.
 3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
    Netzgebiet“ lässt die Netzentgelte weg. Das Netzgebiet steht im
@@ -65,7 +65,7 @@ Die Binary-Sensoren „Günstige Stunde“ werden als **Untereinträge** angeleg
 kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 (z. B. Boiler 4 h, Wallbox 8 h):
 
-1. Bei der Integration unter **smartENERGY smartTIMES** auf **Untereintrag
+1. Bei der Integration unter **smartTIMES Strompreishelfer** auf **Untereintrag
    hinzufügen** (bzw. **Günstige-Stunde-Sensor hinzufügen**) klicken.
 2. Einen **Namen** (z. B. „Boiler“) und die **günstigen Stunden pro Tag** angeben.
 3. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
