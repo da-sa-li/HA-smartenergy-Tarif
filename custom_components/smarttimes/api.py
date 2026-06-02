@@ -79,6 +79,7 @@ class SmartTimesApiClient:
     """Kapselt die HTTP-Aufrufe an die smartTIMES-API."""
 
     def __init__(self, session: aiohttp.ClientSession) -> None:
+        """Initialisiert den Client mit der gemeinsam genutzten aiohttp-Session."""
         self._session = session
 
     async def async_get_prices(self) -> SmartTimesResult:

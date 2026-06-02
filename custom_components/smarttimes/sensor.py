@@ -70,18 +70,22 @@ def _current_value_eur(data: SmartTimesData) -> StateType:
 
 
 def _average_today(data: SmartTimesData) -> StateType:
+    """Durchschnittlicher Gesamtpreis (ct/kWh) heute."""
     return _stats(_today_allin_values(data))[0]
 
 
 def _lowest_today(data: SmartTimesData) -> StateType:
+    """Niedrigster Gesamtpreis (ct/kWh) heute."""
     return _stats(_today_allin_values(data))[1]
 
 
 def _highest_today(data: SmartTimesData) -> StateType:
+    """Höchster Gesamtpreis (ct/kWh) heute."""
     return _stats(_today_allin_values(data))[2]
 
 
 def _basic_fee(data: SmartTimesData) -> StateType:
+    """Aktuelle monatliche Grundgebühr (gemäß Brutto-/Netto-Einstellung)."""
     return data.basic_fee()
 
 
@@ -159,6 +163,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         entry: SmartTimesConfigEntry,
         description: SmartTimesSensorDescription,
     ) -> None:
+        """Initialisiert den Sensor anhand seiner Beschreibung."""
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_native_unit_of_measurement = description.unit

@@ -380,6 +380,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         include_vat: bool,
         grid_zone: GridZone | None = None,
     ) -> None:
+        """Initialisiert den Koordinator (Recalc-Intervall und deterministischer Abruf-Jitter)."""
         super().__init__(
             hass,
             _LOGGER,
@@ -439,6 +440,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         return False
 
     async def _async_update_data(self) -> SmartTimesData:
+        """Berechnet die Entitätsdaten neu und ruft bei Bedarf die API ab."""
         now = dt_util.now()
 
         if self._needs_fetch(now):
