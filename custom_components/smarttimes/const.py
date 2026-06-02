@@ -35,6 +35,19 @@ DEFAULT_GRID_ZONE: Final = GRID_ZONE_NONE
 CONF_CHEAP_HOURS: Final = "cheap_hours"
 DEFAULT_CHEAP_HOURS: Final = 4.0
 
+# Auswahllogik der günstigen Stunden je "Günstige Stunde"-Sensor.
+#
+# - "individual" (Standard): die günstigsten *Einzel*-Intervalle des Tages.
+#   Sie dürfen über den Tag verteilt (zerteilt) sein – ideal für Verbraucher
+#   ohne feste Laufzeit (z. B. Boiler, Wallbox).
+# - "consecutive": ein einziger *zusammenhängender* Block "am Stück" – wichtig
+#   für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen
+#   (z. B. Waschmaschine, Geschirrspüler).
+CONF_CHEAP_MODE: Final = "cheap_mode"
+CHEAP_MODE_INDIVIDUAL: Final = "individual"
+CHEAP_MODE_CONSECUTIVE: Final = "consecutive"
+DEFAULT_CHEAP_MODE: Final = CHEAP_MODE_INDIVIDUAL
+
 # Untereintrag-Typ (Config Subentry) für einen "Günstige Stunde"-Sensor.
 SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
 

@@ -21,6 +21,8 @@ from homeassistant.util import dt as dt_util
 from . import SmartTimesConfigEntry
 from .const import (
     CONF_CHEAP_HOURS,
+    CONF_CHEAP_MODE,
+    DEFAULT_CHEAP_MODE,
     DOMAIN,
     JITTER_ON_MAX_SECONDS,
     SUBENTRY_TYPE_CHEAP_HOUR,
@@ -62,6 +64,10 @@ class CheapHourBinarySensor(
     ) -> None:
         super().__init__(coordinator)
         self._cheap_hours: float = subentry.data[CONF_CHEAP_HOURS]
+        # Auswahllogik: günstigste Einzelstunden (dürfen zerteilt sein) oder ein
+        # zusammenhängender Block „am Stück". Ältere Untereinträge ohne diese
+        # Option fallen auf den Standard (Einzelstunden) zurück.
+        self._cheap_mode: str = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
         # Deterministischer, vom Nutzer nicht editierbarer Last-Glättungs-Versatz.
         # Aus der Subentry-ID abgeleitet, damit er stabil und je Sensor
         # gleichverteilt ist (siehe jitter.py).
@@ -84,7 +90,9 @@ class CheapHourBinarySensor(
         # Ohne Preisabdeckung für „jetzt" ist der Zustand unbekannt.
         if data.current(now) is None:
             return None
-        return data.is_cheap_now(now, self._cheap_hours, self._jitter_phase)
+        return data.is_cheap_now(
+            now, self._cheap_hours, self._jitter_phase, self._cheap_mode
+        )
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -93,18 +101,23 @@ class CheapHourBinarySensor(
         now = dt_util.now()
         today = now.date()
         price = data.current(now)
-        cheap = data.cheap_intervals(today, self._cheap_hours)
+        cheap = data.cheap_intervals(today, self._cheap_hours, self._cheap_mode)
         windows = data.jittered_cheap_windows(
-            today, self._cheap_hours, self._jitter_phase
+            today, self._cheap_hours, self._jitter_phase, self._cheap_mode
         )
-        next_on = data.next_cheap_on(now, self._cheap_hours, self._jitter_phase)
+        next_on = data.next_cheap_on(
+            now, self._cheap_hours, self._jitter_phase, self._cheap_mode
+        )
 
         def current_price() -> StateType:
             return data.all_in_value(price) if price else None
 
         return {
             "cheap_hours": self._cheap_hours,
-            "threshold_ct_kwh": data.cheap_cutoff(today, self._cheap_hours),
+            "cheap_mode": self._cheap_mode,
+            "threshold_ct_kwh": data.cheap_cutoff(
+                today, self._cheap_hours, self._cheap_mode
+            ),
             "current_price_ct_kwh": current_price(),
             "unit_ct": UNIT_CT_PER_KWH,
             "vat_included": data.include_vat,
