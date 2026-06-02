@@ -153,16 +153,29 @@ class SmartTimesData:
           kommen. So bleibt keine gleich günstige Stunde unberücksichtigt.
         * ``CHEAP_MODE_CONSECUTIVE``: ein einziger **zusammenhängender** Block
           „am Stück" – das günstigste lückenlose Zeitfenster aus ``cheap_hours``
-          (siehe :meth:`_consecutive_starts`). Hier gibt es keine Überschuss-
-          Intervalle; ``alle`` und ``strikte`` sind identisch.
+          (siehe :meth:`_consecutive_selection`). Auch hier wird bei Gleichstand
+          am Schwellwert verlängert: Grenzt direkt vor oder nach dem Block ein
+          Intervall mit demselben Preis wie das teuerste Intervall des Blocks
+          an, wird der Block zusammenhängend ausgedehnt. ``alle`` enthält diese
+          Überschuss-Intervalle, ``strikte`` nur das ``cheap_hours``-Fenster.
         """
         prices = self.for_day(day)
         if not prices:
             return set(), set()
         count = min(self._cheap_count(cheap_hours), len(prices))
         if mode == CHEAP_MODE_CONSECUTIVE:
-            starts = self._consecutive_starts(prices, count)
-            return starts, starts
+            return self._consecutive_selection(prices, count)
+        return self._individual_selection(prices, count)
+
+    def _individual_selection(
+        self, prices: list[MarketPrice], count: int
+    ) -> tuple[set[datetime], set[datetime]]:
+        """``(alle, strikte)`` für die günstigsten **Einzel**-Intervalle.
+
+        ``strikte`` sind die ``count`` günstigsten Intervalle (Gleichstand nach
+        Startzeit aufgelöst); ``alle`` ergänzt die am Schwellwert gleich teuren
+        „Überschuss"-Intervalle, sodass keine gleich günstige Stunde fehlt.
+        """
         valued = [(self.all_in_value(p), p) for p in prices]
         ranked = sorted(valued, key=lambda item: (item[0], item[1].start))
         cutoff_value = ranked[count - 1][0]
@@ -170,18 +183,24 @@ class SmartTimesData:
         strict_starts = {p.start for _, p in ranked[:count]}
         return all_starts, strict_starts
 
-    def _consecutive_starts(
+    def _consecutive_selection(
         self, prices: list[MarketPrice], count: int
-    ) -> set[datetime]:
-        """Startzeiten des günstigsten **zusammenhängenden** Fensters eines Tages.
+    ) -> tuple[set[datetime], set[datetime]]:
+        """``(alle, strikte)`` für den günstigsten **zusammenhängenden** Block.
 
-        Sucht unter allen lückenlosen Fenstern aus ``count`` aufeinander-
-        folgenden Intervallen jenes mit der geringsten Summe der Gesamtkosten;
-        bei Gleichstand gewinnt das früheste Fenster. ``prices`` muss
-        chronologisch sortiert sein (wie von :meth:`for_day` geliefert).
+        ``strikte`` ist das günstigste lückenlose Fenster aus ``count``
+        aufeinanderfolgenden Intervallen (geringste Summe der Gesamtkosten,
+        Gleichstand → frühestes Fenster). ``prices`` muss chronologisch sortiert
+        sein (wie von :meth:`for_day` geliefert).
 
-        Sollten die Tagesdaten eine Lücke aufweisen und kein lückenloses
-        Fenster der geforderten Länge existieren, wird auf die günstigsten
+        ``alle`` verlängert diesen Block bei **Gleichstand**: Direkt
+        angrenzende Intervalle (vor dem Beginn bzw. nach dem Ende), deren
+        Gesamtpreis exakt dem teuersten Intervall des Blocks (dem Schwellwert)
+        entspricht, werden mitmarkiert – analog zur Einzelstunden-Logik, aber
+        zusammenhängend, sodass der Block „am Stück" bleibt.
+
+        Sollten die Tagesdaten eine Lücke aufweisen und kein lückenloses Fenster
+        der geforderten Länge existieren, wird auf die günstigsten
         Einzelintervalle ausgewichen, damit der Sensor nie dauerhaft „aus"
         bleibt.
         """
@@ -201,9 +220,28 @@ class SmartTimesData:
                 best_total = total
                 best_index = i
         if best_total is None:
-            ranked = sorted(prices, key=lambda p: (self.all_in_value(p), p.start))
-            return {p.start for p in ranked[:count]}
-        return {prices[i].start for i in range(best_index, best_index + count)}
+            return self._individual_selection(prices, count)
+
+        lo = best_index
+        hi = best_index + count  # exklusiver End-Index
+        strict_starts = {prices[i].start for i in range(lo, hi)}
+        cutoff = max(self.all_in_value(prices[i]) for i in range(lo, hi))
+        # Bei Gleichstand zusammenhängend nach vorn/hinten ausdehnen – nur über
+        # lückenlos angrenzende Intervalle, die den Schwellwert exakt treffen.
+        while (
+            lo - 1 >= 0
+            and prices[lo - 1].end == prices[lo].start
+            and abs(self.all_in_value(prices[lo - 1]) - cutoff) < 1e-9
+        ):
+            lo -= 1
+        while (
+            hi < n
+            and prices[hi - 1].end == prices[hi].start
+            and abs(self.all_in_value(prices[hi]) - cutoff) < 1e-9
+        ):
+            hi += 1
+        all_starts = {prices[i].start for i in range(lo, hi)}
+        return all_starts, strict_starts
 
     def _cheap_starts(
         self, day, cheap_hours: float, mode: str = DEFAULT_CHEAP_MODE
@@ -243,8 +281,9 @@ class SmartTimesData:
         ist ein „Überschuss"-Intervall am Schwellwert, das über die
         konfigurierte Stundenzahl hinausgeht. Bei einem solchen Ende soll der
         Sensor nicht zusätzlich in die nächste (teurere) Preiszone ausgreifen.
-        (Im zusammenhängenden Modus gibt es keine Überschuss-Intervalle, daher
-        ist ``soft_end`` dort stets ``False``.)
+        Das gilt für **beide** Modi: Auch ein zusammenhängender Block kann am
+        Ende durch Gleichstand verlängert sein (siehe
+        :meth:`_consecutive_selection`).
         """
         all_starts, strict_starts = self._cheap_selection(day, cheap_hours, mode)
         surplus = all_starts - strict_starts

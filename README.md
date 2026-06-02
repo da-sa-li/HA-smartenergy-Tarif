@@ -156,7 +156,9 @@ bestimmt werden:
   markiert.
 - **Zusammenhängender Block** (`consecutive`): das günstigste *lückenlose*
   Zeitfenster aus `cheap_hours` „am Stück" – für Geräte, deren Laufzeit nicht
-  unterbrochen werden darf (Waschmaschine, Geschirrspüler).
+  unterbrochen werden darf (Waschmaschine, Geschirrspüler). Grenzt direkt vor
+  oder nach dem Block ein Intervall mit demselben Grenzpreis an, wird der Block
+  bei Gleichstand zusammenhängend verlängert.
 
 **Last-Glättung (Jitter):** Damit nicht alle Verbraucher gleichzeitig schalten
 und Lastspitzen erzeugen, verschiebt jeder Sensor seine Schaltflanken um einen
