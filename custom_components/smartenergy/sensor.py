@@ -25,6 +25,7 @@ from .const import (
     UNIT_EUR_PER_KWH,
     UNIT_EUR_PER_MONTH,
     VAT_RATE,
+    documentation_url,
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
 from .grid_fees import is_snap
@@ -168,13 +169,16 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         self.entity_description = description
         self._attr_native_unit_of_measurement = description.unit
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        # Anzeige-Tarif aus den Koordinatordaten (nach dem ersten Refresh
+        # verfügbar) – bestimmt Gerätename, Modell und Doku-Link je Tarif.
+        tariff_name = coordinator.data.tariff
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name="smartTIMES Strompreishelfer",
+            name=f"{tariff_name} Strompreishelfer",
             manufacturer="smartENERGY",
-            model="smartTIMES",
+            model=tariff_name,
             entry_type=DeviceEntryType.SERVICE,
-            configuration_url="https://www.smartenergy.at/api-schnittstellen-smarttimes",
+            configuration_url=documentation_url(tariff_name),
         )
 
     @property

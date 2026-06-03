@@ -2,33 +2,37 @@
   "config": {
     "step": {
       "user": {
-        "title": "smartTIMES Strompreishelfer",
-        "description": "Fetches the smartTIMES tariff prices from smartENERGY. No API key is required.",
+        "title": "smartENERGY Strompreishelfer",
+        "description": "Fetches the tariff prices from smartENERGY (smartTIMES or smartCONTROL). No API key is required.",
         "data": {
+          "tariff": "Tariff model",
           "include_vat": "Show prices including 20% VAT (gross)",
           "grid_zone": "Grid area (for grid fees)"
         },
         "data_description": {
+          "tariff": "smartTIMES: time-based tariff. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top.",
           "grid_zone": "Determines the grid fees (grid level 7, quarter-hourly metering) in the total price. \"No grid area\" leaves them out."
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the smartTIMES API."
+      "cannot_connect": "Failed to connect to the smartENERGY API."
     },
     "abort": {
-      "already_configured": "smartTIMES is already configured."
+      "already_configured": "smartENERGY is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "smartTIMES options",
+        "title": "smartENERGY options",
         "data": {
+          "tariff": "Tariff model",
           "include_vat": "Show prices including 20% VAT (gross)",
           "grid_zone": "Grid area (for grid fees)"
         },
         "data_description": {
+          "tariff": "smartTIMES: time-based tariff. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top.",
           "grid_zone": "Determines the grid fees (grid level 7, quarter-hourly metering) in the total price. \"No grid area\" leaves them out."
         }
       }
@@ -72,6 +76,12 @@
     }
   },
   "selector": {
+    "tariff": {
+      "options": {
+        "smarttimes": "smartTIMES (time-based tariff)",
+        "smartcontrol": "smartCONTROL (linked to spot price)"
+      }
+    },
     "cheap_mode": {
       "options": {
         "individual": "Cheapest individual hours (may be split)",

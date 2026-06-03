@@ -1,15 +1,19 @@
-# smartTIMES Strompreishelfer – Home Assistant Integration
+# smartENERGY Strompreishelfer – Home Assistant Integration
 
-Eine [Home Assistant](https://www.home-assistant.io/) Integration für den
-dynamischen Stromtarif **[smartTIMES](https://www.smartenergy.at/smarttimes)**
-von [smartENERGY](https://www.smartenergy.at/), die stündliche Tarifpreise als
+Eine [Home Assistant](https://www.home-assistant.io/) Integration für die
+dynamischen Stromtarife **[smartTIMES](https://www.smartenergy.at/smarttimes)**
+(zeitabhängig) und **smartCONTROL** (an den Spot-Börsenpreis gekoppelt) von
+[smartENERGY](https://www.smartenergy.at/), die viertelstündliche Tarifpreise als
 Sensoren bereitstellt – ideal zum automatischen Schalten von Verbrauchern in
-günstige Tarifzonen.
+günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
 
 > Diese Integration ist ein Community-Projekt und steht in keiner Verbindung zu smartENERGY oder der Energie Steiermark Kunden GmbH.
 
 ## Funktionen
 
+- ⚡ **Tarifwahl smartTIMES oder smartCONTROL** – bei smartCONTROL wird die
+  **Abwicklungsgebühr** (1,2 ct/kWh netto / 1,44 ct/kWh brutto) auf den
+  Börsenpreis aufgeschlagen
 - 🔌 **Arbeitspreis** der laufenden Tarifzone (ct/kWh)
 - 💶 **Gesamtpreis** in EUR/kWh inkl. aller variablen Nebenkosten – fürs Energie-Dashboard
 - 🧾 **Variable Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe,
@@ -28,11 +32,13 @@ günstige Tarifzonen.
 
 ## Datenquelle
 
-Die Integration verwendet die öffentliche smartTIMES-API
-([API-Dokumentation von smartENERGY](https://www.smartenergy.at/api-schnittstellen-smarttimes)):
+Die Integration verwendet die öffentlichen Preis-APIs von smartENERGY
+([API-Dokumentation](https://www.smartenergy.at/api-schnittstellen)) – je nach
+gewähltem Tarif:
 
 ```
-https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
+smartTIMES:   https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
+smartCONTROL: https://apis.smartenergy.at/market/v1/price
 ```
 
 > Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant auf `Europe/Vienna` eingestellt sein.
@@ -43,20 +49,23 @@ https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 
 1. HACS öffnen → oben rechts auf die drei Punkte → **Benutzerdefinierte Repositories**.
 2. Repository-URL dieses Projekts eintragen, Kategorie **Integration** wählen und hinzufügen.
-3. Die Integration **smartTIMES Strompreishelfer** suchen, herunterladen und Home Assistant neu starten.
+3. Die Integration **smartENERGY Strompreishelfer** suchen, herunterladen und Home Assistant neu starten.
 
 ### Manuell
 
-1. Den Ordner `custom_components/smarttimes` in das
+1. Den Ordner `custom_components/smartenergy` in das
    `custom_components`-Verzeichnis deiner Home-Assistant-Konfiguration kopieren.
 2. Home Assistant neu starten.
 
 ## Einrichtung
 
 1. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
-2. Nach **smartTIMES Strompreishelfer** suchen.
-3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
-4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
+2. Nach **smartENERGY Strompreishelfer** suchen.
+3. Das **Tarifmodell** wählen: **smartTIMES** (zeitabhängig) oder **smartCONTROL**
+   (an den Börsenpreis gekoppelt, inkl. Abwicklungsgebühr von 1,2 ct/kWh netto /
+   1,44 ct/kWh brutto).
+4. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
+5. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
    Netzgebiet“ lässt die Netzentgelte weg. Das Netzgebiet steht im
    Netzzugangsvertrag des Netzbetreibers.
 
@@ -68,7 +77,7 @@ Die Binary-Sensoren „Günstige Stunde“ werden als **Untereinträge** angeleg
 kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 (z. B. Boiler 4 h, Wallbox 8 h):
 
-1. Bei der Integration unter **smartTIMES Strompreishelfer** auf **Untereintrag
+1. Bei der Integration unter **smartENERGY Strompreishelfer** auf **Untereintrag
    hinzufügen** (bzw. **Günstige-Stunde-Sensor hinzufügen**) klicken.
 2. Einen **Namen** (z. B. „Boiler“) und die **günstigen Stunden pro Tag** angeben.
 3. Die **Logik der günstigen Stunden** wählen:
@@ -83,6 +92,9 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeiten oder entfernen.
 
 ## Sensoren
+
+> Die Entitäts-IDs beginnen mit dem gewählten Tarif – `smarttimes_…` bzw.
+> `smartcontrol_…`. Die Beispiele unten zeigen den smartTIMES-Fall.
 
 | Sensor / Entität                                | Beschreibung                                |
 |-------------------------------------------------|---------------------------------------------|
@@ -131,7 +143,7 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 | Attribut                  | Beschreibung                                          |
 |---------------------------|-------------------------------------------------------|
 | `working_price_ct_kwh`    | Reiner Arbeitspreis (ct/kWh)                          |
-| `surcharges_ct_kwh`       | Nebenkosten je Position, z. B. `{electricity_tax: 0.12, renewable_support: 0.44, grid_usage: 4.04, grid_loss: 0.84}` |
+| `surcharges_ct_kwh`       | Nebenkosten je Position, z. B. `{electricity_tax: 0.12, renewable_support: 0.44, grid_usage: 4.04, grid_loss: 0.84}`. Bei **smartCONTROL** zusätzlich `handling_fee` (Abwicklungsgebühr, 1,44 ct/kWh brutto) |
 | `surcharges_total_ct_kwh` | Summe aller Nebenkosten (ct/kWh)                      |
 | `total_ct_kwh`            | Gesamtpreis (ct/kWh) – entspricht dem Sensorwert × 100 |
 | `grid_zone`               | Gewähltes Netzgebiet (oder `null`)                    |
@@ -184,7 +196,7 @@ zeigt das Attribut `jitter_offset_seconds`.
 
 | Attribut            | Beschreibung                                              |
 |---------------------|-----------------------------------------------------------|
-| `tariff`            | Tarifname laut API                                        |
+| `tariff`            | Gewählter Tarif (`smartTIMES` bzw. `smartCONTROL`)        |
 | `unit`              | Einheit der Preise                                        |
 | `interval_minutes`  | Länge eines Preisintervalls in Minuten                    |
 | `vat_included`      | `true`, wenn die Preise brutto (inkl. USt.) sind          |

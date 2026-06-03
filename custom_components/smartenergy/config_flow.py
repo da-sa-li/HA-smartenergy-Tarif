@@ -27,19 +27,39 @@ from .const import (
     CONF_CHEAP_MODE,
     CONF_GRID_ZONE,
     CONF_INCLUDE_VAT,
+    CONF_TARIFF,
     DEFAULT_CHEAP_HOURS,
     DEFAULT_CHEAP_MODE,
     DEFAULT_GRID_ZONE,
     DEFAULT_INCLUDE_VAT,
+    DEFAULT_TARIFF,
     DOMAIN,
     GRID_ZONE_NONE,
     SUBENTRY_TYPE_CHEAP_HOUR,
+    TARIFF_API_URLS,
+    TARIFF_DISPLAY_NAMES,
+    TARIFF_SMARTCONTROL,
+    TARIFF_SMARTTIMES,
 )
 from .grid_fees import GRID_ZONES
 
 _LOGGER = logging.getLogger(__name__)
 
-TITLE = "smartTIMES Strompreishelfer"
+def _title(tariff: str) -> str:
+    """Eintragstitel je Tarif (z. B. „smartCONTROL Strompreishelfer")."""
+    name = TARIFF_DISPLAY_NAMES.get(tariff, TARIFF_DISPLAY_NAMES[DEFAULT_TARIFF])
+    return f"{name} Strompreishelfer"
+
+
+def _tariff_selector() -> selector.SelectSelector:
+    """Dropdown zur Auswahl des Tarifmodells (smartTIMES bzw. smartCONTROL)."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[TARIFF_SMARTTIMES, TARIFF_SMARTCONTROL],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+            translation_key="tariff",
+        )
+    )
 
 
 def _grid_zone_selector() -> selector.SelectSelector:
@@ -82,10 +102,11 @@ def _cheap_mode_selector() -> selector.SelectSelector:
     )
 
 
-def _schema(include_vat: bool, grid_zone: str) -> vol.Schema:
+def _schema(tariff: str, include_vat: bool, grid_zone: str) -> vol.Schema:
     """Gemeinsames Schema für Einrichtung und Optionen."""
     return vol.Schema(
         {
+            vol.Required(CONF_TARIFF, default=tariff): _tariff_selector(),
             vol.Required(CONF_INCLUDE_VAT, default=include_vat): bool,
             vol.Required(
                 CONF_GRID_ZONE, default=grid_zone
@@ -139,19 +160,25 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
 
         errors: dict[str, str] = {}
         if user_input is not None:
+            tariff = user_input.get(CONF_TARIFF, DEFAULT_TARIFF)
             session = async_get_clientsession(self.hass)
-            client = SmartTimesApiClient(session)
+            # Verbindung gegen die zum gewählten Tarif passende API testen.
+            client = SmartTimesApiClient(
+                session,
+                TARIFF_API_URLS.get(tariff, TARIFF_API_URLS[DEFAULT_TARIFF]),
+            )
             try:
                 await client.async_get_prices()
-            except SmartTimesApiError as err:
-                # Genaue Ursache ins Log schreiben, damit sie diagnostizierbar ist.
-                _LOGGER.error("Einrichtung von smartTIMES fehlgeschlagen: %s", err)
+            except SmartTimesApiError:
+                # Genaue Ursache inkl. Stacktrace ins Log schreiben (diagnostizierbar).
+                _LOGGER.exception("Einrichtung fehlgeschlagen")
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_create_entry(
-                    title=TITLE,
+                    title=_title(tariff),
                     data={},
                     options={
+                        CONF_TARIFF: tariff,
                         CONF_INCLUDE_VAT: user_input.get(
                             CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT
                         ),
@@ -161,9 +188,16 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
                     },
                 )
 
+        # Bei einem Verbindungsfehler die bereits getroffene Auswahl erhalten
+        # (analog zum Untereintrags-Flow), statt auf die Defaults zurückzusetzen.
+        current = user_input or {}
         return self.async_show_form(
             step_id="user",
-            data_schema=_schema(DEFAULT_INCLUDE_VAT, DEFAULT_GRID_ZONE),
+            data_schema=_schema(
+                current.get(CONF_TARIFF, DEFAULT_TARIFF),
+                current.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
+                current.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE),
+            ),
             errors=errors,
         )
 
@@ -192,12 +226,21 @@ class SmartTimesOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Verwaltet die Optionen."""
         if user_input is not None:
+            # Titel an den gewählten Tarif anpassen (nur bei Änderung), damit er
+            # nach einem Tarifwechsel nicht veraltet; der Update-Listener lädt
+            # die Integration anschließend ohnehin neu.
+            new_title = _title(user_input.get(CONF_TARIFF, DEFAULT_TARIFF))
+            if new_title != self.config_entry.title:
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, title=new_title
+                )
             return self.async_create_entry(data=user_input)
 
         options = self.config_entry.options
         return self.async_show_form(
             step_id="init",
             data_schema=_schema(
+                options.get(CONF_TARIFF, DEFAULT_TARIFF),
                 options.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
                 options.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE),
             ),

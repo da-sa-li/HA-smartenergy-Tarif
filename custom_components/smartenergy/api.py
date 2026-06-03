@@ -1,4 +1,4 @@
-"""Client für die smartENERGY smartTIMES Preis-API."""
+"""Client für die smartENERGY Preis-API (smartTIMES und smartCONTROL)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,9 @@ _LOGGER = logging.getLogger(__name__)
 # wir einen.
 REQUEST_HEADERS = {
     "Accept": "application/json",
-    "User-Agent": "HomeAssistant-smartTIMES/1.0",
+    # Tarifneutraler User-Agent: derselbe Client bedient smartTIMES und
+    # smartCONTROL. Manche APIs lehnen Anfragen ohne "echten" UA mit 403 ab.
+    "User-Agent": "HomeAssistant-smartENERGY/1.0",
 }
 
 
@@ -76,33 +78,43 @@ class SmartTimesResult:
 
 
 class SmartTimesApiClient:
-    """Kapselt die HTTP-Aufrufe an die smartTIMES-API."""
+    """Kapselt die HTTP-Aufrufe an die smartENERGY-API (smartTIMES/smartCONTROL)."""
 
-    def __init__(self, session: aiohttp.ClientSession) -> None:
-        """Initialisiert den Client mit der gemeinsam genutzten aiohttp-Session."""
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        api_url: str = API_URL,
+    ) -> None:
+        """Initialisiert den Client mit Session und Tarif-API-URL.
+
+        ``api_url`` bestimmt den abzurufenden Tarif (smartTIMES- bzw.
+        smartCONTROL-Endpunkt). Standard ist die smartTIMES-URL, damit
+        bestehende Aufrufer ohne Anpassung weiterfunktionieren.
+        """
         self._session = session
+        self._api_url = api_url
 
     async def async_get_prices(self) -> SmartTimesResult:
-        """Lädt die aktuellen Tarifpreise von der API."""
+        """Lädt die aktuellen Tarifpreise von der konfigurierten API."""
         try:
             async with asyncio.timeout(API_TIMEOUT):
                 response = await self._session.get(
-                    API_URL,
+                    self._api_url,
                     headers=REQUEST_HEADERS,
                 )
                 text = await response.text()
                 response.raise_for_status()
         except asyncio.TimeoutError as err:
             raise SmartTimesApiError(
-                f"Zeitüberschreitung beim Abruf der smartTIMES-API ({API_URL})"
+                f"Zeitüberschreitung beim Abruf der smartENERGY-API ({self._api_url})"
             ) from err
         except aiohttp.ClientResponseError as err:
             raise SmartTimesApiError(
-                f"smartTIMES-API antwortete mit HTTP {err.status} ({err.message})"
+                f"smartENERGY-API antwortete mit HTTP {err.status} ({err.message})"
             ) from err
         except aiohttp.ClientError as err:
             raise SmartTimesApiError(
-                f"Netzwerkfehler beim Abruf der smartTIMES-API: {err}"
+                f"Netzwerkfehler beim Abruf der smartENERGY-API: {err}"
             ) from err
 
         try:
@@ -110,7 +122,7 @@ class SmartTimesApiClient:
         except ValueError as err:
             snippet = text[:200].replace("\n", " ")
             raise SmartTimesApiError(
-                f"Ungültige (kein JSON) Antwort der smartTIMES-API. Auszug: {snippet!r}"
+                f"Ungültige (kein JSON) Antwort der smartENERGY-API. Auszug: {snippet!r}"
             ) from err
 
         return self._parse(payload)
@@ -119,10 +131,11 @@ class SmartTimesApiClient:
     def _parse(payload: dict) -> SmartTimesResult:
         """Wertet die JSON-Antwort der API aus.
 
-        Die tatsächliche API liefert die Energiepreise verschachtelt unter
-        ``energyPrice`` mit Einträgen ``values`` / ``dateTimeFrom``. Das in der
-        Dokumentation gezeigte Format (``data`` / ``date`` auf oberster Ebene)
-        wird als Fallback weiterhin unterstützt.
+        Die smartTIMES-API liefert die Energiepreise verschachtelt unter
+        ``energyPrice`` mit Einträgen ``values`` / ``dateTimeFrom``. Das flache
+        Format (``data`` / ``date`` auf oberster Ebene) – wie es auch der
+        smartCONTROL-Markt-Endpunkt liefert – wird als Fallback unterstützt.
+        ``_parse_date`` respektiert dabei einen vorhandenen Zeitzonen-Offset.
         """
         if not isinstance(payload, dict):
             raise SmartTimesApiError("Unerwartetes Antwortformat der API")
