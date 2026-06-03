@@ -62,6 +62,7 @@ class CheapHourBinarySensor(
         coordinator: SmartTimesCoordinator,
         subentry: ConfigSubentry,
     ) -> None:
+        """Initialisiert den Sensor aus dem Untereintrag (Stundenzahl, Logik, Jitter)."""
         super().__init__(coordinator)
         self._cheap_hours: float = subentry.data[CONF_CHEAP_HOURS]
         # Auswahllogik: günstigste Einzelstunden (dürfen zerteilt sein) oder ein
