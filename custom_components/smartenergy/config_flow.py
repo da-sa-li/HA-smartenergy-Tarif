@@ -169,9 +169,9 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
             )
             try:
                 await client.async_get_prices()
-            except SmartTimesApiError as err:
+            except SmartTimesApiError:
                 # Genaue Ursache inkl. Stacktrace ins Log schreiben (diagnostizierbar).
-                _LOGGER.exception("Einrichtung fehlgeschlagen: %s", err)
+                _LOGGER.exception("Einrichtung fehlgeschlagen")
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_create_entry(
