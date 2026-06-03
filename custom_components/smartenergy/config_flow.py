@@ -170,8 +170,8 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
             try:
                 await client.async_get_prices()
             except SmartTimesApiError as err:
-                # Genaue Ursache ins Log schreiben, damit sie diagnostizierbar ist.
-                _LOGGER.error("Einrichtung fehlgeschlagen: %s", err)
+                # Genaue Ursache inkl. Stacktrace ins Log schreiben (diagnostizierbar).
+                _LOGGER.exception("Einrichtung fehlgeschlagen: %s", err)
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_create_entry(
@@ -221,6 +221,14 @@ class SmartTimesOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Verwaltet die Optionen."""
         if user_input is not None:
+            # Titel an den gewählten Tarif anpassen (nur bei Änderung), damit er
+            # nach einem Tarifwechsel nicht veraltet; der Update-Listener lädt
+            # die Integration anschließend ohnehin neu.
+            new_title = _title(user_input.get(CONF_TARIFF, DEFAULT_TARIFF))
+            if new_title != self.config_entry.title:
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, title=new_title
+                )
             return self.async_create_entry(data=user_input)
 
         options = self.config_entry.options
