@@ -188,10 +188,15 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
                     },
                 )
 
+        # Bei einem Verbindungsfehler die bereits getroffene Auswahl erhalten
+        # (analog zum Untereintrags-Flow), statt auf die Defaults zurückzusetzen.
+        current = user_input or {}
         return self.async_show_form(
             step_id="user",
             data_schema=_schema(
-                DEFAULT_TARIFF, DEFAULT_INCLUDE_VAT, DEFAULT_GRID_ZONE
+                current.get(CONF_TARIFF, DEFAULT_TARIFF),
+                current.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
+                current.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE),
             ),
             errors=errors,
         )
