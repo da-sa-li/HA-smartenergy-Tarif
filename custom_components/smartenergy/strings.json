@@ -2,33 +2,37 @@
   "config": {
     "step": {
       "user": {
-        "title": "smartTIMES Strompreishelfer",
-        "description": "Ruft die smartTIMES-Tarifpreise von smartENERGY ab. Es ist kein API-Schlüssel erforderlich.",
+        "title": "smartENERGY Strompreishelfer",
+        "description": "Ruft die Tarifpreise von smartENERGY ab (smartTIMES oder smartCONTROL). Es ist kein API-Schlüssel erforderlich.",
         "data": {
+          "tariff": "Tarifmodell",
           "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
           "grid_zone": "Netzgebiet (für die Netzentgelte)"
         },
         "data_description": {
+          "tariff": "smartTIMES: zeitabhängiger Tarif. smartCONTROL: an den EPEX-Spot-Börsenpreis gekoppelt; darauf wird eine Abwicklungsgebühr von 1,2 ct/kWh netto (1,44 ct/kWh brutto) aufgeschlagen.",
           "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
       }
     },
     "error": {
-      "cannot_connect": "Verbindung zur smartTIMES-API fehlgeschlagen."
+      "cannot_connect": "Verbindung zur smartENERGY-API fehlgeschlagen."
     },
     "abort": {
-      "already_configured": "smartTIMES ist bereits eingerichtet."
+      "already_configured": "smartENERGY ist bereits eingerichtet."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "smartTIMES Optionen",
+        "title": "smartENERGY Optionen",
         "data": {
+          "tariff": "Tarifmodell",
           "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
           "grid_zone": "Netzgebiet (für die Netzentgelte)"
         },
         "data_description": {
+          "tariff": "smartTIMES: zeitabhängiger Tarif. smartCONTROL: an den EPEX-Spot-Börsenpreis gekoppelt; darauf wird eine Abwicklungsgebühr von 1,2 ct/kWh netto (1,44 ct/kWh brutto) aufgeschlagen.",
           "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
       }
@@ -72,6 +76,12 @@
     }
   },
   "selector": {
+    "tariff": {
+      "options": {
+        "smarttimes": "smartTIMES (zeitabhängiger Tarif)",
+        "smartcontrol": "smartCONTROL (an den Börsenpreis gekoppelt)"
+      }
+    },
     "cheap_mode": {
       "options": {
         "individual": "Günstigste Einzelstunden (dürfen verteilt sein)",

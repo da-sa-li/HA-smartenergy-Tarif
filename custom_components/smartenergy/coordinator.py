@@ -47,6 +47,9 @@ class SmartTimesData:
     basic_fees: list[FeeEntry] = field(default_factory=list)
     basic_fee_unit: str | None = None
     grid_zone: GridZone | None = None
+    # Abwicklungsgebühr (netto, ct/kWh). Nur bei smartCONTROL > 0; sie wird wie
+    # die übrigen Nebenkosten netto summiert (USt. einmal am Ende).
+    handling_fee_net: float = 0.0
 
     def current(self, moment: datetime | None = None) -> MarketPrice | None:
         """Der für ``moment`` (Standard: jetzt) gültige Preis-Eintrag."""
@@ -86,9 +89,17 @@ class SmartTimesData:
         return self.grid_zone.total_ct_per_kwh(moment)
 
     def _surcharges_net(self, moment: datetime) -> float:
-        """Summe aller Nebenkosten (Abgaben + Netzentgelte) netto in ct/kWh."""
+        """Summe aller Nebenkosten netto in ct/kWh.
+
+        Enthält Abgaben, Netzentgelte und – bei smartCONTROL – die
+        Abwicklungsgebühr. Die USt. wird erst am Ende auf die Summe angewendet.
+        """
         day = dt_util.as_local(moment).date()
-        return total_tax_ct_per_kwh(day) + self._grid_fee_net(moment)
+        return (
+            total_tax_ct_per_kwh(day)
+            + self._grid_fee_net(moment)
+            + self.handling_fee_net
+        )
 
     def all_in_value(self, price: MarketPrice) -> float:
         """Gesamtpreis (Arbeitspreis + Nebenkosten) in ct/kWh.
@@ -109,6 +120,10 @@ class SmartTimesData:
         items = dict(tax_breakdown(day))
         if self.grid_zone is not None:
             items.update(self.grid_zone.breakdown(moment))
+        # Abwicklungsgebühr nur ausweisen, wenn sie greift (smartCONTROL); bei
+        # smartTIMES (0,0) bleibt die Aufschlüsselung unverändert.
+        if self.handling_fee_net:
+            items["handling_fee"] = self.handling_fee_net
         return {key: round(self._apply_vat(net), 4) for key, net in items.items()}
 
     def surcharges_total(self, moment: datetime | None = None) -> float:
@@ -356,7 +371,7 @@ class SmartTimesData:
 
 
 class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
-    """Koordiniert das Laden der smartTIMES-Preise.
+    """Koordiniert das Laden der smartENERGY-Preise.
 
     Die Entitäten werden minütlich neu berechnet (damit der aktuelle Preis
     beim Stundenwechsel sofort stimmt).  Tatsächliche API-Aufrufe erfolgen
@@ -379,8 +394,10 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         client: SmartTimesApiClient,
         include_vat: bool,
         grid_zone: GridZone | None = None,
+        handling_fee_net: float = 0.0,
+        tariff_name: str | None = None,
     ) -> None:
-        """Initialisiert den Koordinator (Recalc-Intervall und deterministischer Abruf-Jitter)."""
+        """Initialisiert den Koordinator (Recalc-Intervall, Abruf-Jitter, Tarif)."""
         super().__init__(
             hass,
             _LOGGER,
@@ -391,6 +408,11 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         self._client = client
         self._include_vat = include_vat
         self._grid_zone = grid_zone
+        # Abwicklungsgebühr (netto, ct/kWh); 0,0 außer bei smartCONTROL.
+        self._handling_fee_net = handling_fee_net
+        # Anzeige-Tarifname aus der Nutzer-Auswahl (nicht aus der API – diese
+        # liefert bei smartCONTROL "EPEXSPOTAT").
+        self._tariff_name = tariff_name
         self._last_fetch: datetime | None = None
         self._last_result: SmartTimesResult | None = None
         # Deterministischer Jitter (0..FETCH_JITTER_MINUTES-1 min) aus der
@@ -451,7 +473,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
                     raise UpdateFailed(str(err)) from err
                 # Frühere Daten behalten, falls ein einzelner Abruf scheitert.
                 _LOGGER.warning(
-                    "Aktualisierung der smartTIMES-Preise fehlgeschlagen, "
+                    "Aktualisierung der smartENERGY-Preise fehlgeschlagen, "
                     "verwende zwischengespeicherte Daten: %s",
                     err,
                 )
@@ -464,7 +486,8 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         result = self._last_result
         assert result is not None  # nach erfolgreichem ersten Abruf garantiert
         return SmartTimesData(
-            tariff=result.tariff,
+            # Anzeige-Tarif aus der Nutzer-Auswahl; nur als Fallback der API-Wert.
+            tariff=self._tariff_name or result.tariff,
             unit=result.unit,
             interval_minutes=result.interval_minutes,
             include_vat=self._include_vat,
@@ -472,4 +495,5 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             basic_fees=result.basic_fees,
             basic_fee_unit=result.basic_fee_unit,
             grid_zone=self._grid_zone,
+            handling_fee_net=self._handling_fee_net,
         )

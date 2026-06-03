@@ -27,6 +27,7 @@ from .const import (
     JITTER_ON_MAX_SECONDS,
     SUBENTRY_TYPE_CHEAP_HOUR,
     UNIT_CT_PER_KWH,
+    documentation_url,
 )
 from .coordinator import SmartTimesCoordinator
 from .jitter import cheap_phase
@@ -74,13 +75,15 @@ class CheapHourBinarySensor(
         # gleichverteilt ist (siehe jitter.py).
         self._jitter_phase: float = cheap_phase(subentry.subentry_id)
         self._attr_unique_id = f"{subentry.subentry_id}_cheap_hour"
+        # Anzeige-Tarif aus den Koordinatordaten (Modell/Doku-Link je Tarif).
+        tariff_name = coordinator.data.tariff
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
             manufacturer="smartENERGY",
-            model="smartTIMES Günstige Stunde",
+            model=f"{tariff_name} Günstige Stunde",
             entry_type=DeviceEntryType.SERVICE,
-            configuration_url="https://www.smartenergy.at/api-schnittstellen-smarttimes",
+            configuration_url=documentation_url(tariff_name),
         )
 
     @property

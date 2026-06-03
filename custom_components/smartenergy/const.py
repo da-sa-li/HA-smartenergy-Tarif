@@ -4,12 +4,45 @@ from __future__ import annotations
 
 from typing import Final
 
-DOMAIN: Final = "smarttimes"
+DOMAIN: Final = "smartenergy"
 
 # Öffentliche smartTIMES-Tarifpreis-API von smartENERGY (kein API-Key nötig).
 # Doku: https://www.smartenergy.at/api-schnittstellen-smarttimes
 API_URL: Final = "https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices"
 API_TIMEOUT: Final = 30
+
+# smartCONTROL koppelt an den EPEX-Spot-Börsenpreis und nutzt eine andere API.
+# Sie liefert das Preisarray flach (data/date/value) mit Zeitzonen-Offset; der
+# Parser in api.py verarbeitet beide Formate ohne Sonderfall.
+MARKET_API_URL: Final = "https://apis.smartenergy.at/market/v1/price"
+
+# Auswahl des Tarifmodells (UI, kein YAML).
+CONF_TARIFF: Final = "tariff"
+TARIFF_SMARTTIMES: Final = "smarttimes"
+TARIFF_SMARTCONTROL: Final = "smartcontrol"
+DEFAULT_TARIFF: Final = TARIFF_SMARTTIMES
+
+# Anzeigename je Tarif (Gerätename, Modell, Titel). Stammt aus der Nutzer-Auswahl,
+# NICHT aus der API – smartCONTROL liefert dort den Börsen-Tarif "EPEXSPOTAT".
+TARIFF_DISPLAY_NAMES: Final[dict[str, str]] = {
+    TARIFF_SMARTTIMES: "smartTIMES",
+    TARIFF_SMARTCONTROL: "smartCONTROL",
+}
+
+# API-URL je Tarif.
+TARIFF_API_URLS: Final[dict[str, str]] = {
+    TARIFF_SMARTTIMES: API_URL,
+    TARIFF_SMARTCONTROL: MARKET_API_URL,
+}
+
+# Abwicklungsgebühr bei smartCONTROL: 1,2 ct/kWh NETTO (= 1,44 ct/kWh brutto inkl.
+# 20 % USt.). Wird wie alle Nebenkosten netto hinterlegt; die USt. wird erst am
+# Ende auf die Summe angewendet (siehe coordinator.py). Nur bei smartCONTROL > 0.
+SMARTCONTROL_HANDLING_FEE_NET: Final = 1.2
+
+# API-Doku-Seiten von smartENERGY (Geräte-Link „configuration_url").
+SMARTTIMES_DOC_URL: Final = "https://www.smartenergy.at/api-schnittstellen-smarttimes"
+SMARTENERGY_DOC_URL: Final = "https://www.smartenergy.at/api-schnittstellen"
 
 # Die API liefert Bruttopreise inkl. 20 % österreichischer Umsatzsteuer.
 VAT_RATE: Final = 0.20
@@ -85,3 +118,10 @@ FETCH_RETRY_INTERVAL_MINUTES: Final = 30
 # Config-Entry-ID).  Verteilt die Abrufe verschiedener HA-Instanzen auf ein
 # 20-Minuten-Fenster nach NEXT_DAY_PRICES_HOUR.
 FETCH_JITTER_MINUTES: Final = 20
+
+
+def documentation_url(tariff_display_name: str) -> str:
+    """Doku-Link je Tarif (smartTIMES hat eine eigene API-Doku-Seite)."""
+    if tariff_display_name == TARIFF_DISPLAY_NAMES[TARIFF_SMARTTIMES]:
+        return SMARTTIMES_DOC_URL
+    return SMARTENERGY_DOC_URL
