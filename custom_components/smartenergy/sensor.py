@@ -30,6 +30,11 @@ from .const import (
 from .coordinator import SmartTimesCoordinator, SmartTimesData
 from .grid_fees import is_snap
 
+# Die Entitäten lesen ausschließlich aus dem Koordinator (keine eigenen
+# API-Aufrufe, keine schaltenden Aktionen) – eine Drosselung paralleler Updates
+# ist daher nicht nötig.
+PARALLEL_UPDATES = 0
+
 
 @dataclass(frozen=True, kw_only=True)
 class SmartTimesSensorDescription(SensorEntityDescription):

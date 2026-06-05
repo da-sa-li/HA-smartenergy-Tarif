@@ -3,10 +3,10 @@
   "name": "smartENERGY Strompreishelfer",
   "codeowners": ["@da-sa-li"],
   "config_flow": true,
-  "documentation": "https://github.com/da-sa-li/ha-smarttimes-tarif",
+  "documentation": "https://github.com/da-sa-li/HA-smartenergy-Tarif",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/da-sa-li/ha-smarttimes-tarif/issues",
+  "issue_tracker": "https://github.com/da-sa-li/HA-smartenergy-Tarif/issues",
   "requirements": [],
   "single_config_entry": true,
   "version": "2.0.0"

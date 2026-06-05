@@ -32,6 +32,10 @@ from .const import (
 from .coordinator import SmartTimesCoordinator
 from .jitter import cheap_phase
 
+# Reine Koordinator-Lesesensoren ohne eigene API-Aufrufe oder Aktionen – eine
+# Drosselung paralleler Updates ist daher nicht nötig.
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,

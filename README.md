@@ -91,6 +91,21 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 
 Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeiten oder entfernen.
 
+## Entfernen
+
+1. **Einstellungen → Geräte & Dienste** öffnen und die Integration
+   **smartENERGY Strompreishelfer** auswählen.
+2. Beim Eintrag auf das Drei-Punkte-Menü → **Löschen** klicken. Damit werden die
+   Integration, alle Sensoren und die „Günstige Stunde“-Untereinträge (samt
+   ihrer Geräte) entfernt.
+3. Optional, um auch die Dateien zu entfernen: in **HACS** die Integration
+   **smartENERGY Strompreishelfer** öffnen → **Entfernen**. Bei manueller
+   Installation stattdessen den Ordner `custom_components/smartenergy` löschen.
+   Anschließend Home Assistant neu starten.
+
+Die Integration legt keine Daten außerhalb des Config-Eintrags an; nach dem
+Löschen bleiben keine Konfigurationsreste zurück.
+
 ## Sensoren
 
 > Die Entitäts-IDs beginnen mit dem gewählten Tarif – `smarttimes_…` bzw.
