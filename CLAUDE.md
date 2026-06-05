@@ -23,18 +23,30 @@ Konvention beibehalten.
 
 ## Befehle
 
-Es gibt **kein** Build-System und **keine** Testsuite. Validiert wird ausschließlich über
-Home-Assistant-Tooling (in CI, `.github/workflows/validate.yml`):
+Es gibt **kein** Build-System. Validiert wird über Home-Assistant-Tooling sowie eine
+**pytest-Testsuite** (alles in CI, `.github/workflows/validate.yml`):
 
 - **Hassfest** – prüft `manifest.json`, Übersetzungen, Struktur.
 - **HACS validation** – prüft HACS-Tauglichkeit (`hacs.json`).
+- **pytest** – Unit-Tests der Preis-Mathematik, des Parsers und der Auswahllogik
+  (Verzeichnis `tests/`).
 
-Lokal sinnvoll (kein HA installiert):
+Lokal:
 
 ```bash
 # Syntax aller Module prüfen (3.13 wegen PEP 695!)
 python3.13 -m py_compile custom_components/smartenergy/*.py
+
+# Testsuite (braucht das HA-Test-Harness):
+python3.13 -m venv .venv-test && . .venv-test/bin/activate
+pip install -r requirements_test.txt
+pytest
 ```
+
+**Testkonvention:** Die erwarteten Werte (Sollergebnisse) werden **von Hand aus der
+Spezifikation** abgeleitet und als Kommentar dokumentiert – nie aus dem zu testenden
+Code erzeugt, sonst wäre der Test eine Tautologie. Fixtures (echte API-Antworten) liegen
+in `tests/fixtures/`.
 
 CI läuft bei jedem Push auf `main`, bei jedem PR, nächtlich und manuell.
 

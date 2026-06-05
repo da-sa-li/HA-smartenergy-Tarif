@@ -1,0 +1,3 @@
+# Test-Abhängigkeiten. pytest-homeassistant-custom-component zieht eine dazu
+# passende Home-Assistant-Version (inkl. pytest) als Abhängigkeit nach.
+pytest-homeassistant-custom-component
