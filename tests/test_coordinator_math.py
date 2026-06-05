@@ -21,10 +21,12 @@ from custom_components.smartenergy.coordinator import SmartTimesData
 
 
 def _iso(value: str) -> datetime:
+    """Kurzschreibweise für ein ISO-8601-datetime (mit Offset)."""
     return datetime.fromisoformat(value)
 
 
 def _price_at(data: SmartTimesData, value: str):
+    """Liefert den Preis-Eintrag mit dem Startzeitpunkt ``value``."""
     target = _iso(value)
     for price in data.prices:
         if price.start == target:
@@ -36,6 +38,7 @@ def _price_at(data: SmartTimesData, value: str):
 
 
 def test_allin_smarttimes_snap_wien(make_data, smarttimes_payload):
+    """Gesamtpreis im SNAP-Fenster mit Netzgebiet Wien (brutto)."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone="wien")
     price = _price_at(data, "2026-06-05T14:00:00+02:00")  # 14 Uhr -> SNAP aktiv
     # netto AP 11,316/1,2 = 9,43 ; + Abgaben 0,72 + Netz(SNAP) 6,28 = 16,43
@@ -44,6 +47,7 @@ def test_allin_smarttimes_snap_wien(make_data, smarttimes_payload):
 
 
 def test_allin_smarttimes_non_snap_wien(make_data, smarttimes_payload):
+    """Gesamtpreis außerhalb des SNAP-Fensters (Regel-Netzentgelt)."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone="wien")
     price = _price_at(data, "2026-06-05T18:00:00+02:00")  # 18 Uhr -> kein SNAP
     # netto AP 15,852/1,2 = 13,21 ; + 0,72 + Netz(Regel) 7,68 = 21,61
@@ -52,6 +56,7 @@ def test_allin_smarttimes_non_snap_wien(make_data, smarttimes_payload):
 
 
 def test_allin_smarttimes_without_grid_zone(make_data, smarttimes_payload):
+    """Ohne Netzgebiet fließen nur die bundesweiten Abgaben ein."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
     price = _price_at(data, "2026-06-05T14:00:00+02:00")
     # netto 9,43 + 0,72 = 10,15 ; brutto = 12,18
@@ -59,9 +64,10 @@ def test_allin_smarttimes_without_grid_zone(make_data, smarttimes_payload):
 
 
 def test_allin_net_mode(make_data, smarttimes_payload):
+    """Im Netto-Modus wird keine USt. aufgeschlagen."""
     data = make_data(smarttimes_payload, include_vat=False, grid_zone="wien")
     price = _price_at(data, "2026-06-05T14:00:00+02:00")
-    # Netto-Modus: keine USt. -> 9,43 + 0,72 + 6,28 = 16,43
+    # Netto-Modus: 9,43 + 0,72 + 6,28 = 16,43
     assert data.all_in_value(price) == pytest.approx(16.43)
 
 
@@ -69,6 +75,7 @@ def test_allin_net_mode(make_data, smarttimes_payload):
 
 
 def test_allin_smartcontrol_with_handling_fee(make_data, smartcontrol_payload):
+    """Gesamtpreis mit Abwicklungsgebühr (smartCONTROL) im SNAP-Fenster."""
     data = make_data(
         smartcontrol_payload,
         include_vat=True,
@@ -84,6 +91,7 @@ def test_allin_smartcontrol_with_handling_fee(make_data, smartcontrol_payload):
 
 
 def test_allin_smartcontrol_negative_price(make_data, smartcontrol_payload):
+    """Auch negative Börsenpreise werden korrekt verrechnet."""
     data = make_data(
         smartcontrol_payload, include_vat=True, grid_zone="wien", handling_fee_net=1.2
     )
@@ -97,6 +105,7 @@ def test_allin_smartcontrol_negative_price(make_data, smartcontrol_payload):
 
 
 def test_breakdown_smartcontrol(make_data, smartcontrol_payload):
+    """Jede Nebenkostenposition wird einzeln brutto ausgewiesen (USt. einmal)."""
     data = make_data(
         smartcontrol_payload, include_vat=True, grid_zone="wien", handling_fee_net=1.2
     )
@@ -116,12 +125,14 @@ def test_breakdown_smartcontrol(make_data, smartcontrol_payload):
 
 
 def test_breakdown_smarttimes_has_no_handling_fee(make_data, smarttimes_payload):
+    """Bei smartTIMES taucht keine Abwicklungsgebühr in der Aufschlüsselung auf."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone="wien")
     breakdown = data.surcharge_breakdown(_iso("2026-06-05T14:00:00+02:00"))
     assert "handling_fee" not in breakdown
 
 
 def test_basic_fee_gross_and_net(make_data, smarttimes_payload):
+    """Die Grundgebühr wird je nach Einstellung brutto bzw. netto geliefert."""
     moment = _iso("2026-06-05T12:00:00+02:00")
     gross = make_data(smarttimes_payload, include_vat=True)
     net = make_data(smarttimes_payload, include_vat=False)

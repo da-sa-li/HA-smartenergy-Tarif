@@ -42,17 +42,20 @@ async def _coordinator(
 
 
 async def test_needs_fetch_without_cache(hass: HomeAssistant):
-    coordinator, _ = await _coordinator(hass)  # kein Cache
+    """Ohne Cache wird immer abgerufen."""
+    coordinator, _ = await _coordinator(hass)
     assert coordinator._needs_fetch(datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)) is True
 
 
 async def test_no_fetch_when_tomorrow_present(hass: HomeAssistant, smarttimes_payload):
+    """Sind die Morgen-Preise bereits im Cache, wird nicht abgerufen."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload)
     # now am 05.06. -> morgen (06.06.) ist enthalten -> kein Abruf.
     assert coordinator._needs_fetch(datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)) is False
 
 
 async def test_no_fetch_before_threshold_hour(hass: HomeAssistant, smarttimes_payload):
+    """Vor NEXT_DAY_PRICES_HOUR wird trotz fehlender Morgen-Preise nicht abgerufen."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload)
     # now am 06.06. 12:00 -> morgen (07.06.) fehlt, aber vor 17:00 -> kein Abruf.
     assert coordinator._needs_fetch(datetime(2026, 6, 6, 12, 0, tzinfo=VIENNA)) is False
@@ -61,6 +64,7 @@ async def test_no_fetch_before_threshold_hour(hass: HomeAssistant, smarttimes_pa
 async def test_fetch_after_threshold_when_tomorrow_missing(
     hass: HomeAssistant, smarttimes_payload
 ):
+    """Nach der Schwellenstunde wird abgerufen, wenn die Morgen-Preise fehlen."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload, last_fetch=None)
     # 06.06. 18:00 -> nach 17:00+Jitter, morgen fehlt, noch nie geholt -> Abruf.
     assert coordinator._needs_fetch(datetime(2026, 6, 6, 18, 0, tzinfo=VIENNA)) is True
@@ -69,6 +73,7 @@ async def test_fetch_after_threshold_when_tomorrow_missing(
 async def test_no_fetch_after_threshold_if_recently_fetched(
     hass: HomeAssistant, smarttimes_payload
 ):
+    """Innerhalb des Retry-Intervalls wird nicht erneut abgerufen."""
     coordinator, _ = await _coordinator(
         hass, smarttimes_payload, last_fetch=datetime(2026, 6, 6, 17, 50, tzinfo=VIENNA)
     )
@@ -77,12 +82,14 @@ async def test_no_fetch_after_threshold_if_recently_fetched(
 
 
 async def test_fetch_when_cache_expired(hass: HomeAssistant, smarttimes_payload):
+    """Deckt der Cache den aktuellen Zeitpunkt nicht mehr ab, wird abgerufen."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload, last_fetch=None)
     # now nach dem letzten gecachten Intervall -> Abruf (Cache deckt nicht ab).
     assert coordinator._needs_fetch(datetime(2026, 6, 10, 12, 0, tzinfo=VIENNA)) is True
 
 
 async def test_first_fetch_failure_raises_update_failed(hass: HomeAssistant):
+    """Schlägt der allererste Abruf fehl, wird UpdateFailed ausgelöst."""
     coordinator, client = await _coordinator(hass)  # kein Cache
     client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))
     with pytest.raises(UpdateFailed):
@@ -92,6 +99,7 @@ async def test_first_fetch_failure_raises_update_failed(hass: HomeAssistant):
 async def test_fetch_failure_keeps_cached_data(
     hass: HomeAssistant, smarttimes_payload
 ):
+    """Bei einem Abruf-Fehler mit vorhandenem Cache bleiben die Daten erhalten."""
     coordinator, client = await _coordinator(hass, smarttimes_payload)
     client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))
     coordinator._needs_fetch = lambda now: True  # Abruf erzwingen

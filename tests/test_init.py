@@ -17,6 +17,7 @@ DOMAIN = "smartenergy"
 async def test_setup_and_unload(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
+    """Der Eintrag lädt sechs Sensoren und entlädt sich wieder sauber."""
     parsed = SmartTimesApiClient._parse(smarttimes_payload)
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -49,7 +50,7 @@ async def test_setup_and_unload(
 async def test_setup_falls_back_to_data_tariff(
     hass: HomeAssistant, enable_custom_integrations, smartcontrol_payload
 ):
-    # Älterer Eintrag ohne Optionen: Tarif kommt aus data -> smartCONTROL.
+    """Ein Altbestand ohne Optionen liest den Tarif aus ``data``."""
     parsed = SmartTimesApiClient._parse(smartcontrol_payload)
     entry = MockConfigEntry(
         domain=DOMAIN,

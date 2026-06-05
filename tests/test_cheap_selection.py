@@ -17,6 +17,7 @@ DAY = date(2026, 6, 5)
 
 
 def _iso(value: str) -> datetime:
+    """Kurzschreibweise für ein ISO-8601-datetime (mit Offset)."""
     return datetime.fromisoformat(value)
 
 
@@ -26,6 +27,7 @@ def _quarter_hours(hour: str) -> list[datetime]:
 
 
 def test_individual_picks_cheapest_quarter_hours(make_data, smartcontrol_payload):
+    """Einzelstunden-Modus wählt die günstigsten Viertelstunden des Tages."""
     # smartCONTROL hat unterschiedliche Preise -> klare Rangfolge.
     # Günstigste Stunde am 05.06. ist 14:00 (gross 3,851).
     data = make_data(
@@ -39,9 +41,10 @@ def test_individual_picks_cheapest_quarter_hours(make_data, smartcontrol_payload
 
 
 def test_individual_tie_expands_selection(make_data, smarttimes_payload):
+    """Bei Gleichstand am Schwellwert wird die Auswahl erweitert."""
     # smartTIMES: 32 Intervalle teilen sich den Tiefstpreis 11,316
     # (Stunden 02-03 und 10-15). Ohne Netzgebiet sind sie exakt gleich teuer,
-    # daher wird die Auswahl bei Gleichstand über die 4 strikten hinaus erweitert.
+    # daher wird die Auswahl über die 4 strikten hinaus erweitert.
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
     all_starts, strict_starts = data._cheap_selection(DAY, 1.0, "individual")
     assert len(strict_starts) == 4
@@ -49,6 +52,7 @@ def test_individual_tie_expands_selection(make_data, smarttimes_payload):
 
 
 def test_consecutive_block_crosses_hour_boundary(make_data, smartcontrol_payload):
+    """Der zusammenhängende Block ist das günstigste lückenlose Fenster."""
     # 2 h = 8 zusammenhängende Intervalle mit minimaler Summe.
     # Fenster 13:00-14:45: 4x5,160 + 4x3,851 = 36,044 (günstiger als 12:00-13:45
     # = 46,424 und 14:00-15:45 = 40,68).
@@ -60,6 +64,7 @@ def test_consecutive_block_crosses_hour_boundary(make_data, smartcontrol_payload
 
 
 def test_consecutive_soft_end_on_tie(make_data, smarttimes_payload):
+    """Ein gleichstandsbedingt verlängertes Blockende wird als soft_end markiert."""
     # smartTIMES, 1 h Block: günstigstes Fenster ist 02:00-02:45 (11,316). Direkt
     # danach folgen weitere 11,316-Intervalle bis 03:45 -> der Block wird bei
     # Gleichstand zusammenhängend bis 04:00 verlängert und als soft_end markiert.

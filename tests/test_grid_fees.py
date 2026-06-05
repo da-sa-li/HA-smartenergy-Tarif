@@ -14,6 +14,7 @@ from tests.conftest import VIENNA
 
 
 def _dt(year, month, day, hour, minute=0):
+    """Zeitzonenbehaftetes datetime in Europe/Vienna (knappe Test-Schreibweise)."""
     return datetime(year, month, day, hour, minute, tzinfo=VIENNA)
 
 
@@ -31,10 +32,12 @@ def _dt(year, month, day, hour, minute=0):
     ],
 )
 def test_is_snap(moment, expected):
+    """Das SNAP-Fenster gilt im Sommerhalbjahr 10:00-16:00 (Ende exklusiv)."""
     assert grid_fees.is_snap(moment) is expected
 
 
 def test_zone_lookup():
+    """Der Zonen-Lookup liefert None für leere/unbekannte Schlüssel, sonst die Zone."""
     assert grid_fees.get_zone(None) is None
     assert grid_fees.get_zone("") is None
     assert grid_fees.get_zone("none") is None        # kein Eintrag mit diesem Schlüssel
@@ -43,24 +46,26 @@ def test_zone_lookup():
 
 
 def test_usage_rate_snap_vs_normal():
+    """Der Netznutzungs-Arbeitspreis ist im SNAP-Fenster reduziert, sonst normal."""
     zone = grid_fees.get_zone("wien")
     assert zone.usage_rate(_dt(2026, 6, 5, 14)) == 5.58   # SNAP
     assert zone.usage_rate(_dt(2026, 1, 15, 12)) == 6.98  # Regelzeit
 
 
 def test_total_non_snap():
+    """Außerhalb des SNAP: 6,98 + 0,700 = 7,68 ct/kWh netto."""
     zone = grid_fees.get_zone("wien")
-    # 6,98 + 0,700 = 7,68
     assert zone.total_ct_per_kwh(_dt(2026, 1, 15, 12)) == pytest.approx(7.68)
 
 
 def test_total_snap():
+    """Im SNAP-Fenster: 5,58 + 0,700 = 6,28 ct/kWh netto."""
     zone = grid_fees.get_zone("wien")
-    # 5,58 + 0,700 = 6,28
     assert zone.total_ct_per_kwh(_dt(2026, 6, 5, 14)) == pytest.approx(6.28)
 
 
 def test_breakdown_uses_snap_rate():
+    """Die Aufschlüsselung nutzt je nach Zeitpunkt den SNAP- bzw. Regelsatz."""
     zone = grid_fees.get_zone("wien")
     assert zone.breakdown(_dt(2026, 6, 5, 14)) == {"grid_usage": 5.58, "grid_loss": 0.700}
     assert zone.breakdown(_dt(2026, 1, 15, 12)) == {"grid_usage": 6.98, "grid_loss": 0.700}

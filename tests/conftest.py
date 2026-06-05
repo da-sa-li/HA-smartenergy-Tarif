@@ -67,6 +67,7 @@ def make_data():
         handling_fee_net: float = 0.0,
         tariff_name: str | None = None,
     ) -> SmartTimesData:
+        """Parst ``payload`` und kapselt ihn als ``SmartTimesData``."""
         result = SmartTimesApiClient._parse(payload)
         return SmartTimesData(
             tariff=tariff_name or result.tariff,

@@ -21,6 +21,7 @@ _PATCH_SETUP = "custom_components.smartenergy.async_setup_entry"
 async def test_user_flow_creates_entry(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
+    """Erfolgreicher Flow legt den Eintrag mit den gewählten Optionen an."""
     parsed = SmartTimesApiClient._parse(smarttimes_payload)
     with patch(_PATCH_PRICES, AsyncMock(return_value=parsed)), patch(
         _PATCH_SETUP, return_value=True
@@ -49,6 +50,7 @@ async def test_user_flow_creates_entry(
 async def test_user_flow_cannot_connect(
     hass: HomeAssistant, enable_custom_integrations
 ):
+    """Ein Verbindungsfehler zeigt das Formular mit ``cannot_connect`` erneut."""
     with patch(_PATCH_PRICES, AsyncMock(side_effect=SmartTimesApiError("boom"))):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -65,6 +67,7 @@ async def test_user_flow_cannot_connect(
 async def test_only_single_instance_allowed(
     hass: HomeAssistant, enable_custom_integrations
 ):
+    """Existiert bereits ein Eintrag, bricht ein zweiter Flow ab."""
     MockConfigEntry(domain=DOMAIN, unique_id=DOMAIN).add_to_hass(hass)
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -75,6 +78,7 @@ async def test_only_single_instance_allowed(
 async def test_options_flow_updates_options_and_title(
     hass: HomeAssistant, enable_custom_integrations
 ):
+    """Der Options-Flow aktualisiert Optionen und passt den Titel dem Tarif an."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
@@ -103,6 +107,7 @@ async def test_options_flow_updates_options_and_title(
 
 
 async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
+    """Der Untereintrags-Flow legt einen „Günstige Stunde"-Sensor an."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
@@ -128,6 +133,7 @@ async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
 async def test_subentry_name_required(
     hass: HomeAssistant, enable_custom_integrations
 ):
+    """Ein leerer Name im Untereintrags-Flow erzeugt den Fehler ``name_required``."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
