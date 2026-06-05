@@ -17,6 +17,7 @@ from datetime import datetime
 
 import pytest
 
+from custom_components.smartenergy.api import MarketPrice
 from custom_components.smartenergy.coordinator import SmartTimesData
 
 
@@ -25,7 +26,7 @@ def _iso(value: str) -> datetime:
     return datetime.fromisoformat(value)
 
 
-def _price_at(data: SmartTimesData, value: str):
+def _price_at(data: SmartTimesData, value: str) -> MarketPrice:
     """Liefert den Preis-Eintrag mit dem Startzeitpunkt ``value``."""
     target = _iso(value)
     for price in data.prices:

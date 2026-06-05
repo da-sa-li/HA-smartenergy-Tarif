@@ -105,4 +105,5 @@ async def test_fetch_failure_keeps_cached_data(
     coordinator._needs_fetch = lambda now: True  # Abruf erzwingen
     # Trotz Fehler bleiben die gecachten Daten erhalten (kein UpdateFailed).
     data = await coordinator._async_update_data()
+    # 192 = 2 Tage (05.+06.06.2026) x 96 Viertelstunden/Tag (vgl. Modul-Docstring).
     assert len(data.prices) == 192

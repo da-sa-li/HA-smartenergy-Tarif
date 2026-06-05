@@ -36,7 +36,8 @@ async def test_setup_and_unload(
 
     assert entry.state is ConfigEntryState.LOADED
 
-    # Sechs Preis-Sensoren, keine Binary-Sensoren (kein Untereintrag angelegt).
+    # 6 Sensor-Entities (die sechs Einträge in SENSORS in sensor.py), 0 Binary-
+    # Sensoren (es wurde kein „Günstige Stunde"-Untereintrag angelegt).
     registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(registry, entry.entry_id)
     assert sum(e.domain == "sensor" for e in entities) == 6
@@ -68,7 +69,8 @@ async def test_setup_falls_back_to_data_tariff(
         await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
-    # Anzeige-Tarif stammt aus der Nutzer-Auswahl, nicht aus der API (EPEXSPOTAT).
+    # entry.data["tariff"]="smartcontrol" wird über TARIFF_DISPLAY_NAMES auf den
+    # Anzeigenamen "smartCONTROL" abgebildet (nicht den API-Wert "EPEXSPOTAT").
     assert entry.runtime_data.data.tariff == "smartCONTROL"
 
     assert await hass.config_entries.async_unload(entry.entry_id)
