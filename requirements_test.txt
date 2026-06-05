@@ -1,3 +1,7 @@
 # Test-Abhängigkeiten. pytest-homeassistant-custom-component zieht eine dazu
 # passende Home-Assistant-Version (inkl. pytest) als Abhängigkeit nach.
-pytest-homeassistant-custom-component
+#
+# Auf eine konkrete Version gepinnt, damit die CI reproduzierbar läuft. Dependabot
+# (.github/dependabot.yml) hebt den Pin über automatische, von der CI geprüfte
+# PRs an, sobald eine neue Version erscheint.
+pytest-homeassistant-custom-component==0.13.316

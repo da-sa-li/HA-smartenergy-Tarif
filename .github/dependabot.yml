@@ -1,0 +1,26 @@
+# Hält die Test-Abhängigkeit (gepinnt in requirements_test.txt) und die
+# GitHub-Actions automatisch aktuell. Updates kommen als reviewbare PRs, auf
+# denen die CI läuft – so bleibt der Pin reproduzierbar UND aktuell.
+version: 2
+updates:
+  # Python-Test-Abhängigkeiten (liest requirements_test.txt).
+  # pytest-homeassistant-custom-component folgt jedem HA-Release, daher wöchentlich
+  # und gebündelt, damit nicht zu viele Einzel-PRs entstehen.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      test-dependencies:
+        patterns:
+          - "*"
+
+  # GitHub-Actions in .github/workflows (z. B. actions/checkout, setup-python).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
