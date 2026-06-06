@@ -34,11 +34,11 @@ Es gibt **kein** Build-System. Validiert wird über Home-Assistant-Tooling sowie
 Lokal:
 
 ```bash
-# Syntax aller Module prüfen (3.13 wegen PEP 695!)
-python3.13 -m py_compile custom_components/smartenergy/*.py
+# Syntax aller Module prüfen (3.14 wegen PEP 695)
+python3.14 -m py_compile custom_components/smartenergy/*.py
 
 # Testsuite (braucht das HA-Test-Harness):
-python3.13 -m venv .venv-test && . .venv-test/bin/activate
+python3.14 -m venv .venv-test && . .venv-test/bin/activate
 pip install -r requirements_test.txt
 pytest
 ```
