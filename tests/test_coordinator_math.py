@@ -137,5 +137,5 @@ def test_basic_fee_gross_and_net(make_data, smarttimes_payload):
     moment = _iso("2026-06-05T12:00:00+02:00")
     gross = make_data(smarttimes_payload, include_vat=True)
     net = make_data(smarttimes_payload, include_vat=False)
-    assert gross.basic_fee(moment) == 2.988            # brutto wie geliefert
+    assert gross.basic_fee(moment) == pytest.approx(2.988)  # brutto wie geliefert
     assert net.basic_fee(moment) == pytest.approx(2.49)  # 2,988 / 1,2
