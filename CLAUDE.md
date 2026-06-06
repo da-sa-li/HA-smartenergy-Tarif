@@ -17,9 +17,9 @@ Konvention beibehalten.
 
 ## Sprache & Laufzeit
 
-- **Zielruntime ist Python 3.13** (Home Assistant 2025.3+). `__init__.py` nutzt PEP-695-Syntax
+- **Zielruntime ist Python 3.14** (Home Assistant 2026.3+). `__init__.py` nutzt PEP-695-Syntax
   (`type SmartTimesConfigEntry = ...`), die ältere Interpreter nicht parsen. Für lokale Checks
-  immer `python3.13` verwenden – nicht das voreingestellte `python3` (oft 3.11).
+  immer `python3.14` verwenden – nicht das voreingestellte `python3` (oft 3.11).
 
 ## Befehle
 
