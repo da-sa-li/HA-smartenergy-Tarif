@@ -99,7 +99,6 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
     SmartTimesSensorDescription(
         key="working_price",
         translation_key="working_price",
-        icon="mdi:flash",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=3,
         value_fn=_current_value,
@@ -107,7 +106,6 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
     SmartTimesSensorDescription(
         key="current_price_eur",
         translation_key="current_price_eur",
-        icon="mdi:currency-eur",
         unit=UNIT_EUR_PER_KWH,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=5,
@@ -116,28 +114,24 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
     SmartTimesSensorDescription(
         key="average_today",
         translation_key="average_today",
-        icon="mdi:chart-line",
         suggested_display_precision=3,
         value_fn=_average_today,
     ),
     SmartTimesSensorDescription(
         key="lowest_today",
         translation_key="lowest_today",
-        icon="mdi:trending-down",
         suggested_display_precision=3,
         value_fn=_lowest_today,
     ),
     SmartTimesSensorDescription(
         key="highest_today",
         translation_key="highest_today",
-        icon="mdi:trending-up",
         suggested_display_precision=3,
         value_fn=_highest_today,
     ),
     SmartTimesSensorDescription(
         key="basic_fee",
         translation_key="basic_fee",
-        icon="mdi:cash",
         unit=UNIT_EUR_PER_MONTH,
         suggested_display_precision=2,
         value_fn=_basic_fee,
