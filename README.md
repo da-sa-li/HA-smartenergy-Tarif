@@ -2,7 +2,8 @@
 
 Eine [Home Assistant](https://www.home-assistant.io/) Integration für die
 dynamischen Stromtarife **[smartTIMES](https://www.smartenergy.at/smarttimes)**
-(zeitabhängig) und **smartCONTROL** (an den Spot-Börsenpreis gekoppelt) von
+(zeitabhängig) und **[smartCONTROL](https://www.smartenergy.at/smartcontrol)**
+(an den Spot-Börsenpreis gekoppelt) von
 [smartENERGY](https://www.smartenergy.at/), die viertelstündliche Tarifpreise als
 Sensoren bereitstellt – ideal zum automatischen Schalten von Verbrauchern in
 günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
@@ -32,9 +33,10 @@ günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
 
 ## Datenquelle
 
-Die Integration verwendet die öffentlichen Preis-APIs von smartENERGY
-([API-Dokumentation](https://www.smartenergy.at/api-schnittstellen)) – je nach
-gewähltem Tarif:
+Die Integration verwendet die öffentlichen Preis-APIs von smartENERGY – je nach
+gewähltem Tarif (API-Dokumentation:
+[smartTIMES](https://www.smartenergy.at/api-schnittstellen-smarttimes),
+[smartCONTROL](https://www.smartenergy.at/api-schnittstellen)):
 
 ```
 smartTIMES:   https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
