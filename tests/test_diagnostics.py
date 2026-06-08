@@ -63,7 +63,8 @@ async def test_diagnostics_snapshot(
     assert coordinator_diag["tariff"] == "smartTIMES"
     assert coordinator_diag["interval_minutes"] == 15
     assert coordinator_diag["include_vat"] is True
-    assert coordinator_diag["price_count"] == len(parsed.prices)
+    # Fixture deckt den 05. und 06.06.2026 ab: 2 Tage x 96 Viertelstunden.
+    assert coordinator_diag["price_count"] == 192
     assert coordinator_diag["grid_zone"] == {"key": "wien", "name": "Wien"}
     # 12:30 Uhr im Juni -> SNAP-Fenster (April-September, 10-16 Uhr) aktiv.
     assert coordinator_diag["snap_active"] is True
