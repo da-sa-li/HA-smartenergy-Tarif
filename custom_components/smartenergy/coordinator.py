@@ -425,6 +425,11 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         """Ob die Preise inkl. USt. (brutto) ausgewiesen werden."""
         return self._include_vat
 
+    @property
+    def last_fetch(self) -> datetime | None:
+        """Zeitpunkt des letzten (versuchten) API-Abrufs (für die Diagnose)."""
+        return self._last_fetch
+
     def _needs_fetch(self, now: datetime) -> bool:
         """Entscheidet, ob ein neuer API-Aufruf nötig ist."""
         # Kein Cache → sofort holen (Fehler → UpdateFailed, HA übernimmt Retry)
