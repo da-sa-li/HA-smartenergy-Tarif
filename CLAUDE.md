@@ -43,8 +43,8 @@ Lokal:
 # Syntax aller Module prüfen (3.14 wegen PEP 695)
 python3.14 -m py_compile custom_components/smartenergy/*.py
 
-# Sicherstellen, dass es eine finale Version ist (kein "rc"/"a"/"b" im Versionsstring!)
-python3.14 --version
+# Sicherstellen, dass es eine finale Version >= 3.14.2 ist (kein Alpha/Beta/RC):
+python3.14 -c "import sys; v = sys.version_info; assert (v.major, v.minor, v.micro) >= (3, 14, 2) and v.releaselevel == 'final', sys.version"
 
 # Testsuite (braucht das HA-Test-Harness):
 python3.14 -m venv .venv-test && . .venv-test/bin/activate
