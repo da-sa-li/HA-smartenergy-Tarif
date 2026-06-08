@@ -1,0 +1,21 @@
+{
+  "entity": {
+    "sensor": {
+      "working_price": { "default": "mdi:flash" },
+      "current_price_eur": { "default": "mdi:currency-eur" },
+      "average_today": { "default": "mdi:chart-line" },
+      "lowest_today": { "default": "mdi:trending-down" },
+      "highest_today": { "default": "mdi:trending-up" },
+      "basic_fee": { "default": "mdi:cash" }
+    },
+    "binary_sensor": {
+      "cheap_hour": {
+        "default": "mdi:cash-clock",
+        "state": {
+          "on": "mdi:cash-clock",
+          "off": "mdi:cash-remove"
+        }
+      }
+    }
+  }
+}
