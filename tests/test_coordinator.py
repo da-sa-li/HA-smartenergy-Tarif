@@ -108,7 +108,7 @@ async def test_fetch_failure_keeps_cached_data(
     """Bei einem Abruf-Fehler mit vorhandenem Cache bleiben die Daten erhalten."""
     coordinator, client = await _coordinator(hass, smarttimes_payload)
     client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))
-    coordinator._needs_fetch = lambda now: True  # Abruf erzwingen
+    coordinator._needs_fetch = lambda _: True  # Abruf erzwingen
     # Trotz Fehler bleiben die gecachten Daten erhalten (kein UpdateFailed).
     data = await coordinator._async_update_data()
     # 192 = 2 Tage (05.+06.06.2026) x 96 Viertelstunden/Tag (vgl. Modul-Docstring).
@@ -146,7 +146,7 @@ async def test_persistent_fetch_failure_reports_and_clears_repair_issue(
     """Ein dauerhafter Abruf-Fehler meldet ein Issue, das bei Erfolg wieder schließt."""
     await hass.config.async_set_time_zone("Europe/Vienna")
     coordinator, client = await _coordinator(hass, smarttimes_payload)
-    coordinator._needs_fetch = lambda now: True  # Abruf-Versuch erzwingen
+    coordinator._needs_fetch = lambda _: True  # Abruf-Versuch erzwingen
     # Letzter Erfolg liegt länger als FETCH_FAILURE_REPAIR_HOURS zurück.
     coordinator._last_success = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA)
     client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))

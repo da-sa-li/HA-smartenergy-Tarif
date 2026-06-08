@@ -23,7 +23,7 @@ from custom_components.smartenergy.repairs import (
 )
 
 
-def _issue(hass: HomeAssistant, issue_id: str):
+def _issue(hass: HomeAssistant, issue_id: str) -> ir.IssueEntry | None:
     """Kurzschreibweise: das Issue zur ``DOMAIN`` aus der Registry holen."""
     return ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
 
