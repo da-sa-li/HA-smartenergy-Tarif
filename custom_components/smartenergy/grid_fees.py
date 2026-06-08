@@ -19,7 +19,9 @@ und wird hier daher nicht berücksichtigt.
 
 Alle Sätze sind **netto** in ct/kWh; die USt. wird – wie beim Arbeitspreis und
 den Abgaben – erst am Ende auf die Summe angewendet (siehe Coordinator).
-Werte: Stand 2026.
+Werte: Stand 2026 (siehe `const.TARIFF_DATA_YEAR` – bei der jährlichen
+Aktualisierung der Sätze auch dort das Jahr anheben, sonst meldet
+`repairs.py` ein Repair-Issue).
 """
 
 from __future__ import annotations
