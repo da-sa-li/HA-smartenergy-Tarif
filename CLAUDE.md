@@ -20,6 +20,12 @@ Konvention beibehalten.
 - **Zielruntime ist Python 3.14** (Home Assistant 2026.3+). `__init__.py` nutzt PEP-695-Syntax
   (`type SmartTimesConfigEntry = ...`), die ältere Interpreter nicht parsen. Für lokale Checks
   immer `python3.14` verwenden – nicht das voreingestellte `python3` (oft 3.11).
+- **Wichtig:** Dabei eine **finale** 3.14-Version (≥ 3.14.2, wie von `homeassistant` gefordert)
+  verwenden, **keine** Vorabversion (Alpha/Beta/RC, z. B. `3.14.0rc2`). In Vorabversionen waren
+  `typing.ByteString`/`collections.abc.ByteString` zeitweise entfernt, worauf `mashumaro`
+  zugreift – das führt beim Laden der pytest-Plugins zu `AttributeError: module 'typing' has no
+  attribute 'ByteString'`. Die Entfernung wurde für den finalen 3.14.0-Release zurückgenommen
+  (jetzt für 3.17 vorgesehen), betrifft finale 3.14.x-Releases also nicht (siehe Issue #41).
 
 ## Befehle
 
@@ -36,6 +42,9 @@ Lokal:
 ```bash
 # Syntax aller Module prüfen (3.14 wegen PEP 695)
 python3.14 -m py_compile custom_components/smartenergy/*.py
+
+# Sicherstellen, dass es eine finale Version >= 3.14.2 ist (kein Alpha/Beta/RC):
+python3.14 -c "import sys; v = sys.version_info; assert (v.major, v.minor, v.micro) >= (3, 14, 2) and v.releaselevel == 'final', sys.version"
 
 # Testsuite (braucht das HA-Test-Harness):
 python3.14 -m venv .venv-test && . .venv-test/bin/activate
