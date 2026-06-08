@@ -8,16 +8,22 @@ testbar – hier wird der maßgebliche Zeitpunkt direkt an ``_needs_fetch``
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient, SmartTimesApiError
+from custom_components.smartenergy.const import FETCH_FAILURE_REPAIR_HOURS, TARIFF_DATA_YEAR
 from custom_components.smartenergy.coordinator import SmartTimesCoordinator
+from custom_components.smartenergy.repairs import (
+    ISSUE_FETCH_FAILING,
+    ISSUE_TARIFF_DATA_OUTDATED,
+)
 from tests.conftest import VIENNA
 
 DOMAIN = "smartenergy"
@@ -107,3 +113,79 @@ async def test_fetch_failure_keeps_cached_data(
     data = await coordinator._async_update_data()
     # 192 = 2 Tage (05.+06.06.2026) x 96 Viertelstunden/Tag (vgl. Modul-Docstring).
     assert len(data.prices) == 192
+
+
+# --- Repair-Issues (Issue #36): dauerhafter Abruf-Fehler / veraltete Tarifdaten -- #
+
+
+async def test_fetch_not_failing_without_prior_success(hass: HomeAssistant):
+    """Ohne je gelungenen Abruf gilt der Cache (noch) nicht als dauerhaft veraltet.
+
+    Praktisch unerreichbar von außen (ein erster Fehlschlag löst ``UpdateFailed``
+    aus, bevor die Prüfung greift), dokumentiert aber die Grenzbedingung von
+    ``_fetch_failing``.
+    """
+    coordinator, _ = await _coordinator(hass)
+    assert coordinator._fetch_failing(datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)) is False
+
+
+async def test_fetch_failing_threshold(hass: HomeAssistant, smarttimes_payload):
+    """Erst ab ``FETCH_FAILURE_REPAIR_HOURS`` ohne Erfolg gilt der Abruf als gestört."""
+    coordinator, _ = await _coordinator(hass, smarttimes_payload)
+    coordinator._last_success = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA)
+    threshold = coordinator._last_success + timedelta(hours=FETCH_FAILURE_REPAIR_HOURS)
+
+    assert coordinator._fetch_failing(threshold - timedelta(minutes=1)) is False
+    assert coordinator._fetch_failing(threshold) is True
+
+
+@pytest.mark.freeze_time("2026-06-08 12:00:00")
+async def test_persistent_fetch_failure_reports_and_clears_repair_issue(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """Ein dauerhafter Abruf-Fehler meldet ein Issue, das bei Erfolg wieder schließt."""
+    await hass.config.async_set_time_zone("Europe/Vienna")
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda now: True  # Abruf-Versuch erzwingen
+    # Letzter Erfolg liegt länger als FETCH_FAILURE_REPAIR_HOURS zurück.
+    coordinator._last_success = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA)
+    client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))
+
+    await coordinator._async_update_data()
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_FETCH_FAILING)
+    assert issue is not None
+    assert issue.is_fixable is False
+    assert issue.severity is ir.IssueSeverity.WARNING
+
+    # Der nächste Abruf gelingt wieder -> Issue schließt sich automatisch.
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    client.async_get_prices = AsyncMock(return_value=parsed)
+    await coordinator._async_update_data()
+
+    assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_FETCH_FAILING) is None
+
+
+@pytest.mark.freeze_time("2027-01-02 12:00:00")
+async def test_outdated_tariff_data_year_reports_repair_issue(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """Liegt das laufende Jahr nach ``TARIFF_DATA_YEAR``, entsteht das Daten-Issue.
+
+    2027 > TARIFF_DATA_YEAR (2026) – die in ``grid_fees.py``/``surcharges.py``
+    hinterlegten "Stand 2026"-Sätze gelten dann als veraltet (Spezifikation aus
+    Issue #36: "wenn das aktuelle Jahr größer ist als das Jahr der hinterlegten
+    Netzentgelte").
+    """
+    assert TARIFF_DATA_YEAR == 2026
+    await hass.config.async_set_time_zone("Europe/Vienna")
+    coordinator, client = await _coordinator(hass)  # kein Cache -> erster Abruf
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    client.async_get_prices = AsyncMock(return_value=parsed)
+
+    await coordinator._async_update_data()
+
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_TARIFF_DATA_OUTDATED)
+    assert issue is not None
+    assert issue.is_fixable is False
+    assert issue.severity is ir.IssueSeverity.WARNING
+    assert issue.translation_placeholders == {"data_year": str(TARIFF_DATA_YEAR)}

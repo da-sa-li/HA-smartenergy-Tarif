@@ -108,6 +108,16 @@
       }
     }
   },
+  "issues": {
+    "tariff_data_outdated": {
+      "title": "Tarifdaten veraltet (Stand {data_year})",
+      "description": "Die in dieser Version hinterlegten Netzentgelte und der Erneuerbaren-Förderbeitrag sind „Stand {data_year}“ – diese Sätze werden jährlich neu festgelegt. Da das laufende Kalenderjahr bereits weiter fortgeschritten ist, rechnet die Integration möglicherweise mit veralteten Werten. Bitte auf eine neuere Version der Integration aktualisieren, sobald eine mit aktualisierten Sätzen erscheint."
+    },
+    "fetch_failing": {
+      "title": "Tarifpreise werden seit längerem nicht aktualisiert",
+      "description": "Der Abruf aktueller Tarifpreise von der smartENERGY-API schlägt seit mehreren Stunden fehl. Die Integration verwendet währenddessen weiter die zuletzt erfolgreich geladenen, zwischengespeicherten Preise – diese könnten inzwischen veraltet sein. Das Problem behebt sich automatisch, sobald der Abruf wieder gelingt."
+    }
+  },
   "entity": {
     "sensor": {
       "working_price": {

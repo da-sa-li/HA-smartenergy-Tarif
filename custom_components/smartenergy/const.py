@@ -119,6 +119,20 @@ FETCH_RETRY_INTERVAL_MINUTES: Final = 30
 # 20-Minuten-Fenster nach NEXT_DAY_PRICES_HOUR.
 FETCH_JITTER_MINUTES: Final = 20
 
+# Kalenderjahr, für das die in `grid_fees.py` (Netzentgelte) und
+# `surcharges.py` (Erneuerbaren-Förderbeitrag) hinterlegten "Stand <Jahr>"-
+# Werte gelten. Muss zusammen mit diesen Werten jährlich aktualisiert werden;
+# `repairs.py` meldet andernfalls ein Repair-Issue, sobald das laufende Jahr
+# diesen Wert überschreitet (siehe `async_check_tariff_data_year`).
+TARIFF_DATA_YEAR: Final = 2026
+
+# Ab dieser Dauer ohne erfolgreichen Preis-Abruf meldet `repairs.py` ein
+# Repair-Issue ("dauerhafter Abruf-Fehler"): Der Coordinator behält den Cache
+# bewusst (siehe `_async_update_data`), aber Nutzer sollen erfahren, dass die
+# angezeigten Preise inzwischen veraltet sein könnten. Schließt sich
+# automatisch, sobald wieder ein Abruf gelingt.
+FETCH_FAILURE_REPAIR_HOURS: Final = 36
+
 
 def documentation_url(tariff_display_name: str) -> str:
     """Doku-Link je Tarif (smartTIMES hat eine eigene API-Doku-Seite)."""

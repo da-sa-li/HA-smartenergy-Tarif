@@ -19,6 +19,7 @@ from .const import (
     CHEAP_MODE_CONSECUTIVE,
     DEFAULT_CHEAP_MODE,
     DOMAIN,
+    FETCH_FAILURE_REPAIR_HOURS,
     FETCH_JITTER_MINUTES,
     FETCH_RETRY_INTERVAL_MINUTES,
     NEXT_DAY_PRICES_HOUR,
@@ -27,6 +28,7 @@ from .const import (
 )
 from .grid_fees import GridZone
 from .jitter import jittered_window
+from .repairs import async_check_tariff_data_year, async_update_fetch_issue
 from .surcharges import (
     surcharge_breakdown as tax_breakdown,
     total_surcharge_ct_per_kwh as total_tax_ct_per_kwh,
@@ -414,6 +416,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         # liefert bei smartCONTROL "EPEXSPOTAT").
         self._tariff_name = tariff_name
         self._last_fetch: datetime | None = None
+        self._last_success: datetime | None = None
         self._last_result: SmartTimesResult | None = None
         # Deterministischer Jitter (0..FETCH_JITTER_MINUTES-1 min) aus der
         # Entry-ID: verschiedene HA-Instanzen treffen den API-Server zeitversetzt.
@@ -466,6 +469,18 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
 
         return False
 
+    def _fetch_failing(self, now: datetime) -> bool:
+        """Ob seit ``FETCH_FAILURE_REPAIR_HOURS`` kein Abruf mehr gelang.
+
+        Maßgeblich ist der letzte *erfolgreiche* Abruf (``_last_success``):
+        Erst wenn er so lange zurückliegt, sind die zwischengespeicherten
+        Preise vermutlich veraltet und ein Repair-Issue gerechtfertigt (siehe
+        ``repairs.async_update_fetch_issue``).
+        """
+        if self._last_success is None:
+            return False
+        return now - self._last_success >= timedelta(hours=FETCH_FAILURE_REPAIR_HOURS)
+
     async def _async_update_data(self) -> SmartTimesData:
         """Berechnet die Entitätsdaten neu und ruft bei Bedarf die API ab."""
         now = dt_util.now()
@@ -482,11 +497,20 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
                     "verwende zwischengespeicherte Daten: %s",
                     err,
                 )
+            else:
+                self._last_success = now
             finally:
                 # Zeitstempel immer setzen – auch bei Fehler – damit
                 # _needs_fetch den nächsten Versuch um FETCH_RETRY_INTERVAL
                 # verzögert und die API nicht minütlich gespammt wird.
                 self._last_fetch = now
+
+            # Repair-Issues nur dort prüfen, wo sich die maßgeblichen
+            # Zeitstempel überhaupt ändern können (= bei einem Abruf-Versuch,
+            # siehe oben) – das genügt für eine zeitnahe Meldung/Schließung,
+            # ohne die Issue-Registry minütlich anzustoßen.
+            async_check_tariff_data_year(self.hass, now)
+            async_update_fetch_issue(self.hass, failing=self._fetch_failing(now))
 
         result = self._last_result
         assert result is not None  # nach erfolgreichem ersten Abruf garantiert

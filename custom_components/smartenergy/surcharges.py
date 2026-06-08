@@ -86,7 +86,8 @@ ELECTRICITY_TAX: Final = Surcharge(
 # 2026 gültige Satz – die Integration bewertet ausschließlich Gegenwart/Zukunft,
 # ein separater 2025-Satz ist daher nicht nötig.
 # Hinweis: Wird jährlich neu festgelegt – Wert ist Stand 2026 und sollte zum
-# Jahreswechsel aktualisiert werden.
+# Jahreswechsel zusammen mit `const.TARIFF_DATA_YEAR` aktualisiert werden,
+# sonst meldet `repairs.py` ein Repair-Issue.
 RENEWABLE_SUPPORT: Final = Surcharge(
     key="renewable_support",
     name="Erneuerbaren-Förderbeitrag",

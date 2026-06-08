@@ -108,6 +108,16 @@
       }
     }
   },
+  "issues": {
+    "tariff_data_outdated": {
+      "title": "Tariff data outdated (as of {data_year})",
+      "description": "The grid fees and renewable energy surcharge bundled with this version are \"as of {data_year}\" – these rates are redetermined every year. Since the current calendar year has already moved on, the integration may now be calculating with outdated values. Please update to a newer version of the integration once one with refreshed rates is released."
+    },
+    "fetch_failing": {
+      "title": "Tariff prices have not been refreshed for a while",
+      "description": "Fetching current tariff prices from the smartENERGY API has been failing for several hours. The integration keeps using the last successfully loaded, cached prices in the meantime – these may by now be outdated. The issue resolves itself automatically once fetching succeeds again."
+    }
+  },
   "entity": {
     "sensor": {
       "working_price": {
