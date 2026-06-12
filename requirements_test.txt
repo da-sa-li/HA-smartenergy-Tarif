@@ -4,4 +4,4 @@
 # Auf eine konkrete Version gepinnt, damit die CI reproduzierbar läuft. Dependabot
 # (.github/dependabot.yml) hebt den Pin über automatische, von der CI geprüfte
 # PRs an, sobald eine neue Version erscheint.
-pytest-homeassistant-custom-component==0.13.337
+pytest-homeassistant-custom-component==0.13.338
