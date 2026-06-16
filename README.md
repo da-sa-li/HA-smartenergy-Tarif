@@ -295,3 +295,6 @@ Netzentgelte ganz weg, der Gesamtpreis fällt dann zu niedrig aus.
 ## Lizenz
 
 Siehe [LICENSE](LICENSE).
+
+## Ähnliche Projekte
+Inspiriert von [EPEX-Spot](https://github.com/mampfes/ha_epex_spot)
