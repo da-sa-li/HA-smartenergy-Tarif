@@ -2,7 +2,7 @@
 
 Eine [Home Assistant](https://www.home-assistant.io/) Integration für die
 dynamischen Stromtarife **[smartTIMES](https://www.smartenergy.at/smarttimes)**
-(drei Preiszonen mit monatlich dynamsischen Preisen) und **[smartCONTROL](https://www.smartenergy.at/smartcontrol)**
+(drei Preiszonen mit monatlicher Preisanpassung) und **[smartCONTROL](https://www.smartenergy.at/smartcontrol)**
 (an den Spot-Börsenpreis gekoppelt) von
 [smartENERGY](https://www.smartenergy.at/), die viertelstündliche Tarifpreise als
 Sensoren bereitstellt – ideal zum automatischen Schalten von Verbrauchern in
