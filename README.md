@@ -49,9 +49,8 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 ### Über HACS (empfohlen)
 
-1. HACS öffnen → oben rechts auf die drei Punkte → **Benutzerdefinierte Repositories**.
-2. Repository-URL dieses Projekts eintragen, Kategorie **Integration** wählen und hinzufügen.
-3. Die Integration **smartENERGY Strompreishelfer** suchen, herunterladen und Home Assistant neu starten.
+1. HACS öffnen → **Integrationen**.
+2. Nach **smartENERGY Strompreishelfer** suchen, herunterladen und Home Assistant neu starten.
 
 ### Manuell
 
