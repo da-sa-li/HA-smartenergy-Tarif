@@ -1,0 +1,148 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Asystent cen prądu smartENERGY",
+        "description": "Pobiera ceny taryfowe od smartENERGY (smartTIMES lub smartCONTROL). Nie jest wymagany klucz API.",
+        "data": {
+          "tariff": "Model taryfy",
+          "include_vat": "Pokazywać ceny z 23% VAT (brutto)",
+          "grid_zone": "Strefa sieciowa (dla opłat sieciowych)"
+        },
+        "data_description": {
+          "tariff": "smartTIMES: taryfa czasowo zmienna. smartCONTROL: powiązana z ceną spot EPEX; do tego dodawana jest opłata manipulacyjna 1,2 ct/kWh netto (1,44 ct/kWh brutto).",
+          "grid_zone": "Określa opłaty sieciowe (poziom sieci 7, pomiary co 15 minut) w cenie całkowitej. \"Brak strefy sieciowej\" je pomija."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie udało się połączyć z API smartENERGY."
+    },
+    "abort": {
+      "already_configured": "smartENERGY jest już skonfigurowany."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje smartENERGY",
+        "data": {
+          "tariff": "Model taryfy",
+          "include_vat": "Pokazywać ceny z 23% VAT (brutto)",
+          "grid_zone": "Strefa sieciowa (dla opłat sieciowych)"
+        },
+        "data_description": {
+          "tariff": "smartTIMES: taryfa czasowo zmienna. smartCONTROL: powiązana z ceną spot EPEX; do tego dodawana jest opłata manipulacyjna 1,2 ct/kWh netto (1,44 ct/kWh brutto).",
+          "grid_zone": "Określa opłaty sieciowe (poziom sieci 7, pomiary co 15 minut) w cenie całkowitej. \"Brak strefy sieciowej\" je pomija."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "cheap_hour": {
+      "step": {
+        "user": {
+          "title": "Dodaj czujnik taniego czasu",
+          "description": "Utwórz czujnik dla jednego urządzenia. Jest aktywny, gdy bieżąca godzina należy do najtańszych w danym dniu.",
+          "data": {
+            "name": "Nazwa (np. bojler, ładowarka)",
+            "cheap_hours": "Tanie godziny dziennie",
+            "cheap_mode": "Logika taniego czasu"
+          },
+          "data_description": {
+            "cheap_mode": "\"Najtańsze poszczególne godziny\": najtańsze kwadransy dnia – mogą być rozłożone przez cały dzień (np. bojler, ładowarka). \"Blok ciągły\": jedno najtańsze okno czasowe bez przerwy – dla urządzeń z ustalonym czasem pracy, które nie mogą być przerwane (pralka, zmywarka)."
+          }
+        },
+        "reconfigure": {
+          "title": "Edytuj czujnik taniego czasu",
+          "data": {
+            "name": "Nazwa (np. bojler, ładowarka)",
+            "cheap_hours": "Tanie godziny dziennie",
+            "cheap_mode": "Logika taniego czasu"
+          },
+          "data_description": {
+            "cheap_mode": "\"Najtańsze poszczególne godziny\": najtańsze kwadransy dnia – mogą być rozłożone przez cały dzień (np. bojler, ładowarka). \"Blok ciągły\": jedno najtańsze okno czasowe bez przerwy – dla urządzeń z ustalonym czasem pracy, które nie mogą być przerwane (pralka, zmywarka)."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Proszę podać nazwę."
+      },
+      "initiate_flow": {
+        "user": "Dodaj czujnik taniego czasu",
+        "reconfigure": "Edytuj czujnik taniego czasu"
+      },
+      "entry_type": "Czujnik taniego czasu"
+    }
+  },
+  "selector": {
+    "tariff": {
+      "options": {
+        "smarttimes": "smartTIMES (taryfa czasowo zmienna)",
+        "smartcontrol": "smartCONTROL (powiązana z ceną giełdową)"
+      }
+    },
+    "cheap_mode": {
+      "options": {
+        "individual": "Najtańsze poszczególne godziny (mogą być rozdzielone)",
+        "consecutive": "Blok ciągły (bez przerwy)"
+      }
+    },
+    "grid_zone": {
+      "options": {
+        "none": "Brak strefy sieciowej (nie uwzględniać opłat sieciowych)",
+        "burgenland": "Burgenland",
+        "kaernten": "Karyntia",
+        "klagenfurt": "Klagenfurt",
+        "niederoesterreich": "Dolna Austria",
+        "oberoesterreich": "Górna Austria",
+        "linz": "Linz",
+        "salzburg": "Salzburg",
+        "steiermark": "Styria",
+        "graz": "Graz",
+        "tirol": "Tyrol",
+        "innsbruck": "Innsbruck",
+        "vorarlberg": "Vorarlberg",
+        "wien": "Wiedeń",
+        "kleinwalsertal": "Kleinwalsertal"
+      }
+    }
+  },
+  "issues": {
+    "tariff_data_outdated": {
+      "title": "Dane taryfowe przestarzałe (stan z {data_year})",
+      "description": "Opłaty sieciowe i dopłata dla energii odnawialnej zawarte w tej wersji to \"stan z {data_year}\" – stawki są ustalane ponownie co roku. Ponieważ bieżący rok kalendarzowy już się zaawansował, integracja może teraz pracować ze przestarzałymi wartościami. Proszę zaktualizować do nowszej wersji integracji, gdy tylko będzie dostępna wersja z zaktualizowanymi stawkami."
+    },
+    "fetch_failing": {
+      "title": "Ceny taryfowe nie były odświeżane przez długi czas",
+      "description": "Pobieranie aktualne cen taryfowych z API smartENERGY nie powiodło się już przez kilka godzin. Tymczasem integracja nadal korzysta z ostatnio pomyślnie załadowanych, buforowanych cen – te mogą być już przestarzałe. Problem rozwiąże się automatycznie, gdy tylko pobieranie zakończy się powodzeniem."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "working_price": {
+        "name": "Cena energii"
+      },
+      "current_price_eur": {
+        "name": "Cena całkowita (EUR/kWh)"
+      },
+      "average_today": {
+        "name": "Średnia cena całkowita dzisiaj"
+      },
+      "lowest_today": {
+        "name": "Najniższa cena całkowita dzisiaj"
+      },
+      "highest_today": {
+        "name": "Najwyższa cena całkowita dzisiaj"
+      },
+      "basic_fee": {
+        "name": "Opłata podstawowa"
+      }
+    },
+    "binary_sensor": {
+      "cheap_hour": {
+        "name": "Tani czas"
+      }
+    }
+  }
+}
