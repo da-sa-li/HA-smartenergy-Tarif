@@ -6,7 +6,7 @@
         "description": "Načítá tarifní ceny od smartENERGY (smartTIMES nebo smartCONTROL). Není vyžadován API klíč.",
         "data": {
           "tariff": "Tarifní model",
-          "include_vat": "Zobrazit ceny včetně 21 % DPH (hrubé)",
+          "include_vat": "Zobrazit ceny včetně 20 % DPH (hrubé)",
           "grid_zone": "Síťová oblast (pro poplatky za síť)"
         },
         "data_description": {
@@ -28,7 +28,7 @@
         "title": "Možnosti smartENERGY",
         "data": {
           "tariff": "Tarifní model",
-          "include_vat": "Zobrazit ceny včetně 21 % DPH (hrubé)",
+          "include_vat": "Zobrazit ceny včetně 20 % DPH (hrubé)",
           "grid_zone": "Síťová oblast (pro poplatky za síť)"
         },
         "data_description": {

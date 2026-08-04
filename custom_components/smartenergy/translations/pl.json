@@ -6,7 +6,7 @@
         "description": "Pobiera ceny taryfowe od smartENERGY (smartTIMES lub smartCONTROL). Nie jest wymagany klucz API.",
         "data": {
           "tariff": "Model taryfy",
-          "include_vat": "Pokazywać ceny z 23% VAT (brutto)",
+          "include_vat": "Pokazywać ceny z 20% VAT (brutto)",
           "grid_zone": "Strefa sieciowa (dla opłat sieciowych)"
         },
         "data_description": {
@@ -28,7 +28,7 @@
         "title": "Opcje smartENERGY",
         "data": {
           "tariff": "Model taryfy",
-          "include_vat": "Pokazywać ceny z 23% VAT (brutto)",
+          "include_vat": "Pokazywać ceny z 20% VAT (brutto)",
           "grid_zone": "Strefa sieciowa (dla opłat sieciowych)"
         },
         "data_description": {
