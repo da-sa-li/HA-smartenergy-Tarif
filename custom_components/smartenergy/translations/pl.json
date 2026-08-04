@@ -6,7 +6,7 @@
         "description": "Pobiera ceny taryfowe od smartENERGY (smartTIMES lub smartCONTROL). Nie jest wymagany klucz API.",
         "data": {
           "tariff": "Model taryfy",
-          "include_vat": "Pokazywać ceny z 20% VAT (brutto)",
+          "include_vat": "Pokaż ceny z 20% VAT (brutto)",
           "grid_zone": "Strefa sieciowa (dla opłat sieciowych)"
         },
         "data_description": {
@@ -28,7 +28,7 @@
         "title": "Opcje smartENERGY",
         "data": {
           "tariff": "Model taryfy",
-          "include_vat": "Pokazywać ceny z 20% VAT (brutto)",
+          "include_vat": "Pokaż ceny z 20% VAT (brutto)",
           "grid_zone": "Strefa sieciowa (dla opłat sieciowych)"
         },
         "data_description": {
@@ -111,17 +111,17 @@
   "issues": {
     "tariff_data_outdated": {
       "title": "Dane taryfowe przestarzałe (stan z {data_year})",
-      "description": "Opłaty sieciowe i dopłata dla energii odnawialnej zawarte w tej wersji to \"stan z {data_year}\" – stawki są ustalane ponownie co roku. Ponieważ bieżący rok kalendarzowy już się zaawansował, integracja może teraz pracować ze przestarzałymi wartościami. Proszę zaktualizować do nowszej wersji integracji, gdy tylko będzie dostępna wersja z zaktualizowanymi stawkami."
+      "description": "Opłaty sieciowe i dopłata do energii odnawialnej zawarte w tej wersji to \"stan z {data_year}\" – stawki są ustalane ponownie co roku. Ponieważ bieżący rok kalendarzowy jest już zaawansowany, integracja może teraz opierać obliczenia na przestarzałych wartościach. Proszę zaktualizować do nowszej wersji integracji, gdy tylko będzie dostępna wersja z zaktualizowanymi stawkami."
     },
     "fetch_failing": {
       "title": "Ceny taryfowe nie były odświeżane przez długi czas",
-      "description": "Pobieranie aktualne cen taryfowych z API smartENERGY nie powiodło się już przez kilka godzin. Tymczasem integracja nadal korzysta z ostatnio pomyślnie załadowanych, buforowanych cen – te mogą być już przestarzałe. Problem rozwiąże się automatycznie, gdy tylko pobieranie zakończy się powodzeniem."
+      "description": "Pobieranie aktualnych cen taryfowych z API smartENERGY nie powiodło się od kilku godzin. Tymczasem integracja nadal korzysta z ostatnio pomyślnie załadowanych, buforowanych cen – te mogą być już przestarzałe. Problem rozwiąże się automatycznie, gdy tylko pobieranie zakończy się powodzeniem."
     }
   },
   "entity": {
     "sensor": {
       "working_price": {
-        "name": "Cena energii"
+        "name": "Cena robocza"
       },
       "current_price_eur": {
         "name": "Cena całkowita (EUR/kWh)"

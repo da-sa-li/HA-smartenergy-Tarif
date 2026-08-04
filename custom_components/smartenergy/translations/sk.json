@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "Pomocník na ceny elektriny smartENERGY",
-        "description": "Načítava tarifné ceny od smartENERGY (smartTIMES alebo smartCONTROL). Nie je potrebný kľúč API.",
+        "description": "Načítava tarifné ceny od smartENERGY (smartTIMES alebo smartCONTROL). API kľúč nie je potrebný.",
         "data": {
           "tariff": "Tarifný model",
-          "include_vat": "Zobraziť ceny vrátane 20 % DPH (hrubé)",
+          "include_vat": "Zobraziť ceny vrátane 20 % DPH (brutto)",
           "grid_zone": "Sieťová oblasť (pre poplatky za sieť)"
         },
         "data_description": {
-          "tariff": "smartTIMES: časovo závislý tarif. smartCONTROL: viazaný na cenu EPEX spot; k tomu sa pripočítava poplatok za spracovanie 1,2 ct/kWh netto (1,44 ct/kWh hrubé).",
+          "tariff": "smartTIMES: časovo závislý tarif. smartCONTROL: viazaný na cenu EPEX spot; k tomu sa pripočítava poplatok za spracovanie 1,2 ct/kWh netto (1,44 ct/kWh brutto).",
           "grid_zone": "Určuje poplatky za sieť (úroveň siete 7, štvrťhodinné meranie) v celkovej cene. \"Žiadna sieťová oblasť\" ich vynechá."
         }
       }
@@ -28,11 +28,11 @@
         "title": "Možnosti smartENERGY",
         "data": {
           "tariff": "Tarifný model",
-          "include_vat": "Zobraziť ceny vrátane 20 % DPH (hrubé)",
+          "include_vat": "Zobraziť ceny vrátane 20 % DPH (brutto)",
           "grid_zone": "Sieťová oblasť (pre poplatky za sieť)"
         },
         "data_description": {
-          "tariff": "smartTIMES: časovo závislý tarif. smartCONTROL: viazaný na cenu EPEX spot; k tomu sa pripočítava poplatok za spracovanie 1,2 ct/kWh netto (1,44 ct/kWh hrubé).",
+          "tariff": "smartTIMES: časovo závislý tarif. smartCONTROL: viazaný na cenu EPEX spot; k tomu sa pripočítava poplatok za spracovanie 1,2 ct/kWh netto (1,44 ct/kWh brutto).",
           "grid_zone": "Určuje poplatky za sieť (úroveň siete 7, štvrťhodinné meranie) v celkovej cene. \"Žiadna sieťová oblasť\" ich vynechá."
         }
       }
@@ -43,7 +43,7 @@
       "step": {
         "user": {
           "title": "Pridať senzor lacného času",
-          "description": "Vytvorte senzor pre jedno zariadenie. Sú aktívny, kým je aktuálna hodina medzi najlacnejšími v deň.",
+          "description": "Vytvorte senzor pre jedno zariadenie. Je aktívny, kým aktuálna hodina patrí medzi najlacnejšie v danom dni.",
           "data": {
             "name": "Názov (napr. bojler, nabíjacia stanica)",
             "cheap_hours": "Lacné hodiny za deň",
@@ -94,14 +94,14 @@
         "burgenland": "Burgenland",
         "kaernten": "Korutany",
         "klagenfurt": "Klagenfurt",
-        "niederoesterreich": "Dolné Rakousko",
-        "oberoesterreich": "Horné Rakousko",
+        "niederoesterreich": "Dolné Rakúsko",
+        "oberoesterreich": "Horné Rakúsko",
         "linz": "Linec",
         "salzburg": "Salzburg",
         "steiermark": "Štajersko",
         "graz": "Štajerský Hradec",
         "tirol": "Tirolsko",
-        "innsbruck": "Innsbruk",
+        "innsbruck": "Innsbruck",
         "vorarlberg": "Vorarlbersko",
         "wien": "Viedeň",
         "kleinwalsertal": "Kleinwalsertal"
@@ -111,11 +111,11 @@
   "issues": {
     "tariff_data_outdated": {
       "title": "Tarifné údaje zastarané (stav {data_year})",
-      "description": "Poplatky za sieť a príspevok na podporu obnoviteľných zdrojov energie zahrnuté v tejto verzii sú \"stav {data_year}\" – tieto sadzby sa každoročne znovu určujú. Keďže sa aktuálny kalendárny rok už posunul ďalej, integrácia môže byť teraz počítaná so zastaranými hodnotami. Prosím, aktualizujte na novšiu verziu integrácie, keď bude k dispozícii verzia s obnovenými sadzbami."
+      "description": "Poplatky za sieť a príspevok na podporu obnoviteľných zdrojov energie zahrnuté v tejto verzii sú \"stav {data_year}\" – tieto sadzby sa každoročne určujú nanovo. Keďže sa aktuálny kalendárny rok už posunul ďalej, integrácia môže teraz počítať so zastaranými hodnotami. Prosím, aktualizujte na novšiu verziu integrácie, hneď ako bude k dispozícii verzia s aktualizovanými sadzbami."
     },
     "fetch_failing": {
       "title": "Tarifné ceny sa dlho neaktualizovali",
-      "description": "Načítavanie aktuálnych tarifných cien z API smartENERGY zlyhávalo už niekoľko hodín. Medzitým integrácia naďalej používa naposledy úspešne načítané, uložené v medzipaměti ceny – tie môžu byť medzitým zastarané. Problém sa vyriešia automaticky, akonáhle sa načítavanie opäť podaní."
+      "description": "Načítavanie aktuálnych tarifných cien z API smartENERGY zlyháva už niekoľko hodín. Integrácia medzitým naďalej používa naposledy úspešne načítané ceny uložené v medzipamäti – tie už môžu byť zastarané. Problém sa vyrieši automaticky, hneď ako sa načítavanie opäť podarí."
     }
   },
   "entity": {
