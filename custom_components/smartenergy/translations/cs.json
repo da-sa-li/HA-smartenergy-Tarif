@@ -1,0 +1,148 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pomocník s cenami elektřiny smartENERGY",
+        "description": "Načítá tarifní ceny od smartENERGY (smartTIMES nebo smartCONTROL). Není vyžadován API klíč.",
+        "data": {
+          "tariff": "Tarifní model",
+          "include_vat": "Zobrazit ceny včetně 20 % DPH (hrubé)",
+          "grid_zone": "Síťová oblast (pro poplatky za síť)"
+        },
+        "data_description": {
+          "tariff": "smartTIMES: časově závislý tarif. smartCONTROL: připojeno k ceně EPEX spot; přidává se poplatek za zpracování 1,2 ct/kWh netto (1,44 ct/kWh hrubě).",
+          "grid_zone": "Určuje poplatky za síť (síťová úroveň 7, čtvrthodinné měření) v celkové ceně. \"Žádná síťová oblast\" je vynechá."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Připojení k rozhraní API smartENERGY se nezdařilo."
+    },
+    "abort": {
+      "already_configured": "smartENERGY je již nakonfigurován."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Možnosti smartENERGY",
+        "data": {
+          "tariff": "Tarifní model",
+          "include_vat": "Zobrazit ceny včetně 20 % DPH (hrubé)",
+          "grid_zone": "Síťová oblast (pro poplatky za síť)"
+        },
+        "data_description": {
+          "tariff": "smartTIMES: časově závislý tarif. smartCONTROL: připojeno k ceně EPEX spot; přidává se poplatek za zpracování 1,2 ct/kWh netto (1,44 ct/kWh hrubě).",
+          "grid_zone": "Určuje poplatky za síť (síťová úroveň 7, čtvrthodinné měření) v celkové ceně. \"Žádná síťová oblast\" je vynechá."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "cheap_hour": {
+      "step": {
+        "user": {
+          "title": "Přidat senzor levné hodiny",
+          "description": "Vytvořit senzor pro jedno zařízení. Je aktivní, pokud je právě běžící hodina mezi nejlevnějšími v den.",
+          "data": {
+            "name": "Název (např. bojler, nabíječka)",
+            "cheap_hours": "Levné hodiny za den",
+            "cheap_mode": "Logika levných hodin"
+          },
+          "data_description": {
+            "cheap_mode": "\"Nejlevnější jednotlivé hodiny\": nejlevnější čtvrthodiny dne – mohou být rozptýleny v průběhu dne (např. bojler, nabíječka). \"Souvislý blok\": jedno nejlevnější okno najednou – pro zařízení s pevnou dobou chodu, která nesmějí být přerušena (pračka, myčka)."
+          }
+        },
+        "reconfigure": {
+          "title": "Upravit senzor levné hodiny",
+          "data": {
+            "name": "Název (např. bojler, nabíječka)",
+            "cheap_hours": "Levné hodiny za den",
+            "cheap_mode": "Logika levných hodin"
+          },
+          "data_description": {
+            "cheap_mode": "\"Nejlevnější jednotlivé hodiny\": nejlevnější čtvrthodiny dne – mohou být rozptýleny v průběhu dne (např. bojler, nabíječka). \"Souvislý blok\": jedno nejlevnější okno najednou – pro zařízení s pevnou dobou chodu, která nesmějí být přerušena (pračka, myčka)."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Prosím, zadejte název."
+      },
+      "initiate_flow": {
+        "user": "Přidat senzor levné hodiny",
+        "reconfigure": "Upravit senzor levné hodiny"
+      },
+      "entry_type": "Senzor levné hodiny"
+    }
+  },
+  "selector": {
+    "tariff": {
+      "options": {
+        "smarttimes": "smartTIMES (časově závislý tarif)",
+        "smartcontrol": "smartCONTROL (připojeno k ceně na burze)"
+      }
+    },
+    "cheap_mode": {
+      "options": {
+        "individual": "Nejlevnější jednotlivé hodiny (mohou být rozděleny)",
+        "consecutive": "Souvislý blok (bez přerušení)"
+      }
+    },
+    "grid_zone": {
+      "options": {
+        "none": "Žádná síťová oblast (nezahrnovat poplatky za síť)",
+        "burgenland": "Burgenland",
+        "kaernten": "Korutany",
+        "klagenfurt": "Klagenfurt",
+        "niederoesterreich": "Dolní Rakousko",
+        "oberoesterreich": "Horní Rakousko",
+        "linz": "Linec",
+        "salzburg": "Salzburg",
+        "steiermark": "Štýrsko",
+        "graz": "Štýrský Hradec",
+        "tirol": "Tyrolsko",
+        "innsbruck": "Innsbruk",
+        "vorarlberg": "Vorarlbersko",
+        "wien": "Vídeň",
+        "kleinwalsertal": "Kleinwalsertal"
+      }
+    }
+  },
+  "issues": {
+    "tariff_data_outdated": {
+      "title": "Tarifní data zastaralá (stav {data_year})",
+      "description": "Poplatky za síť a příspěvek na podporu obnovitelných zdrojů zahrnuté v této verzi jsou \"stav {data_year}\" – tyto sazby se každoročně přezkoumávají. Protože se aktuální kalendářní rok již posunul dál, integrace může nyní pracovat se zastaralými hodnotami. Prosím, aktualizujte na novější verzi integrace, jakmile bude k dispozici verze s aktualizovanými sazbami."
+    },
+    "fetch_failing": {
+      "title": "Tarifní ceny nebyly dlouho aktualizovány",
+      "description": "Načítání aktuálních tarifních cen z rozhraní API smartENERGY selhává již několik hodin. Integrace mezitím nadále používá poslední úspěšně načtené, uložené v mezipaměti ceny – ty mohou být zatím zastaralé. Problém se vyřeší automaticky, jakmile se načítání podaří."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "working_price": {
+        "name": "Pracovní cena"
+      },
+      "current_price_eur": {
+        "name": "Celková cena (EUR/kWh)"
+      },
+      "average_today": {
+        "name": "Průměrná celková cena dnes"
+      },
+      "lowest_today": {
+        "name": "Nejnižší celková cena dnes"
+      },
+      "highest_today": {
+        "name": "Nejvyšší celková cena dnes"
+      },
+      "basic_fee": {
+        "name": "Základní poplatek"
+      }
+    },
+    "binary_sensor": {
+      "cheap_hour": {
+        "name": "Levná hodina"
+      }
+    }
+  }
+}
