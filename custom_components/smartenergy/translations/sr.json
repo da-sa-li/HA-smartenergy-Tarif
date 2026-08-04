@@ -1,0 +1,148 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "smartENERGY pomoćnik za cenu struje",
+        "description": "Preuzima tarifne cene od smartENERGY (smartTIMES ili smartCONTROL). Ključ API nije potreban.",
+        "data": {
+          "tariff": "Model tarife",
+          "include_vat": "Prikaži cene sa 20% PDV-a (bruto)",
+          "grid_zone": "Mrežna oblast (za naknade za mrežu)"
+        },
+        "data_description": {
+          "tariff": "smartTIMES: tarifa zavisna od vremena. smartCONTROL: povezana sa EPEX spot tržišnom cenom; dodaje se naknada za obradu od 1,2 ct/kWh neto (1,44 ct/kWh bruto).",
+          "grid_zone": "Određuje naknade za mrežu (nivo mreže 7, mjerenje u četvrtinama sata) u ukupnoj ceni. \"Bez mrežne oblasti\" ih isključuje."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Neuspešna povezanost sa smartENERGY API-jem."
+    },
+    "abort": {
+      "already_configured": "smartENERGY je već konfigurisan."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcije smartENERGY",
+        "data": {
+          "tariff": "Model tarife",
+          "include_vat": "Prikaži cene sa 20% PDV-a (bruto)",
+          "grid_zone": "Mrežna oblast (za naknade za mrežu)"
+        },
+        "data_description": {
+          "tariff": "smartTIMES: tarifa zavisna od vremena. smartCONTROL: povezana sa EPEX spot tržišnom cenom; dodaje se naknada za obradu od 1,2 ct/kWh neto (1,44 ct/kWh bruto).",
+          "grid_zone": "Određuje naknade za mrežu (nivo mreže 7, mjerenje u četvrtinama sata) u ukupnoj ceni. \"Bez mrežne oblasti\" ih isključuje."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "cheap_hour": {
+      "step": {
+        "user": {
+          "title": "Dodaj senzor jeftine cene",
+          "description": "Napravi senzor za jedan uređaj. Aktivan je dok je trenutni sat među najjeftinijima u danu.",
+          "data": {
+            "name": "Naziv (npr. bojler, wallbox)",
+            "cheap_hours": "Jeftini sati po danu",
+            "cheap_mode": "Logika jeftine cene"
+          },
+          "data_description": {
+            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftiniji sati u danu – mogu biti raspoređeni tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smeju prekidati (mašina za pranje, mašina za pranje posuđa)."
+          }
+        },
+        "reconfigure": {
+          "title": "Izmeni senzor jeftine cene",
+          "data": {
+            "name": "Naziv (npr. bojler, wallbox)",
+            "cheap_hours": "Jeftini sati po danu",
+            "cheap_mode": "Logika jeftine cene"
+          },
+          "data_description": {
+            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftiniji sati u danu – mogu biti raspoređeni tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smeju prekidati (mašina za pranje, mašina za pranje posuđa)."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Molim, unesite naziv."
+      },
+      "initiate_flow": {
+        "user": "Dodaj senzor jeftine cene",
+        "reconfigure": "Izmeni senzor jeftine cene"
+      },
+      "entry_type": "Senzor jeftine cene"
+    }
+  },
+  "selector": {
+    "tariff": {
+      "options": {
+        "smarttimes": "smartTIMES (tarifa zavisna od vremena)",
+        "smartcontrol": "smartCONTROL (povezana sa spot tržišnom cenom)"
+      }
+    },
+    "cheap_mode": {
+      "options": {
+        "individual": "Najjeftiniji pojedinačni sati (mogu biti raspoređeni)",
+        "consecutive": "Neprekidni blok (bez prekida)"
+      }
+    },
+    "grid_zone": {
+      "options": {
+        "none": "Bez mrežne oblasti (ne uključuj naknade za mrežu)",
+        "burgenland": "Burgenland",
+        "kaernten": "Koruška",
+        "klagenfurt": "Klagenfurt",
+        "niederoesterreich": "Donja Austrija",
+        "oberoesterreich": "Gornja Austrija",
+        "linz": "Linc",
+        "salzburg": "Salzburg",
+        "steiermark": "Štajerska",
+        "graz": "Grac",
+        "tirol": "Tirol",
+        "innsbruck": "Inzbruk",
+        "vorarlberg": "Vorarlberk",
+        "wien": "Beč",
+        "kleinwalsertal": "Kleinwalsertal"
+      }
+    }
+  },
+  "issues": {
+    "tariff_data_outdated": {
+      "title": "Tarifni podaci zastareli (stanje {data_year})",
+      "description": "Naknade za mrežu i doprinos obnovljivim izvorima energije koji su uključeni u ovu verziju su \"stanje {data_year}\" – ove stope se određuju svake godine. Pošto je tekuća godina već napredovala, integracija sada može računati sa zastarelim vrednostima. Molim, ažurirajte na noviju verziju integracije čim bude dostupna sa ažuriranim stopama."
+    },
+    "fetch_failing": {
+      "title": "Tarifne cene se ne osvežavaju već duže vrijeme",
+      "description": "Preuzimanje trenutnih tarifnih cena sa smartENERGY API-ja neuspešno je već nekoliko sati. Integracija u međuvremenu nastavlja sa korišćenjem poslednje uspešno učitanih, keširanih cena – te cene sada mogu biti zastarele. Problem će se sam rešiti čim preuzimanje opet uspe."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "working_price": {
+        "name": "Cena energije"
+      },
+      "current_price_eur": {
+        "name": "Ukupna cena (EUR/kWh)"
+      },
+      "average_today": {
+        "name": "Prosečna ukupna cena danas"
+      },
+      "lowest_today": {
+        "name": "Najniža ukupna cena danas"
+      },
+      "highest_today": {
+        "name": "Najviša ukupna cena danas"
+      },
+      "basic_fee": {
+        "name": "Osnovna naknada"
+      }
+    },
+    "binary_sensor": {
+      "cheap_hour": {
+        "name": "Jeftini sat"
+      }
+    }
+  }
+}
