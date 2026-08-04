@@ -45,23 +45,23 @@
           "title": "Uygun saatli sensör ekle",
           "description": "Bir cihaz için sensör oluştur. Günün en uygun saatleri arasında iken aktif olur.",
           "data": {
-            "name": "Ad (örn: boiler, wallbox)",
+            "name": "Ad (örn. boyler, wallbox)",
             "cheap_hours": "Günde uygun saatler",
             "cheap_mode": "Uygun saatler mantığı"
           },
           "data_description": {
-            "cheap_mode": "\"En uygun bireysel saatler\": günün en ucuz çeyrek saatleri – gün içinde dağılabilir (örn: boiler, wallbox). \"Ardışık blok\": bir en uygun zaman penceresi – kesintiye uğramaması gereken sabit çalışma süreli cihazlar için (çamaşır makinesi, bulaşık makinesi)."
+            "cheap_mode": "\"En uygun bireysel saatler\": günün en ucuz çeyrek saatleri – gün içinde dağılabilir (örn. boyler, wallbox). \"Ardışık blok\": bir en uygun zaman penceresi – kesintiye uğramaması gereken sabit çalışma süreli cihazlar için (çamaşır makinesi, bulaşık makinesi)."
           }
         },
         "reconfigure": {
           "title": "Uygun saatli sensörü düzenle",
           "data": {
-            "name": "Ad (örn: boiler, wallbox)",
+            "name": "Ad (örn. boyler, wallbox)",
             "cheap_hours": "Günde uygun saatler",
             "cheap_mode": "Uygun saatler mantığı"
           },
           "data_description": {
-            "cheap_mode": "\"En uygun bireysel saatler\": günün en ucuz çeyrek saatleri – gün içinde dağılabilir (örn: boiler, wallbox). \"Ardışık blok\": bir en uygun zaman penceresi – kesintiye uğramaması gereken sabit çalışma süreli cihazlar için (çamaşır makinesi, bulaşık makinesi)."
+            "cheap_mode": "\"En uygun bireysel saatler\": günün en ucuz çeyrek saatleri – gün içinde dağılabilir (örn. boyler, wallbox). \"Ardışık blok\": bir en uygun zaman penceresi – kesintiye uğramaması gereken sabit çalışma süreli cihazlar için (çamaşır makinesi, bulaşık makinesi)."
           }
         }
       },
@@ -110,12 +110,12 @@
   },
   "issues": {
     "tariff_data_outdated": {
-      "title": "Tarife verileri eski tarihli ({data_year})",
-      "description": "Bu sürümde yer alan ağ bedelleri ve yenilenebilir enerji ek ücret \"Stand {data_year}\" – bu oranlar her yıl yeniden belirlenir. Cari takvim yılı zaten ilerledikçe, entegrasyon eski değerlerle hesaplama yapabilir. Lütfen yenilenen oranlarla yayınlanan daha yeni bir sürüme güncelleyin."
+      "title": "Tarife verileri güncel değil ({data_year} yılı itibarıyla)",
+      "description": "Bu sürümde yer alan ağ bedelleri ve yenilenebilir enerji ek ücreti \"{data_year} yılı itibarıyla\" geçerli olan değerlerdir – bu oranlar her yıl yeniden belirlenir. İçinde bulunduğumuz takvim yılı ilerlediği için entegrasyon eski değerlerle hesaplama yapıyor olabilir. Lütfen güncellenmiş oranları içeren daha yeni bir sürüm yayınlanır yayınlanmaz entegrasyonu güncelleyin."
     },
     "fetch_failing": {
       "title": "Tarife fiyatları bir süredir yenilenmedi",
-      "description": "smartENERGY API'den geçerli tarife fiyatlarının alınması birkaç saatten beri başarısız oluyor. Bu arada entegrasyon son başarılı yüklenen, önbelleğe alınan fiyatları kullanmaya devam ediyor – bunlar artık eski olabilir. Alma başarılı olunca sorun kendini çözer."
+      "description": "smartENERGY API'sinden güncel tarife fiyatlarının alınması birkaç saattir başarısız oluyor. Bu arada entegrasyon, en son başarıyla yüklenen ve önbelleğe alınan fiyatları kullanmaya devam ediyor – bunlar artık eski olabilir. Veri alma işlemi yeniden başarılı olduğunda sorun kendiliğinden çözülür."
     }
   },
   "entity": {

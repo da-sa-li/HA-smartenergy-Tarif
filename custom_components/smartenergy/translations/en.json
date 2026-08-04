@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "smartENERGY Strompreishelfer",
+        "title": "smartENERGY electricity price helper",
         "description": "Fetches the tariff prices from smartENERGY (smartTIMES or smartCONTROL). No API key is required.",
         "data": {
           "tariff": "Tariff model",

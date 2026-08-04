@@ -16,7 +16,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Povezava s smartENERGY API ni uspela."
+      "cannot_connect": "Povezava s smartENERGY API-jem ni uspela."
     },
     "abort": {
       "already_configured": "smartENERGY je že nastavljen."
@@ -115,7 +115,7 @@
     },
     "fetch_failing": {
       "title": "Tarifne cene se že dlje časa ne posodabljajo",
-      "description": "Pridobivanje trenutnih tarifnih cen s smartENERGY API že več ur ni uspešno. Integracija medtem še naprej uporablja nazadnje uspešno naložene, predpomnjene cene – te so lahko medtem zastarele. Težava se samodejno odpravi, takoj ko pridobivanje spet uspe."
+      "description": "Pridobivanje trenutnih tarifnih cen prek smartENERGY API-ja že več ur ni uspešno. Integracija medtem še naprej uporablja nazadnje uspešno naložene, predpomnjene cene – te so lahko medtem zastarele. Težava se samodejno odpravi, takoj ko pridobivanje spet uspe."
     }
   },
   "entity": {

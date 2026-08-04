@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "smartENERGY pomoćnik za cijenu struje",
-        "description": "Preuzima tarifne cijene od smartENERGY (smartTIMES ili smartCONTROL). Ključ API nije potreban.",
+        "description": "Preuzima tarifne cijene od smartENERGY (smartTIMES ili smartCONTROL). API ključ nije potreban.",
         "data": {
           "tariff": "Model tarife",
           "include_vat": "Prikaži cijene sa 20% PDV-a (bruto)",
@@ -16,7 +16,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Neuspješna povezanost sa smartENERGY API-jem."
+      "cannot_connect": "Povezivanje sa smartENERGY API-jem nije uspjelo."
     },
     "abort": {
       "already_configured": "smartENERGY je već konfiguriran."
@@ -50,7 +50,7 @@
             "cheap_mode": "Logika jeftine cijene"
           },
           "data_description": {
-            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftiniji sati u danu – mogu biti raspodijeljeni tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smiju prekidati (mašina za pranje, mašina za pranje posuđa)."
+            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftinije četvrtine sata u danu – mogu biti raspodijeljene tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smiju prekidati (veš mašina, mašina za pranje posuđa)."
           }
         },
         "reconfigure": {
@@ -61,7 +61,7 @@
             "cheap_mode": "Logika jeftine cijene"
           },
           "data_description": {
-            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftiniji sati u danu – mogu biti raspodijeljeni tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smiju prekidati (mašina za pranje, mašina za pranje posuđa)."
+            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftinije četvrtine sata u danu – mogu biti raspodijeljene tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smiju prekidati (veš mašina, mašina za pranje posuđa)."
           }
         }
       },
@@ -102,7 +102,7 @@
         "graz": "Grac",
         "tirol": "Tirol",
         "innsbruck": "Inzbruk",
-        "vorarlberg": "Vorarlberk",
+        "vorarlberg": "Vorarlberg",
         "wien": "Beč",
         "kleinwalsertal": "Kleinwalsertal"
       }
@@ -115,13 +115,13 @@
     },
     "fetch_failing": {
       "title": "Tarifne cijene se ne osvježavaju već duže vrijeme",
-      "description": "Preuzimanje trenutnih tarifnih cijena sa smartENERGY API-ja neuspješno je već nekoliko sati. Integracija u međuvremenu nastavlja sa korišćenjem poslednje uspješno učitanih, keširanih cijena – te cijene sada mogu biti zastarjele. Problem će se sam riješiti čim preuzimanje opet uspije."
+      "description": "Preuzimanje trenutnih tarifnih cijena sa smartENERGY API-ja neuspješno je već nekoliko sati. Integracija u međuvremenu nastavlja sa korištenjem posljednje uspješno učitanih, keširanih cijena – te cijene sada mogu biti zastarjele. Problem će se sam riješiti čim preuzimanje opet uspije."
     }
   },
   "entity": {
     "sensor": {
       "working_price": {
-        "name": "Cijena energije"
+        "name": "Radna cijena"
       },
       "current_price_eur": {
         "name": "Ukupna cijena (EUR/kWh)"
