@@ -16,7 +16,9 @@ from custom_components.smartenergy.api import (
     MarketPrice,
     SmartTimesApiClient,
     SmartTimesApiError,
+    _build_user_agent,
 )
+from custom_components.smartenergy.const import USER_AGENT_PRODUCT
 
 
 def _iso(value: str) -> datetime:
@@ -97,3 +99,26 @@ def test_parse_rejects_empty_values():
     """Eine leere Werteliste löst einen Fehler aus (keine Preisdaten)."""
     with pytest.raises(SmartTimesApiError):
         SmartTimesApiClient._parse({"energyPrice": {"values": []}})
+
+
+def test_build_user_agent_with_version_and_doc_url():
+    """Version und Doku-Link ergeben ``Produkt/Version (+URL)``."""
+    ua = _build_user_agent("2.1.0", "https://github.com/da-sa-li/HA-smartenergy-Tarif")
+    assert ua == f"{USER_AGENT_PRODUCT}/2.1.0 (+https://github.com/da-sa-li/HA-smartenergy-Tarif)"
+
+
+def test_build_user_agent_fallback_without_version_or_doc_url():
+    """Ohne Version/Link fällt der User-Agent auf das reine Produkt zurück."""
+    assert _build_user_agent(None, None) == USER_AGENT_PRODUCT
+
+
+def test_client_sets_user_agent_header():
+    """``SmartTimesApiClient`` trägt den gebauten User-Agent im Header ein."""
+    client = SmartTimesApiClient(
+        session=None,
+        integration_version="2.1.0",
+        documentation_url="https://github.com/da-sa-li/HA-smartenergy-Tarif",
+    )
+    assert client._headers["User-Agent"] == (
+        f"{USER_AGENT_PRODUCT}/2.1.0 (+https://github.com/da-sa-li/HA-smartenergy-Tarif)"
+    )

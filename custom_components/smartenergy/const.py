@@ -44,6 +44,10 @@ SMARTCONTROL_HANDLING_FEE_NET: Final = 1.2
 SMARTTIMES_DOC_URL: Final = "https://www.smartenergy.at/api-schnittstellen-smarttimes"
 SMARTENERGY_DOC_URL: Final = "https://www.smartenergy.at/api-schnittstellen"
 
+# Produktname im User-Agent gegenüber der smartENERGY-API (api.py). "smartENERGY"
+# taucht dort bewusst nicht auf – der Server weiß ja, dass er smartENERGY ist.
+USER_AGENT_PRODUCT: Final = "HomeAssistant-Strompreishelfer"
+
 # Die API liefert Bruttopreise inkl. 20 % österreichischer Umsatzsteuer.
 VAT_RATE: Final = 0.20
 
