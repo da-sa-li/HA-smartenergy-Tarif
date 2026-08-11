@@ -8,7 +8,9 @@ dokumentiert.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -16,6 +18,7 @@ from custom_components.smartenergy.api import (
     MarketPrice,
     SmartTimesApiClient,
     SmartTimesApiError,
+    _build_user_agent,
 )
 
 
@@ -97,3 +100,60 @@ def test_parse_rejects_empty_values():
     """Eine leere Werteliste löst einen Fehler aus (keine Preisdaten)."""
     with pytest.raises(SmartTimesApiError):
         SmartTimesApiClient._parse({"energyPrice": {"values": []}})
+
+
+def test_build_user_agent_with_version_and_doc_url():
+    """Version und Doku-Link ergeben ``Produkt/Version (+URL)``."""
+    ua = _build_user_agent("2.1.0", "https://github.com/da-sa-li/HA-smartenergy-Tarif")
+    # Laut Spezifikation (Schema "Produkt/Version (+URL)"):
+    assert ua == "HomeAssistant-Strompreishelfer/2.1.0 (+https://github.com/da-sa-li/HA-smartenergy-Tarif)"
+
+
+def test_build_user_agent_with_version_only():
+    """Ohne Doku-Link bleibt es bei ``Produkt/Version`` (kein Klammer-Suffix)."""
+    ua = _build_user_agent("2.1.0", None)
+    assert ua == "HomeAssistant-Strompreishelfer/2.1.0"
+
+
+def test_build_user_agent_with_doc_url_only():
+    """Ohne Version steht der Doku-Link direkt hinterm reinen Produktnamen."""
+    ua = _build_user_agent(None, "https://github.com/da-sa-li/HA-smartenergy-Tarif")
+    assert ua == "HomeAssistant-Strompreishelfer (+https://github.com/da-sa-li/HA-smartenergy-Tarif)"
+
+
+def test_build_user_agent_fallback_without_version_or_doc_url():
+    """Ohne Version/Link fällt der User-Agent auf das reine Produkt zurück."""
+    # Laut Spezifikation: ohne Metadaten bleibt nur der Produktname.
+    assert _build_user_agent(None, None) == "HomeAssistant-Strompreishelfer"
+
+
+class _FakeResponse:
+    """Minimale aiohttp-Response-Attrappe für ``async_get_prices``-Tests."""
+
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+
+    async def text(self) -> str:
+        """Liefert den JSON-Body als Text, wie ``ClientResponse.text()``."""
+        return json.dumps(self._payload)
+
+    def raise_for_status(self) -> None:
+        """No-Op: die Fake-Antwort ist immer erfolgreich."""
+
+
+async def test_client_sends_dynamic_user_agent_header(smarttimes_payload):
+    """Der gebaute User-Agent landet im tatsächlichen GET-Request-Header."""
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=_FakeResponse(smarttimes_payload))
+    client = SmartTimesApiClient(
+        session,
+        integration_version="2.1.0",
+        documentation_url="https://github.com/da-sa-li/HA-smartenergy-Tarif",
+    )
+
+    await client.async_get_prices()
+
+    _, kwargs = session.get.call_args
+    assert kwargs["headers"]["User-Agent"] == (
+        "HomeAssistant-Strompreishelfer/2.1.0 (+https://github.com/da-sa-li/HA-smartenergy-Tarif)"
+    )

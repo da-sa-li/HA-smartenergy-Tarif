@@ -11,18 +11,27 @@ from datetime import datetime, timedelta
 import aiohttp
 from homeassistant.util import dt as dt_util
 
-from .const import API_TIMEOUT, API_URL, VAT_RATE
+from .const import API_TIMEOUT, API_URL, USER_AGENT_PRODUCT, VAT_RATE
 
 _LOGGER = logging.getLogger(__name__)
 
-# Manche APIs antworten ohne einen "echten" User-Agent mit 403 – daher setzen
-# wir einen.
-REQUEST_HEADERS = {
-    "Accept": "application/json",
-    # Tarifneutraler User-Agent: derselbe Client bedient smartTIMES und
-    # smartCONTROL. Manche APIs lehnen Anfragen ohne "echten" UA mit 403 ab.
-    "User-Agent": "HomeAssistant-smartENERGY/1.0",
-}
+
+def _build_user_agent(
+    integration_version: str | None, documentation_url: str | None
+) -> str:
+    """Baut den User-Agent-String nach dem Schema ``Produkt/Version (+URL)``.
+
+    Tarifneutral: derselbe Client bedient smartTIMES und smartCONTROL. Manche
+    APIs lehnen Anfragen ohne "echten" UA mit 403 ab – daher setzen wir einen,
+    der zusätzlich die Integrationsversion und einen Doku-Link trägt, damit
+    smartENERGY bei Rückfragen eine Anlaufstelle hat.
+    """
+    product = USER_AGENT_PRODUCT
+    if integration_version:
+        product = f"{product}/{integration_version}"
+    if documentation_url:
+        return f"{product} (+{documentation_url})"
+    return product
 
 
 class SmartTimesApiError(Exception):
@@ -84,15 +93,24 @@ class SmartTimesApiClient:
         self,
         session: aiohttp.ClientSession,
         api_url: str = API_URL,
+        integration_version: str | None = None,
+        documentation_url: str | None = None,
     ) -> None:
         """Initialisiert den Client mit Session und Tarif-API-URL.
 
         ``api_url`` bestimmt den abzurufenden Tarif (smartTIMES- bzw.
         smartCONTROL-Endpunkt). Standard ist die smartTIMES-URL, damit
         bestehende Aufrufer ohne Anpassung weiterfunktionieren.
+        ``integration_version``/``documentation_url`` fließen in den
+        User-Agent ein (siehe ``_build_user_agent``); ohne Angabe wird ein
+        Fallback-UA ohne Version/Link verwendet.
         """
         self._session = session
         self._api_url = api_url
+        self._headers = {
+            "Accept": "application/json",
+            "User-Agent": _build_user_agent(integration_version, documentation_url),
+        }
 
     async def async_get_prices(self) -> SmartTimesResult:
         """Lädt die aktuellen Tarifpreise von der konfigurierten API."""
@@ -100,7 +118,7 @@ class SmartTimesApiClient:
             async with asyncio.timeout(API_TIMEOUT):
                 response = await self._session.get(
                     self._api_url,
-                    headers=REQUEST_HEADERS,
+                    headers=self._headers,
                 )
                 text = await response.text()
                 response.raise_for_status()

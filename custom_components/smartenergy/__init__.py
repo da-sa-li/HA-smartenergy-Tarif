@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.loader import async_get_integration
 
 from .api import SmartTimesApiClient
 from .const import (
@@ -15,6 +16,7 @@ from .const import (
     DEFAULT_GRID_ZONE,
     DEFAULT_INCLUDE_VAT,
     DEFAULT_TARIFF,
+    DOMAIN,
     SMARTCONTROL_HANDLING_FEE_NET,
     TARIFF_API_URLS,
     TARIFF_DISPLAY_NAMES,
@@ -48,7 +50,13 @@ async def async_setup_entry(
         SMARTCONTROL_HANDLING_FEE_NET if tariff == TARIFF_SMARTCONTROL else 0.0
     )
 
-    client = SmartTimesApiClient(session, api_url)
+    integration = await async_get_integration(hass, DOMAIN)
+    client = SmartTimesApiClient(
+        session,
+        api_url,
+        integration_version=str(integration.version),
+        documentation_url=integration.documentation,
+    )
     include_vat = entry.options.get(
         CONF_INCLUDE_VAT,
         entry.data.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
