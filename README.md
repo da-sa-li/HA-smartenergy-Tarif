@@ -124,46 +124,25 @@ Löschen bleiben keine Konfigurationsreste zurück.
 
 ## Sensoren
 
-> Die Entitäts-IDs beginnen mit dem gewählten Tarif – `smarttimes_…` bzw.
-> `smartcontrol_…`. Die Beispiele unten zeigen den smartTIMES-Fall.
+> Entitäts-IDs beginnen mit dem gewählten Tarif (`smarttimes_…` bzw.
+> `smartcontrol_…`), unten verkürzt als `…`.
 
-| Sensor / Entität                                | Beschreibung                                |
-|-------------------------------------------------|---------------------------------------------|
-| `sensor.smarttimes_strompreishelfer_arbeitspreis`    | **Reiner Arbeitspreis** der aktuell gültigen Tarifzone (ct/kWh) |
-| `sensor.smarttimes_strompreishelfer_gesamtpreis_eur_kwh` | **Gesamtpreis inkl. aller variablen Nebenkosten** in **EUR/kWh** (fürs Energie-Dashboard) |
-| `binary_sensor.<name>_gunstige_stunde` *(je Untereintrag)* | `on` in den günstigsten Stunden des Tages (nach **Gesamtkosten**); ein Sensor je angelegtem Untereintrag |
-| `sensor.smarttimes_strompreishelfer_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (ct/kWh) |
-| `sensor.smarttimes_strompreishelfer_niedrigster_gesamtpreis_heute`  | Günstigster **Gesamtpreis** heute (ct/kWh) |
-| `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute`     | Teuerster **Gesamtpreis** heute (ct/kWh) |
-| `sensor.smarttimes_strompreishelfer_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
+| Sensor                                   | Beschreibung                                        |
+|-------------------------------------------|------------------------------------------------------|
+| `…_arbeitspreis`                          | Arbeitspreis der aktuellen Tarifzone (ct/kWh)        |
+| `…_gesamtpreis_eur_kwh`                   | Gesamtpreis inkl. Nebenkosten (EUR/kWh) – fürs Energie-Dashboard |
+| `binary_sensor.<name>_gunstige_stunde`    | Günstige Stunden; ein Sensor je Untereintrag         |
+| `…_durchschnittlicher_gesamtpreis_heute`  | Ø-Gesamtpreis heute (ct/kWh)                         |
+| `…_niedrigster_gesamtpreis_heute`         | Niedrigster Gesamtpreis heute (ct/kWh)               |
+| `…_hochster_gesamtpreis_heute`            | Höchster Gesamtpreis heute (ct/kWh)                  |
+| `…_grundgebuhr`                           | Grundgebühr (EUR/Monat)                              |
 
-Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis. Der
-**Gesamtpreis**-Sensor (EUR/kWh) addiert Steuern, Abgaben und Netzentgelte und
-ist die richtige Wahl fürs Energie-Dashboard und zum Schalten. Tageskennzahlen
-und Günstige-Stunde-Sensor beziehen sich auf den **Gesamtpreis**.
-
-Nebenkosten (Elektrizitätsabgabe, Erneuerbaren-Förderbeitrag,
-netzgebietsabhängige Netzentgelte inkl. Sommer-Nieder-Arbeitspreis) fließen
-automatisch in den Gesamtpreis ein – wie sich der Preis im Detail
-zusammensetzt, steht unter **[Netzentgelte und Nebenkosten im
-Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Netzentgelte-und-Nebenkosten)**.
-Die vollständige Attribut-Referenz aller Sensoren (inkl. Günstige-Stunde- und
-Arbeitspreis-Attribute) steht unter **[Sensoren und Attribute im
-Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Sensoren-und-Attribute)**.
-
-## Automatisierungs-Beispiele
-
-Beispiele zum Schalten von Verbrauchern in den günstigen Stunden und zur
-Einbindung des Gesamtpreises ins Energie-Dashboard stehen unter
-**[Automatisierungsbeispiele im
-Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Automatisierungsbeispiele)**.
-
-## Fehlerbehebung
-
-Lösungen für die häufigsten Probleme (verschobene Preiszeiten/SNAP-Fenster,
-Sensor zeigt `unknown`, falsche Gesamtkosten) stehen unter
-**[Fehlerbehebung im
-Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Fehlerbehebung)**.
+Der **Gesamtpreis**-Sensor (EUR/kWh) enthält alle Nebenkosten (Steuern,
+Abgaben, Netzentgelte inkl. SNAP) und ist die richtige Wahl fürs
+Energie-Dashboard und zum Schalten; Tageskennzahlen und der
+Günstige-Stunde-Sensor beziehen sich ebenfalls darauf. Details zu den
+Nebenkosten und die vollständige Attribut-Referenz stehen im
+**[Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)**.
 
 ## Lizenz
 
