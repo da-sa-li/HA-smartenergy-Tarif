@@ -48,6 +48,18 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 > Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant auf `Europe/Vienna` eingestellt sein.
 
+## Datenschutz
+
+Der Abruf ist **rein lesend** und kommt ohne Konto und API-Schlüssel aus.
+Verbrauchsdaten, Sensornamen und das gewählte Netzgebiet verlassen Home
+Assistant nicht – Nebenkosten, Gesamtpreis und die Auswahl der günstigen Stunden
+werden lokal berechnet. Übertragen wird nur, was jede Web-Anfrage mit sich
+bringt: IP-Adresse, User-Agent und Zeitpunkt, etwa einmal täglich. Die
+Integration erhebt keine Telemetrie.
+
+Diagnose-Dateien enthalten keine frei vergebenen Sensornamen und lassen sich
+daher unverändert an ein Issue anhängen.
+
 ## Installation
 
 ### Über HACS (empfohlen)
