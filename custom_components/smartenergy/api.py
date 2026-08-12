@@ -6,7 +6,9 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
+from typing import Final
 
 import aiohttp
 from homeassistant.util import dt as dt_util
@@ -34,8 +36,62 @@ def _build_user_agent(
     return product
 
 
+# 4xx-Status, bei denen ein baldiger neuer Versuch trotzdem sinnvoll ist: 408
+# (serverseitige Zeitüberschreitung) und 429 (Rate-Limit, üblicherweise zusammen
+# mit einem Retry-After-Header). Alle übrigen 4xx gelten als dauerhaft.
+_RETRYABLE_CLIENT_ERRORS: Final[frozenset[int]] = frozenset({408, 429})
+
+
+def _is_permanent_status(status: int) -> bool:
+    """Ob ein HTTP-Status als dauerhafte Ablehnung zu werten ist."""
+    return 400 <= status < 500 and status not in _RETRYABLE_CLIENT_ERRORS
+
+
+def _parse_retry_after(value: str | None) -> timedelta | None:
+    """Wertet den ``Retry-After``-Header aus (RFC 9110).
+
+    Zulässig sind eine Anzahl Sekunden oder ein HTTP-Datum; ein bereits
+    verstrichenes Datum ergibt ``timedelta(0)``. Fehlt der Header oder ist er
+    unbrauchbar, wird ``None`` zurückgegeben – dann gilt allein die eigene
+    Wartezeit des Koordinators.
+    """
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        return timedelta(seconds=max(0, int(value)))
+    except ValueError:
+        pass
+    try:
+        moment = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if moment.tzinfo is None:
+        # HTTP-Daten sind laut RFC 9110 stets in GMT angegeben.
+        moment = moment.replace(tzinfo=UTC)
+    return max(timedelta(0), moment - dt_util.utcnow())
+
+
 class SmartTimesApiError(Exception):
     """Wird ausgelöst, wenn die API nicht erreichbar ist oder ungültige Daten liefert."""
+
+    def __init__(self, message: str, retry_after: timedelta | None = None) -> None:
+        """Initialisiert den Fehler mit der optional vom Server gewünschten Wartezeit."""
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class SmartTimesApiPermanentError(SmartTimesApiError):
+    """Die API lehnt die Anfrage dauerhaft ab (4xx außer 408/429).
+
+    Anders als bei einer Zeitüberschreitung oder einem Serverfehler hilft rasches
+    Wiederholen hier nicht: Der Endpunkt ist verschwunden (404/410) oder der
+    Zugriff wird verweigert (401/403). Der Koordinator wartet daraufhin das
+    Maximal-Intervall ab, gibt aber nicht endgültig auf – so erholt sich die
+    Integration selbst wieder, falls die Ablehnung doch nur vorübergehend war.
+    """
 
 
 @dataclass(slots=True)
@@ -127,9 +183,15 @@ class SmartTimesApiClient:
                 f"Zeitüberschreitung beim Abruf der smartENERGY-API ({self._api_url})"
             ) from err
         except aiohttp.ClientResponseError as err:
-            raise SmartTimesApiError(
+            retry_after = _parse_retry_after(
+                err.headers.get("Retry-After") if err.headers is not None else None
+            )
+            message = (
                 f"smartENERGY-API antwortete mit HTTP {err.status} ({err.message})"
-            ) from err
+            )
+            if _is_permanent_status(err.status):
+                raise SmartTimesApiPermanentError(message, retry_after) from err
+            raise SmartTimesApiError(message, retry_after) from err
         except aiohttp.ClientError as err:
             raise SmartTimesApiError(
                 f"Netzwerkfehler beim Abruf der smartENERGY-API: {err}"

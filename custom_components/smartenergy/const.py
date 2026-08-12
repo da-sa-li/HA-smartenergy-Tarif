@@ -109,19 +109,42 @@ JITTER_OFF_SPAN_SECONDS: Final = 600
 RECALC_INTERVAL_MINUTES: Final = 1
 
 # Ab dieser Stunde (Lokalzeit) enthält die API-Antwort auch Preise für den
-# nächsten Tag.
+# nächsten Tag. Laut API-Dokumentation von smartENERGY gilt das für beide Tarife
+# (smartTIMES und smartCONTROL) gleichermaßen. Einzelne Tage, an denen die
+# Morgen-Preise früher bereitstehen, ändern daran nichts – maßgeblich ist der
+# zugesagte Zeitpunkt, nicht die Beobachtung eines Tages.
 NEXT_DAY_PRICES_HOUR: Final = 17
 
 # Wartezeit zwischen Wiederholungsversuchen: greift, wenn der Abruf ab
 # NEXT_DAY_PRICES_HOUR noch keine Morgen-Preise liefert oder ein Abruf
-# fehlgeschlagen ist (und bereits Daten vorhanden sind).
+# fehlgeschlagen ist (und bereits Daten vorhanden sind). Ab dem zweiten
+# erfolglosen Versuch verdoppelt sich die Wartezeit (siehe `_retry_delay`).
 FETCH_RETRY_INTERVAL_MINUTES: Final = 30
+
+# Obergrenze der exponentiell wachsenden Wartezeit. Ohne sie erzeugt eine
+# mehrstündige Störung – oder ein Tag, an dem die Börsenpreise verspätet
+# veröffentlicht werden – über Nacht dutzende Abrufe. Zwei Stunden bleiben
+# reaktionsschnell genug, um verspätete Morgen-Preise am selben Abend noch
+# mitzubekommen.
+FETCH_RETRY_MAX_INTERVAL_MINUTES: Final = 120
+
+# Obergrenze für den Zähler erfolgloser Versuche. Sobald die Wartezeit
+# FETCH_RETRY_MAX_INTERVAL_MINUTES erreicht hat, ändern weitere Verdopplungen
+# nichts mehr – der Deckel hält den Zähler (und damit 2**n) klein.
+FETCH_RETRY_MAX_FAILURES_COUNTED: Final = 8
 
 # Maximaler Jitter für den täglichen Abruf (Gleichverteilung
 # 0 .. FETCH_JITTER_MINUTES-1 Minuten, deterministisch aus der
 # Config-Entry-ID).  Verteilt die Abrufe verschiedener HA-Instanzen auf ein
 # 20-Minuten-Fenster nach NEXT_DAY_PRICES_HOUR.
 FETCH_JITTER_MINUTES: Final = 20
+
+# Harte Untergrenze zwischen zwei echten API-Aufrufen – ein Sicherheitsnetz
+# gegenüber der kostenlos bereitgestellten API: Selbst wenn die Bedingungen in
+# `_needs_fetch` durch einen künftigen Umbau versehentlich dauernd zuträfen,
+# bliebe die Abruf-Frequenz gedeckelt. Im Normalbetrieb greift die Bremse nie,
+# denn der reguläre Abstand liegt bei Stunden (siehe `_fetch_allowed`).
+MIN_FETCH_INTERVAL_MINUTES: Final = 5
 
 # Kalenderjahr, für das die in `grid_fees.py` (Netzentgelte) und
 # `surcharges.py` (Erneuerbaren-Förderbeitrag) hinterlegten "Stand <Jahr>"-

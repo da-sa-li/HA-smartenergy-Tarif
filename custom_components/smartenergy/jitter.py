@@ -18,9 +18,11 @@ Zufallszahl mehrere Vorteile:
 * **Gleichverteilt über viele Sensoren.** SHA-256 streut die IDs gleichmäßig,
   sodass sich die aggregierte Last über die Nutzer hinweg glättet.
 
-Wichtig: Diese Funktionen wirken ausschließlich auf den „Günstige Stunde"-
-Binary-Sensor. Sie verändern weder die Preis-Sensoren noch die zugrunde
-liegenden Preisdaten.
+Wichtig: :func:`jittered_window` wirkt ausschließlich auf den „Günstige Stunde"-
+Binary-Sensor und verändert weder die Preis-Sensoren noch die zugrunde
+liegenden Preisdaten. :func:`cheap_phase` ist dagegen ein allgemeiner Helfer und
+liefert auch dem Koordinator den Versatz seines täglichen API-Abrufs (siehe
+``SmartTimesCoordinator._jitter_minutes``).
 """
 
 from __future__ import annotations

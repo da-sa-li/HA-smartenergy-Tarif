@@ -48,6 +48,18 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 > Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant auf `Europe/Vienna` eingestellt sein.
 
+## Datenschutz
+
+Der Abruf ist **rein lesend** und kommt ohne Konto und API-Schlüssel aus.
+Verbrauchsdaten, Sensornamen und das gewählte Netzgebiet verlassen Home
+Assistant nicht – Nebenkosten, Gesamtpreis und die Auswahl der günstigen Stunden
+werden lokal berechnet. Übertragen wird nur, was jede Web-Anfrage mit sich
+bringt: IP-Adresse, User-Agent und Zeitpunkt, etwa einmal täglich. Die
+Integration erhebt keine Telemetrie.
+
+Diagnose-Dateien enthalten keine frei vergebenen Sensornamen und lassen sich
+daher unverändert an ein Issue anhängen.
+
 ## Installation
 
 ### Über HACS (empfohlen)
@@ -275,10 +287,12 @@ die Preisintervalle und das **SNAP-Fenster** (10:00–16:00 Uhr) entsprechend.
 ### Keine Preise / Sensor zeigt `unknown`
 
 Die Integration ruft die Preis-API nur etwa **einmal täglich** ab (die
-Morgen-Preise ab ca. 14 Uhr) und rechnet die Anzeige minütlich aus dem **Cache**
+Morgen-Preise ab 17 Uhr) und rechnet die Anzeige minütlich aus dem **Cache**
 neu. Ist die API beim Abruf kurz nicht erreichbar, bleiben die zuletzt
 gecachten Preise erhalten und es greift eine **Retry-Logik**, die den Abruf
-automatisch wiederholt.
+automatisch wiederholt – zunächst nach 30 Minuten, danach mit jeweils
+verdoppeltem Abstand bis höchstens 2 Stunden. So belastet auch eine länger
+andauernde Störung die API nicht unnötig.
 
 - **Direkt nach der Einrichtung** kann es einen Moment dauern, bis der erste
   erfolgreiche Abruf erfolgt ist – danach füllt sich der Sensor.
