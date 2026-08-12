@@ -18,7 +18,11 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient, SmartTimesApiError
-from custom_components.smartenergy.const import FETCH_FAILURE_REPAIR_HOURS, TARIFF_DATA_YEAR
+from custom_components.smartenergy.const import (
+    FETCH_FAILURE_REPAIR_HOURS,
+    FETCH_JITTER_MINUTES,
+    TARIFF_DATA_YEAR,
+)
 from custom_components.smartenergy.coordinator import SmartTimesCoordinator
 from custom_components.smartenergy.repairs import (
     ISSUE_FETCH_FAILING,
@@ -34,10 +38,11 @@ async def _coordinator(
     payload: dict | None = None,
     *,
     last_fetch: datetime | None = None,
+    entry_id: str | None = None,
 ) -> tuple[SmartTimesCoordinator, MagicMock]:
     """Baut einen Koordinator mit optional vorbefülltem Cache (Europe/Vienna)."""
     await hass.config.async_set_time_zone("Europe/Vienna")
-    entry = MockConfigEntry(domain=DOMAIN, unique_id=DOMAIN)
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=entry_id or DOMAIN, entry_id=entry_id)
     entry.add_to_hass(hass)
     client = MagicMock()
     coordinator = SmartTimesCoordinator(hass, entry, client, include_vat=True)
@@ -113,6 +118,44 @@ async def test_fetch_failure_keeps_cached_data(
     data = await coordinator._async_update_data()
     # 192 = 2 Tage (05.+06.06.2026) x 96 Viertelstunden/Tag (vgl. Modul-Docstring).
     assert len(data.prices) == 192
+
+
+# --- Abruf-Jitter: deterministische Streuung über die Entry-ID --------------- #
+#
+# Geprüft werden – wie in test_jitter.py – **Invarianten**, kein nachgerechneter
+# Hash. Zugesagt ist ein gleichverteilter Versatz über FETCH_JITTER_MINUTES
+# Minuten, stabil je Installation.
+
+
+@pytest.mark.parametrize(
+    "entry_id", ["a", "smartenergy", "01JQZX7P8N4M2K6R", "0" * 32, "üü-ß"]
+)
+async def test_fetch_jitter_within_window(hass: HomeAssistant, entry_id):
+    """Der Versatz liegt stets im Fenster 0..FETCH_JITTER_MINUTES-1 Minuten."""
+    coordinator, _ = await _coordinator(hass, entry_id=entry_id)
+    assert 0 <= coordinator._jitter_minutes <= FETCH_JITTER_MINUTES - 1
+
+
+async def test_fetch_jitter_is_deterministic(hass: HomeAssistant):
+    """Dieselbe Entry-ID ergibt denselben Versatz – auch über einen Reload hinweg."""
+    first, _ = await _coordinator(hass, entry_id="01JQZX7P8N4M2K6R")
+    second, _ = await _coordinator(hass, entry_id="01JQZX7P8N4M2K6R")
+    assert first._jitter_minutes == second._jitter_minutes
+
+
+async def test_fetch_jitter_spreads_across_entries(hass: HomeAssistant):
+    """Verschiedene Entry-IDs verteilen sich über das Abruf-Fenster.
+
+    Bei Gleichverteilung über 20 Minuten sind aus 40 IDs rund 17 verschiedene
+    Werte zu erwarten. Geprüft wird nur die deutlich lockerere Schranke „mindestens
+    die Hälfte der Minuten belegt", damit der Test die Streuung nachweist, ohne
+    an einem konkreten Hash-Verfahren zu kleben.
+    """
+    values = {
+        (await _coordinator(hass, entry_id=f"entry-{index:03d}"))[0]._jitter_minutes
+        for index in range(40)
+    }
+    assert len(values) >= FETCH_JITTER_MINUTES // 2
 
 
 # --- Repair-Issues (Issue #36): dauerhafter Abruf-Fehler / veraltete Tarifdaten -- #

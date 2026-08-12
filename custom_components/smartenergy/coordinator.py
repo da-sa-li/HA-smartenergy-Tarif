@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import math
 from dataclasses import dataclass, field
@@ -27,7 +26,7 @@ from .const import (
     VAT_RATE,
 )
 from .grid_fees import GridZone
-from .jitter import jittered_window
+from .jitter import cheap_phase, jittered_window
 from .repairs import async_check_tariff_data_year, async_update_fetch_issue
 from .surcharges import (
     surcharge_breakdown as tax_breakdown,
@@ -420,8 +419,11 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         self._last_result: SmartTimesResult | None = None
         # Deterministischer Jitter (0..FETCH_JITTER_MINUTES-1 min) aus der
         # Entry-ID: verschiedene HA-Instanzen treffen den API-Server zeitversetzt.
-        h = int(hashlib.md5(entry.entry_id.encode()).hexdigest(), 16)
-        self._jitter_minutes: int = h % FETCH_JITTER_MINUTES
+        # `cheap_phase` (SHA-256) statt MD5 – gleiche Streuung, aber ohne einen
+        # Algorithmus, den `hashlib` auf FIPS-Builds verweigert.
+        self._jitter_minutes: int = int(
+            cheap_phase(entry.entry_id) * FETCH_JITTER_MINUTES
+        )
 
     @property
     def include_vat(self) -> bool:
