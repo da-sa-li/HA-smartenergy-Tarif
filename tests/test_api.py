@@ -188,7 +188,9 @@ class _ErrorResponse:
         raise self._error
 
 
-async def _get_prices_error(status: int, headers: dict[str, str] | None = None):
+async def _get_prices_error(
+    status: int, headers: dict[str, str] | None = None
+) -> SmartTimesApiError:
     """Ruft die API mit einer fehlschlagenden Antwort auf und liefert den Fehler."""
     session = AsyncMock()
     session.get = AsyncMock(return_value=_ErrorResponse(status, headers))
