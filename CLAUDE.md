@@ -128,6 +128,20 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
 - **Docstring-Konvention**: Module, Klassen, Funktionen und Methoden (inkl. `__init__`) tragen
   knappe deutsche Docstrings; verschachtelte lokale Closures brauchen keine.
 
+## Dokumentation
+
+Nutzer-Doku ist zweigeteilt:
+
+- **`README.md`** – kurz und HACS-tauglich: Feature-Pitch, Installation, Einrichtung, knappe
+  Sensor-Übersicht. Zielgruppe ist, wer in HACS nach Integrationen sucht.
+- **`wiki/*.md`** – vertiefende Inhalte (Datenschutz, Netzentgelte-und-Nebenkosten,
+  Sensoren-und-Attribute, Automatisierungsbeispiele, Fehlerbehebung). Wird bei jedem Push auf
+  `main` automatisch per `.github/workflows/wiki.yml`
+  (`Andrew-Chen-Wang/github-wiki-action`) ins GitHub-Wiki gespiegelt – das Wiki daher **nicht**
+  direkt über die Weboberfläche bearbeiten, Änderungen gehen beim nächsten Sync verloren.
+  Dateiname = Wiki-Seitentitel; interne Links zwischen Seiten nutzen den Seitentitel als Ziel
+  (z. B. `[Datenschutz](Datenschutz)`).
+
 ## Release-Prozess
 
 1. Version in **`custom_components/smartenergy/manifest.json`** anheben (SemVer; Minor = neue
