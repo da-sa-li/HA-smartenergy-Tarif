@@ -528,9 +528,14 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
 
     def _needs_fetch(self, now: datetime) -> bool:
         """Entscheidet, ob ein neuer API-Aufruf nötig ist."""
-        # Kein Cache → sofort holen (Fehler → UpdateFailed, HA übernimmt Retry)
+        # Kein Cache → sofort holen (Fehler → UpdateFailed, HA übernimmt Retry).
+        # `_retry_due` liefert bei noch nie erfolgtem Abruf ebenfalls True, der
+        # erste Versuch bleibt also unverzögert; für den – über HA-Setup und
+        # Entitäten-Registrierung derzeit nicht erreichbaren – Fall eines
+        # weiteren Aufrufs ohne Cache gilt damit dieselbe wachsende Wartezeit
+        # wie sonst und nicht nur MIN_FETCH_INTERVAL_MINUTES.
         if self._last_result is None:
-            return True
+            return self._retry_due(now)
 
         prices = self._last_result.prices
 
