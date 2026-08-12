@@ -112,7 +112,7 @@ async def test_diagnostics_omits_user_chosen_names(
             ConfigSubentryData(
                 data={"cheap_hours": 4.0, "cheap_mode": "individual"},
                 subentry_type="cheap_hour",
-                title="Wallbox Garage Familie Muster",
+                title="Wallbox Garage Familie Müller",
                 unique_id=None,
             )
         ],
@@ -135,9 +135,14 @@ async def test_diagnostics_omits_user_chosen_names(
             "data": {"cheap_hours": 4.0, "cheap_mode": "individual"},
         }
     ]
-    # Der Name darf an keiner Stelle des Schnappschusses auftauchen.
-    assert "Wallbox" not in json.dumps(diagnostics, default=str)
-    assert "Muster" not in json.dumps(diagnostics, default=str)
+    # Der Name darf an keiner Stelle des Schnappschusses auftauchen. Der Umlaut
+    # ist Absicht: Ohne ``ensure_ascii=False`` maskiert ``json.dumps`` ihn zu
+    # einer \uXXXX-Sequenz; die Prüfung liefe also selbst dann ins Leere, wenn
+    # der Name tatsächlich enthalten wäre – und deutsche Sensornamen tragen
+    # regelmäßig Umlaute.
+    serialized = json.dumps(diagnostics, default=str, ensure_ascii=False)
+    assert "Wallbox" not in serialized
+    assert "Müller" not in serialized
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
