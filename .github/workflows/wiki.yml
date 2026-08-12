@@ -13,18 +13,20 @@ concurrency:
   group: publish-wiki
   cancel-in-progress: true
 
-permissions:
-  contents: write
-
 jobs:
   publish-wiki:
     name: Publish wiki
     runs-on: ubuntu-latest
+    # Nötig, um in das .wiki.git-Repo zu pushen, das den Wiki-Tab speist.
+    permissions:
+      contents: write
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Sync wiki/ to the GitHub wiki
-        uses: Andrew-Chen-Wang/github-wiki-action@v5
+        uses: Andrew-Chen-Wang/github-wiki-action@1bbb4280446f9630e8e21a18012cbacf3b0f992e # v5
         with:
           preprocess: false
