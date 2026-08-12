@@ -18,10 +18,15 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.smartenergy.api import SmartTimesApiClient, SmartTimesApiError
+from custom_components.smartenergy.api import (
+    SmartTimesApiClient,
+    SmartTimesApiError,
+    SmartTimesApiPermanentError,
+)
 from custom_components.smartenergy.const import (
     FETCH_FAILURE_REPAIR_HOURS,
     FETCH_JITTER_MINUTES,
+    FETCH_RETRY_MAX_INTERVAL_MINUTES,
     MIN_FETCH_INTERVAL_MINUTES,
     TARIFF_DATA_YEAR,
 )
@@ -120,6 +125,115 @@ async def test_fetch_failure_keeps_cached_data(
     data = await coordinator._async_update_data()
     # 192 = 2 Tage (05.+06.06.2026) x 96 Viertelstunden/Tag (vgl. Modul-Docstring).
     assert len(data.prices) == 192
+
+
+# --- Wachsende Wartezeit zwischen Wiederholungsversuchen --------------------- #
+
+
+async def test_retry_delay_grows_and_caps(hass: HomeAssistant, smarttimes_payload):
+    """Die Wartezeit wächst je erfolglosem Versuch bis zur Obergrenze.
+
+    Sollwerte von Hand aus der Spezifikation abgeleitet: Basis 30 Minuten, ab dem
+    *zweiten* erfolglosen Versuch Verdopplung, Deckel 120 Minuten. Für die Zähler
+    0..5 ergibt das 30, 30, 60, 120, 120, 120.
+    """
+    coordinator, _ = await _coordinator(hass, smarttimes_payload)
+    for failures, minutes in enumerate([30, 30, 60, 120, 120, 120]):
+        coordinator._failed_attempts = failures
+        assert coordinator._retry_delay() == timedelta(minutes=minutes)
+
+
+async def test_retry_after_extends_but_never_shortens(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """``Retry-After`` verlängert die Wartezeit, verkürzt sie aber nie."""
+    coordinator, _ = await _coordinator(hass, smarttimes_payload)
+    coordinator._failed_attempts = 1  # eigene Wartezeit: 30 Minuten
+
+    coordinator._retry_after = timedelta(minutes=90)
+    assert coordinator._retry_delay() == timedelta(minutes=90)
+
+    coordinator._retry_after = timedelta(minutes=5)
+    assert coordinator._retry_delay() == timedelta(minutes=30)
+
+
+async def test_failures_count_up(hass: HomeAssistant, smarttimes_payload):
+    """Jeder fehlgeschlagene Abruf erhöht den Zähler und damit die Wartezeit."""
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))
+    coordinator._needs_fetch = lambda _: True
+
+    await coordinator._async_update_data()
+    assert coordinator._failed_attempts == 1
+    assert coordinator._retry_delay() == timedelta(minutes=30)
+
+    coordinator._last_fetch = None  # Mindestwartezeit für den Test umgehen
+    await coordinator._async_update_data()
+    assert coordinator._failed_attempts == 2
+    assert coordinator._retry_delay() == timedelta(minutes=60)
+
+
+async def test_permanent_error_jumps_to_max_interval(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """Eine dauerhafte Ablehnung wartet sofort das Maximal-Intervall ab.
+
+    Sich vom Basis-Intervall dorthin hochzuzählen brächte nichts: Ein 404 oder
+    403 verschwindet durch rasches Wiederholen nicht.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    client.async_get_prices = AsyncMock(
+        side_effect=SmartTimesApiPermanentError("HTTP 404")
+    )
+    coordinator._needs_fetch = lambda _: True
+
+    await coordinator._async_update_data()
+
+    assert coordinator._retry_delay() == timedelta(
+        minutes=FETCH_RETRY_MAX_INTERVAL_MINUTES
+    )
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit, vor 17 Uhr
+async def test_successful_fetch_resets_backoff(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """Ein gelungener Abruf setzt Zähler und ``Retry-After`` zurück."""
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._failed_attempts = 3
+    coordinator._retry_after = timedelta(minutes=90)
+    coordinator._needs_fetch = lambda _: True
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(smarttimes_payload)
+    )
+
+    await coordinator._async_update_data()
+
+    assert coordinator._failed_attempts == 0
+    assert coordinator._retry_after is None
+    assert coordinator._retry_delay() == timedelta(minutes=30)
+
+
+@pytest.mark.freeze_time("2026-06-06 16:00:00")  # 18:00 Ortszeit, nach 17 Uhr
+async def test_successful_fetch_without_tomorrow_prices_backs_off(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """Fehlen die Morgen-Preise trotz gelungenem Abruf, wächst die Wartezeit.
+
+    Die Fixture deckt den 05. und 06.06.2026 ab. Um 18:00 Ortszeit am 06.06.
+    sollten die Preise für den 07.06. laut API-Zeitplan (17 Uhr) vorliegen – sie
+    fehlen aber. Genau dieser Fall erzeugte bisher bis in die Nacht hinein alle
+    30 Minuten einen Abruf.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda _: True
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(smarttimes_payload)
+    )
+
+    await coordinator._async_update_data()
+
+    assert coordinator._failed_attempts == 1
 
 
 # --- Harte Untergrenze zwischen zwei API-Aufrufen ---------------------------- #

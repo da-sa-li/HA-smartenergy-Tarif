@@ -69,7 +69,13 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   Günstig-Stunden-Auswahl). Der `SmartTimesCoordinator` rechnet **minütlich** neu (damit der
   Preis beim Intervallwechsel sofort stimmt), drosselt echte **API-Aufrufe aber auf ~1/Tag**
   (`_needs_fetch`): einmal beim Start, täglich ab `NEXT_DAY_PRICES_HOUR` + deterministischer
-  Jitter für die Morgen-Preise, plus Retry-Logik. Bei fehlgeschlagenem Abruf bleiben die
+  Jitter für die Morgen-Preise, plus Retry-Logik. Wiederholungsversuche wachsen dabei
+  **exponentiell** (`_retry_delay`: 30 min, dann verdoppelnd bis
+  `FETCH_RETRY_MAX_INTERVAL_MINUTES`); ein `Retry-After` des Servers hat Vorrang, sofern es
+  länger ist, und ein dauerhaft abweisender Status (4xx außer 408/429 →
+  `SmartTimesApiPermanentError`) geht sofort auf das Maximal-Intervall. Unabhängig davon
+  deckelt `_fetch_allowed` den Abstand zweier Aufrufe auf `MIN_FETCH_INTERVAL_MINUTES` – ein
+  Sicherheitsnetz, das im Normalbetrieb nie greift. Bei fehlgeschlagenem Abruf bleiben die
   gecachten Daten erhalten.
 
 - **Brutto/Netto & USt.**: Preise werden so gespeichert, wie die API sie liefert – **brutto

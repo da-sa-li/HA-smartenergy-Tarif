@@ -278,7 +278,9 @@ Die Integration ruft die Preis-API nur etwa **einmal täglich** ab (die
 Morgen-Preise ab 17 Uhr) und rechnet die Anzeige minütlich aus dem **Cache**
 neu. Ist die API beim Abruf kurz nicht erreichbar, bleiben die zuletzt
 gecachten Preise erhalten und es greift eine **Retry-Logik**, die den Abruf
-automatisch wiederholt.
+automatisch wiederholt – zunächst nach 30 Minuten, danach mit jeweils
+verdoppeltem Abstand bis höchstens 2 Stunden. So belastet auch eine länger
+andauernde Störung die API nicht unnötig.
 
 - **Direkt nach der Einrichtung** kann es einen Moment dauern, bis der erste
   erfolgreiche Abruf erfolgt ist – danach füllt sich der Sensor.

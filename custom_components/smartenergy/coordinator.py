@@ -12,7 +12,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api import MarketPrice, SmartTimesApiClient, SmartTimesApiError, SmartTimesResult
+from .api import (
+    MarketPrice,
+    SmartTimesApiClient,
+    SmartTimesApiError,
+    SmartTimesApiPermanentError,
+    SmartTimesResult,
+)
 from .api import FeeEntry
 from .const import (
     CHEAP_MODE_CONSECUTIVE,
@@ -21,6 +27,8 @@ from .const import (
     FETCH_FAILURE_REPAIR_HOURS,
     FETCH_JITTER_MINUTES,
     FETCH_RETRY_INTERVAL_MINUTES,
+    FETCH_RETRY_MAX_FAILURES_COUNTED,
+    FETCH_RETRY_MAX_INTERVAL_MINUTES,
     MIN_FETCH_INTERVAL_MINUTES,
     NEXT_DAY_PRICES_HOUR,
     RECALC_INTERVAL_MINUTES,
@@ -381,8 +389,10 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
 
     * einmalig beim Start (kein Cache vorhanden),
     * täglich ab ``NEXT_DAY_PRICES_HOUR`` + Jitter (Morgen-Preise holen),
-    * alle ``FETCH_RETRY_INTERVAL_MINUTES``, wenn Morgen-Preise noch fehlen
-      oder ein Abruf fehlschlug (solange Daten vorhanden sind),
+    * nach ``FETCH_RETRY_INTERVAL_MINUTES``, wenn Morgen-Preise noch fehlen
+      oder ein Abruf fehlschlug (solange Daten vorhanden sind) – mit jedem
+      weiteren erfolglosen Versuch verdoppelt sich diese Wartezeit bis
+      ``FETCH_RETRY_MAX_INTERVAL_MINUTES``,
     * sofort, wenn die gecachten Preise den aktuellen Zeitpunkt nicht mehr
       abdecken (z. B. nach Mitternacht ohne Morgen-Daten).
 
@@ -422,6 +432,10 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         self._last_fetch: datetime | None = None
         self._last_success: datetime | None = None
         self._last_result: SmartTimesResult | None = None
+        # Zähler erfolgloser Versuche (steuert die wachsende Wartezeit) und die
+        # zuletzt vom Server per Retry-After angeforderte Pause.
+        self._failed_attempts: int = 0
+        self._retry_after: timedelta | None = None
         # Deterministischer Jitter (0..FETCH_JITTER_MINUTES-1 min) aus der
         # Entry-ID: verschiedene HA-Instanzen treffen den API-Server zeitversetzt.
         # `cheap_phase` (SHA-256) statt MD5 – gleiche Streuung, aber ohne einen
@@ -440,6 +454,64 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         """Zeitpunkt des letzten (versuchten) API-Abrufs (für die Diagnose)."""
         return self._last_fetch
 
+    def _has_tomorrow_prices(self, now: datetime) -> bool:
+        """Ob der Cache bereits Preise für den morgigen Kalendertag enthält."""
+        if self._last_result is None:
+            return False
+        tomorrow = dt_util.as_local(now).date() + timedelta(days=1)
+        return any(
+            dt_util.as_local(price.start).date() == tomorrow
+            for price in self._last_result.prices
+        )
+
+    def _next_day_prices_due(self, now: datetime) -> bool:
+        """Ob die Morgen-Preise laut API-Zeitplan bereits vorliegen sollten.
+
+        Maßgeblich ist ``NEXT_DAY_PRICES_HOUR`` (Ortszeit) zuzüglich des
+        instanzeigenen Jitters.
+        """
+        local_now = dt_util.as_local(now)
+        threshold = local_now.replace(
+            hour=NEXT_DAY_PRICES_HOUR,
+            minute=self._jitter_minutes,
+            second=0,
+            microsecond=0,
+        )
+        return local_now >= threshold
+
+    def _retry_delay(self) -> timedelta:
+        """Wartezeit, die zwischen zwei Abruf-Versuchen liegen muss.
+
+        Der erste Wiederholungsversuch erfolgt nach
+        ``FETCH_RETRY_INTERVAL_MINUTES``; ab dem zweiten erfolglosen Versuch
+        verdoppelt sich die Wartezeit bis höchstens
+        ``FETCH_RETRY_MAX_INTERVAL_MINUTES``. Eine per ``Retry-After``
+        angeforderte Pause hat Vorrang, sofern sie *länger* ist – eine kürzere
+        Vorgabe zu übernehmen widerspräche dem Zweck der Drosselung.
+        """
+        doublings = max(0, self._failed_attempts - 1)
+        minutes = min(
+            FETCH_RETRY_INTERVAL_MINUTES * 2**doublings,
+            FETCH_RETRY_MAX_INTERVAL_MINUTES,
+        )
+        delay = timedelta(minutes=minutes)
+        if self._retry_after is not None:
+            return max(delay, self._retry_after)
+        return delay
+
+    def _retry_due(self, now: datetime) -> bool:
+        """Ob seit dem letzten Versuch die Wartezeit aus ``_retry_delay`` verstrich."""
+        return (
+            self._last_fetch is None or now - self._last_fetch >= self._retry_delay()
+        )
+
+    def _note_failed_attempt(self, retry_after: timedelta | None = None) -> None:
+        """Vermerkt einen erfolglosen Versuch und verlängert damit die Wartezeit."""
+        self._failed_attempts = min(
+            self._failed_attempts + 1, FETCH_RETRY_MAX_FAILURES_COUNTED
+        )
+        self._retry_after = retry_after
+
     def _needs_fetch(self, now: datetime) -> bool:
         """Entscheidet, ob ein neuer API-Aufruf nötig ist."""
         # Kein Cache → sofort holen (Fehler → UpdateFailed, HA übernimmt Retry)
@@ -450,29 +522,11 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
 
         # Cache deckt aktuellen Zeitpunkt nicht mehr ab (z. B. nach Mitternacht)
         if not prices or prices[-1].end <= now:
-            return (
-                self._last_fetch is None
-                or now - self._last_fetch >= timedelta(minutes=FETCH_RETRY_INTERVAL_MINUTES)
-            )
+            return self._retry_due(now)
 
         # Morgen-Preise fehlen noch → ab NEXT_DAY_PRICES_HOUR + Jitter holen
-        tomorrow = dt_util.as_local(now).date() + timedelta(days=1)
-        has_tomorrow = any(
-            dt_util.as_local(p.start).date() == tomorrow for p in prices
-        )
-        if not has_tomorrow:
-            local_now = dt_util.as_local(now)
-            fetch_threshold = local_now.replace(
-                hour=NEXT_DAY_PRICES_HOUR,
-                minute=self._jitter_minutes,
-                second=0,
-                microsecond=0,
-            )
-            if local_now >= fetch_threshold:
-                return (
-                    self._last_fetch is None
-                    or now - self._last_fetch >= timedelta(minutes=FETCH_RETRY_INTERVAL_MINUTES)
-                )
+        if not self._has_tomorrow_prices(now) and self._next_day_prices_due(now):
+            return self._retry_due(now)
 
         return False
 
@@ -508,20 +562,39 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             try:
                 self._last_result = await self._client.async_get_prices()
             except SmartTimesApiError as err:
+                if isinstance(err, SmartTimesApiPermanentError):
+                    # Dauerhafte Ablehnung: direkt auf die maximale Wartezeit
+                    # gehen, statt sich in kurzen Schritten dorthin zu zählen.
+                    self._failed_attempts = FETCH_RETRY_MAX_FAILURES_COUNTED
+                    self._retry_after = err.retry_after
+                else:
+                    self._note_failed_attempt(err.retry_after)
                 if self._last_result is None:
                     raise UpdateFailed(str(err)) from err
                 # Frühere Daten behalten, falls ein einzelner Abruf scheitert.
                 _LOGGER.warning(
                     "Aktualisierung der smartENERGY-Preise fehlgeschlagen, "
-                    "verwende zwischengespeicherte Daten: %s",
+                    "verwende zwischengespeicherte Daten (nächster Versuch in "
+                    "%d Minuten): %s",
+                    self._retry_delay() // timedelta(minutes=1),
                     err,
                 )
             else:
                 self._last_success = now
+                if self._next_day_prices_due(now) and not self._has_tomorrow_prices(
+                    now
+                ):
+                    # Der Abruf gelang, die Morgen-Preise waren aber noch nicht
+                    # veröffentlicht. Auch das ist ein erfolgloser Versuch – der
+                    # nächste erfolgt daher in größerem Abstand.
+                    self._note_failed_attempt()
+                else:
+                    self._failed_attempts = 0
+                    self._retry_after = None
             finally:
                 # Zeitstempel immer setzen – auch bei Fehler – damit
-                # _needs_fetch den nächsten Versuch um FETCH_RETRY_INTERVAL
-                # verzögert und die API nicht minütlich gespammt wird.
+                # _needs_fetch den nächsten Versuch um _retry_delay() verzögert
+                # und die API nicht minütlich gespammt wird.
                 self._last_fetch = now
 
             # Repair-Issues nur dort prüfen, wo sich die maßgeblichen

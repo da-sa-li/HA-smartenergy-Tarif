@@ -9,16 +9,20 @@ dokumentiert.
 from __future__ import annotations
 
 import json
-from datetime import datetime
-from unittest.mock import AsyncMock
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
+import aiohttp
 import pytest
+from multidict import CIMultiDict
 
 from custom_components.smartenergy.api import (
     MarketPrice,
     SmartTimesApiClient,
     SmartTimesApiError,
+    SmartTimesApiPermanentError,
     _build_user_agent,
+    _parse_retry_after,
 )
 
 
@@ -157,3 +161,109 @@ async def test_client_sends_dynamic_user_agent_header(smarttimes_payload):
     assert kwargs["headers"]["User-Agent"] == (
         "HomeAssistant-Strompreishelfer/2.1.0 (+https://github.com/da-sa-li/HA-smartenergy-Tarif)"
     )
+
+
+# --- Fehlerklassifizierung: dauerhafte vs. vorübergehende HTTP-Fehler -------- #
+
+
+class _ErrorResponse:
+    """Antwort-Attrappe, deren ``raise_for_status`` einen HTTP-Fehler auslöst."""
+
+    def __init__(self, status: int, headers: dict[str, str] | None = None) -> None:
+        """Baut die Attrappe für einen konkreten Status samt Antwort-Headern."""
+        self._error = aiohttp.ClientResponseError(
+            MagicMock(),
+            (),
+            status=status,
+            message="Fehler",
+            headers=CIMultiDict(headers or {}),
+        )
+
+    async def text(self) -> str:
+        """Der Body spielt bei einem Fehlerstatus keine Rolle."""
+        return ""
+
+    def raise_for_status(self) -> None:
+        """Löst den vorbereiteten Fehler aus, wie ``ClientResponse`` es täte."""
+        raise self._error
+
+
+async def _get_prices_error(status: int, headers: dict[str, str] | None = None):
+    """Ruft die API mit einer fehlschlagenden Antwort auf und liefert den Fehler."""
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=_ErrorResponse(status, headers))
+    client = SmartTimesApiClient(session)
+    with pytest.raises(SmartTimesApiError) as excinfo:
+        await client.async_get_prices()
+    return excinfo.value
+
+
+# Laut Spezifikation (RFC 9110) sind 4xx Client-Fehler, die sich durch bloßes
+# Wiederholen nicht beheben lassen – Ausnahmen sind 408 und 429.
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 410, 451])
+async def test_permanent_client_errors(status):
+    """Die meisten 4xx gelten als dauerhafte Ablehnung."""
+    assert isinstance(await _get_prices_error(status), SmartTimesApiPermanentError)
+
+
+@pytest.mark.parametrize("status", [408, 429, 500, 502, 503, 504])
+async def test_transient_errors(status):
+    """408/429 sowie alle 5xx sind vorübergehend – hier wird weiter wiederholt."""
+    err = await _get_prices_error(status)
+    assert not isinstance(err, SmartTimesApiPermanentError)
+
+
+async def test_status_appears_in_error_message():
+    """Der HTTP-Status bleibt in der Fehlermeldung erhalten (Diagnose im Log)."""
+    assert "503" in str(await _get_prices_error(503))
+
+
+async def test_retry_after_is_carried_from_rate_limit_response():
+    """Ein ``Retry-After`` bei HTTP 429 erreicht den Koordinator als Wartezeit."""
+    err = await _get_prices_error(429, {"Retry-After": "90"})
+    assert err.retry_after == timedelta(seconds=90)
+
+
+async def test_error_without_retry_after_header():
+    """Ohne den Header bleibt ``retry_after`` leer – es gilt die eigene Wartezeit."""
+    assert (await _get_prices_error(503)).retry_after is None
+
+
+# --- Retry-After-Header (RFC 9110) ------------------------------------------ #
+
+
+def test_parse_retry_after_seconds():
+    """Die Sekunden-Schreibweise wird direkt übernommen."""
+    assert _parse_retry_after("120") == timedelta(seconds=120)
+
+
+def test_parse_retry_after_strips_whitespace():
+    """Umgebende Leerzeichen stören nicht."""
+    assert _parse_retry_after("  45  ") == timedelta(seconds=45)
+
+
+def test_parse_retry_after_negative_is_clamped():
+    """Ein negativer Wert ergibt keine negative Wartezeit."""
+    assert _parse_retry_after("-5") == timedelta(0)
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")
+def test_parse_retry_after_http_date():
+    """Ein HTTP-Datum wird in die verbleibende Wartezeit umgerechnet.
+
+    Eingefroren ist der 05.06.2026 um 10:00:00 UTC; das Datum im Header liegt
+    laut Spezifikation in GMT und damit exakt 2 Minuten später.
+    """
+    assert _parse_retry_after("Fri, 05 Jun 2026 10:02:00 GMT") == timedelta(minutes=2)
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")
+def test_parse_retry_after_past_http_date_is_clamped():
+    """Ein bereits verstrichenes Datum ergibt die Wartezeit null."""
+    assert _parse_retry_after("Fri, 05 Jun 2026 09:58:00 GMT") == timedelta(0)
+
+
+@pytest.mark.parametrize("value", [None, "", "   ", "bald", "morgen früh"])
+def test_parse_retry_after_invalid(value):
+    """Fehlt der Header oder ist er unbrauchbar, gilt die eigene Wartezeit."""
+    assert _parse_retry_after(value) is None

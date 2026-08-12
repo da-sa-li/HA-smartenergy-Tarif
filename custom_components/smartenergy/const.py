@@ -117,8 +117,21 @@ NEXT_DAY_PRICES_HOUR: Final = 17
 
 # Wartezeit zwischen Wiederholungsversuchen: greift, wenn der Abruf ab
 # NEXT_DAY_PRICES_HOUR noch keine Morgen-Preise liefert oder ein Abruf
-# fehlgeschlagen ist (und bereits Daten vorhanden sind).
+# fehlgeschlagen ist (und bereits Daten vorhanden sind). Ab dem zweiten
+# erfolglosen Versuch verdoppelt sich die Wartezeit (siehe `_retry_delay`).
 FETCH_RETRY_INTERVAL_MINUTES: Final = 30
+
+# Obergrenze der exponentiell wachsenden Wartezeit. Ohne sie erzeugt eine
+# mehrstündige Störung – oder ein Tag, an dem die Börsenpreise verspätet
+# veröffentlicht werden – über Nacht dutzende Abrufe. Zwei Stunden bleiben
+# reaktionsschnell genug, um verspätete Morgen-Preise am selben Abend noch
+# mitzubekommen.
+FETCH_RETRY_MAX_INTERVAL_MINUTES: Final = 120
+
+# Obergrenze für den Zähler erfolgloser Versuche. Sobald die Wartezeit
+# FETCH_RETRY_MAX_INTERVAL_MINUTES erreicht hat, ändern weitere Verdopplungen
+# nichts mehr – der Deckel hält den Zähler (und damit 2**n) klein.
+FETCH_RETRY_MAX_FAILURES_COUNTED: Final = 8
 
 # Maximaler Jitter für den täglichen Abruf (Gleichverteilung
 # 0 .. FETCH_JITTER_MINUTES-1 Minuten, deterministisch aus der
