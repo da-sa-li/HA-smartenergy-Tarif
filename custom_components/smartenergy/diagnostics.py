@@ -5,8 +5,20 @@ in der UI abrufbar) – nützlich bei Support-Anfragen, um den exakten Zustand
 (Konfiguration, Coordinator-Cache, aktuelles/nächstes Intervall) ohne
 Debug-Logging einsehen zu können.
 
-Redaction ist hier unkritisch: Die smartENERGY-API ist öffentlich, es gibt
-weder API-Key noch sonstige Geheimnisse in Konfiguration oder Laufzeitdaten.
+Diagnose-Dateien werden erfahrungsgemäß unverändert an öffentliche Issues
+gehängt. Maßstab für den Umfang ist deshalb nicht nur „keine Geheimnisse",
+sondern auch „keine personenbezogenen Angaben":
+
+* **Keine Geheimnisse.** Die smartENERGY-API ist öffentlich; es gibt weder
+  API-Key noch Zugangsdaten in Konfiguration oder Laufzeitdaten.
+* **Keine frei gewählten Namen.** Die Bezeichnung eines „Günstige Stunde"-
+  Sensors („Wallbox Garage") benennt in der Praxis Räume oder Personen. Sie
+  steht im *Titel* des Untereintrags, nicht in dessen ``data``; aufgenommen
+  werden nur Typ und Schaltparameter. Das ist eine zugesagte Eigenschaft und
+  wird in ``tests/test_diagnostics.py`` abgesichert.
+* **Das Netzgebiet bleibt enthalten.** Es verortet den Anschluss grob nach
+  Versorgungsregion, ist für die Nebenkosten-Mathematik aber unverzichtbar –
+  ohne es lässt sich ein falscher Gesamtpreis nicht nachvollziehen.
 """
 
 from __future__ import annotations

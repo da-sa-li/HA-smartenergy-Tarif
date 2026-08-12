@@ -8,11 +8,12 @@ Abdeckungszeitraum der smartTIMES-Fixture.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -83,6 +84,60 @@ async def test_diagnostics_snapshot(
         "end": _local("13:00:00"),
         "gross_ct_per_kwh": 11.316,
     }
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+@pytest.mark.freeze_time("2026-06-05 10:30:00")
+async def test_diagnostics_omits_user_chosen_names(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Frei gewählte Sensor-Namen tauchen im Schnappschuss nicht auf.
+
+    Diagnose-Dateien landen häufig unverändert in öffentlichen Issues. Der Name
+    eines „Günstige Stunde"-Sensors ist frei wählbar und benennt in der Praxis
+    Räume oder Personen; er steht im Titel des Untereintrags. Aufgenommen werden
+    nur Typ und Schaltparameter – geprüft wird das über den vollständigen,
+    serialisierten Schnappschuss, nicht nur über das Untereintrags-Feld.
+    """
+    await hass.config.async_set_time_zone("Europe/Vienna")
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+        subentries_data=[
+            ConfigSubentryData(
+                data={"cheap_hours": 4.0, "cheap_mode": "individual"},
+                subentry_type="cheap_hour",
+                title="Wallbox Garage Familie Muster",
+                unique_id=None,
+            )
+        ],
+    )
+    entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+
+    # Typ und Schaltparameter sind für den Support nötig und bleiben enthalten.
+    assert diagnostics["subentries"] == [
+        {
+            "subentry_type": "cheap_hour",
+            "data": {"cheap_hours": 4.0, "cheap_mode": "individual"},
+        }
+    ]
+    # Der Name darf an keiner Stelle des Schnappschusses auftauchen.
+    assert "Wallbox" not in json.dumps(diagnostics, default=str)
+    assert "Muster" not in json.dumps(diagnostics, default=str)
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
