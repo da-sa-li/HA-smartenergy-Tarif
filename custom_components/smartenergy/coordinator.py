@@ -436,13 +436,8 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         # zuletzt vom Server per Retry-After angeforderte Pause.
         self._failed_attempts: int = 0
         self._retry_after: timedelta | None = None
-        # Deterministischer Jitter (0..FETCH_JITTER_MINUTES-1 min) aus der
-        # Entry-ID: verschiedene HA-Instanzen treffen den API-Server zeitversetzt.
-        # `cheap_phase` (SHA-256) statt MD5 – gleiche Streuung, aber ohne einen
-        # Algorithmus, den `hashlib` auf FIPS-Builds verweigert.
-        self._jitter_minutes: int = int(
-            cheap_phase(entry.entry_id) * FETCH_JITTER_MINUTES
-        )
+        # Seed des täglichen Abruf-Jitters (siehe `_jitter_minutes`).
+        self._entry_id = entry.entry_id
 
     @property
     def include_vat(self) -> bool:
@@ -464,16 +459,35 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             for price in self._last_result.prices
         )
 
+    def _jitter_minutes(self, now: datetime) -> int:
+        """Minuten-Versatz des täglichen Abrufs (0..FETCH_JITTER_MINUTES-1).
+
+        Verteilt die Abrufe verschiedener HA-Instanzen über ein Zeitfenster,
+        damit der API-Server nicht alle gleichzeitig empfängt. Der Wert ist
+        deterministisch aus Entry-ID **und Kalendertag** abgeleitet:
+
+        * **Innerhalb eines Tages konstant** – sonst würde die Schwelle in
+          :meth:`_next_day_prices_due` bei jeder minütlichen Neuberechnung
+          springen und den Abruf faktisch auf die früheste Minute ziehen.
+        * **Von Tag zu Tag wechselnd** – ein über Jahre gleichbleibender
+          Versatz wäre zusammen mit dem User-Agent ein wiedererkennbares
+          Zeitmuster, das aus Sicht des Servers auch einen Wechsel der
+          IP-Adresse überdauert. Der Tagesanteil im Seed nimmt dem Muster diese
+          Langlebigkeit, ohne die Lastverteilung zu verändern.
+        """
+        day = dt_util.as_local(now).date().isoformat()
+        return int(cheap_phase(f"{self._entry_id}:{day}") * FETCH_JITTER_MINUTES)
+
     def _next_day_prices_due(self, now: datetime) -> bool:
         """Ob die Morgen-Preise laut API-Zeitplan bereits vorliegen sollten.
 
         Maßgeblich ist ``NEXT_DAY_PRICES_HOUR`` (Ortszeit) zuzüglich des
-        instanzeigenen Jitters.
+        Tages-Jitters dieser Instanz.
         """
         local_now = dt_util.as_local(now)
         threshold = local_now.replace(
             hour=NEXT_DAY_PRICES_HOUR,
-            minute=self._jitter_minutes,
+            minute=self._jitter_minutes(now),
             second=0,
             microsecond=0,
         )

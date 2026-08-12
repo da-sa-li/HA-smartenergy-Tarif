@@ -289,11 +289,13 @@ async def test_min_interval_without_cache_reports_update_failed(hass: HomeAssist
     client.async_get_prices.assert_not_called()
 
 
-# --- Abruf-Jitter: deterministische Streuung über die Entry-ID --------------- #
+# --- Abruf-Jitter: Streuung über Entry-ID und Kalendertag -------------------- #
 #
 # Geprüft werden – wie in test_jitter.py – **Invarianten**, kein nachgerechneter
 # Hash. Zugesagt ist ein gleichverteilter Versatz über FETCH_JITTER_MINUTES
-# Minuten, stabil je Installation.
+# Minuten, innerhalb eines Tages konstant und von Tag zu Tag wechselnd.
+
+JITTER_DAY = datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)
 
 
 @pytest.mark.parametrize(
@@ -302,18 +304,47 @@ async def test_min_interval_without_cache_reports_update_failed(hass: HomeAssist
 async def test_fetch_jitter_within_window(hass: HomeAssistant, entry_id):
     """Der Versatz liegt stets im Fenster 0..FETCH_JITTER_MINUTES-1 Minuten."""
     coordinator, _ = await _coordinator(hass, entry_id=entry_id)
-    assert 0 <= coordinator._jitter_minutes <= FETCH_JITTER_MINUTES - 1
+    assert 0 <= coordinator._jitter_minutes(JITTER_DAY) <= FETCH_JITTER_MINUTES - 1
 
 
-async def test_fetch_jitter_is_deterministic(hass: HomeAssistant):
-    """Dieselbe Entry-ID ergibt denselben Versatz – auch über einen Reload hinweg."""
+async def test_fetch_jitter_is_stable_within_a_day(hass: HomeAssistant):
+    """Über einen Tag hinweg bleibt der Versatz konstant.
+
+    Der Koordinator rechnet minütlich neu; ein wandernder Versatz würde die
+    Abruf-Schwelle ständig verschieben und den Abruf faktisch auf die früheste
+    Minute des Fensters ziehen.
+    """
+    coordinator, _ = await _coordinator(hass, entry_id="01JQZX7P8N4M2K6R")
+    morning = coordinator._jitter_minutes(datetime(2026, 6, 5, 0, 1, tzinfo=VIENNA))
+    evening = coordinator._jitter_minutes(datetime(2026, 6, 5, 23, 59, tzinfo=VIENNA))
+    assert morning == evening
+
+
+async def test_fetch_jitter_is_reproducible_across_reloads(hass: HomeAssistant):
+    """Dieselbe Entry-ID ergibt am selben Tag denselben Versatz."""
     first, _ = await _coordinator(hass, entry_id="01JQZX7P8N4M2K6R")
     second, _ = await _coordinator(hass, entry_id="01JQZX7P8N4M2K6R")
-    assert first._jitter_minutes == second._jitter_minutes
+    assert first._jitter_minutes(JITTER_DAY) == second._jitter_minutes(JITTER_DAY)
+
+
+async def test_fetch_jitter_changes_across_days(hass: HomeAssistant):
+    """Der Versatz wechselt über die Tage – kein dauerhaft wiedererkennbares Muster.
+
+    Ein über Jahre gleichbleibender Versatz wäre gegenüber dem API-Betreiber ein
+    langlebiges Zeitmuster. Geprüft wird über 30 aufeinanderfolgende Tage: Bei
+    einem festen Versatz gäbe es genau einen Wert; erwartet werden bei
+    Gleichverteilung über 20 Minuten rund 15 verschiedene.
+    """
+    coordinator, _ = await _coordinator(hass, entry_id="01JQZX7P8N4M2K6R")
+    values = {
+        coordinator._jitter_minutes(JITTER_DAY + timedelta(days=offset))
+        for offset in range(30)
+    }
+    assert len(values) >= FETCH_JITTER_MINUTES // 2
 
 
 async def test_fetch_jitter_spreads_across_entries(hass: HomeAssistant):
-    """Verschiedene Entry-IDs verteilen sich über das Abruf-Fenster.
+    """Verschiedene Entry-IDs verteilen sich am selben Tag über das Abruf-Fenster.
 
     Bei Gleichverteilung über 20 Minuten sind aus 40 IDs rund 17 verschiedene
     Werte zu erwarten. Geprüft wird nur die deutlich lockerere Schranke „mindestens
@@ -321,7 +352,9 @@ async def test_fetch_jitter_spreads_across_entries(hass: HomeAssistant):
     an einem konkreten Hash-Verfahren zu kleben.
     """
     values = {
-        (await _coordinator(hass, entry_id=f"entry-{index:03d}"))[0]._jitter_minutes
+        (await _coordinator(hass, entry_id=f"entry-{index:03d}"))[0]._jitter_minutes(
+            JITTER_DAY
+        )
         for index in range(40)
     }
     assert len(values) >= FETCH_JITTER_MINUTES // 2
