@@ -109,7 +109,10 @@ JITTER_OFF_SPAN_SECONDS: Final = 600
 RECALC_INTERVAL_MINUTES: Final = 1
 
 # Ab dieser Stunde (Lokalzeit) enthält die API-Antwort auch Preise für den
-# nächsten Tag.
+# nächsten Tag. Laut API-Dokumentation von smartENERGY gilt das für beide Tarife
+# (smartTIMES und smartCONTROL) gleichermaßen. Einzelne Tage, an denen die
+# Morgen-Preise früher bereitstehen, ändern daran nichts – maßgeblich ist der
+# zugesagte Zeitpunkt, nicht die Beobachtung eines Tages.
 NEXT_DAY_PRICES_HOUR: Final = 17
 
 # Wartezeit zwischen Wiederholungsversuchen: greift, wenn der Abruf ab

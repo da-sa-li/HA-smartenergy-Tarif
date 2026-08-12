@@ -275,7 +275,7 @@ die Preisintervalle und das **SNAP-Fenster** (10:00–16:00 Uhr) entsprechend.
 ### Keine Preise / Sensor zeigt `unknown`
 
 Die Integration ruft die Preis-API nur etwa **einmal täglich** ab (die
-Morgen-Preise ab ca. 14 Uhr) und rechnet die Anzeige minütlich aus dem **Cache**
+Morgen-Preise ab 17 Uhr) und rechnet die Anzeige minütlich aus dem **Cache**
 neu. Ist die API beim Abruf kurz nicht erreichbar, bleiben die zuletzt
 gecachten Preise erhalten und es greift eine **Retry-Logik**, die den Abruf
 automatisch wiederholt.
