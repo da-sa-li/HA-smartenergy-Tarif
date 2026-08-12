@@ -21,6 +21,7 @@ from .const import (
     FETCH_FAILURE_REPAIR_HOURS,
     FETCH_JITTER_MINUTES,
     FETCH_RETRY_INTERVAL_MINUTES,
+    MIN_FETCH_INTERVAL_MINUTES,
     NEXT_DAY_PRICES_HOUR,
     RECALC_INTERVAL_MINUTES,
     VAT_RATE,
@@ -385,7 +386,11 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
     * sofort, wenn die gecachten Preise den aktuellen Zeitpunkt nicht mehr
       abdecken (z. B. nach Mitternacht ohne Morgen-Daten).
 
-    Das ergibt im Normalbetrieb **einen** API-Aufruf pro Tag.
+    Das ergibt im Normalbetrieb **einen** API-Aufruf pro Tag. Unabhängig von
+    diesen Bedingungen begrenzt ``_fetch_allowed`` den Abstand zweier Aufrufe
+    auf mindestens ``MIN_FETCH_INTERVAL_MINUTES`` – eine Bremse, die im
+    Normalbetrieb nie greift, aber verhindert, dass ein Fehler in der obigen
+    Logik die API im Minutentakt trifft.
     """
 
     def __init__(
@@ -471,6 +476,18 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
 
         return False
 
+    def _fetch_allowed(self, now: datetime) -> bool:
+        """Ob seit dem letzten Abruf-Versuch die Mindestwartezeit verstrichen ist.
+
+        Bewusst unabhängig von ``_needs_fetch``: Jenes entscheidet fachlich, *ob*
+        neue Daten nötig sind, diese Bremse begrenzt davon losgelöst, *wie oft*
+        die API überhaupt angefragt werden darf (siehe
+        ``MIN_FETCH_INTERVAL_MINUTES``). Beide Bedingungen müssen erfüllt sein.
+        """
+        if self._last_fetch is None:
+            return True
+        return now - self._last_fetch >= timedelta(minutes=MIN_FETCH_INTERVAL_MINUTES)
+
     def _fetch_failing(self, now: datetime) -> bool:
         """Ob seit ``FETCH_FAILURE_REPAIR_HOURS`` kein Abruf mehr gelang.
 
@@ -487,7 +504,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         """Berechnet die Entitätsdaten neu und ruft bei Bedarf die API ab."""
         now = dt_util.now()
 
-        if self._needs_fetch(now):
+        if self._needs_fetch(now) and self._fetch_allowed(now):
             try:
                 self._last_result = await self._client.async_get_prices()
             except SmartTimesApiError as err:
@@ -515,7 +532,11 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             async_update_fetch_issue(self.hass, failing=self._fetch_failing(now))
 
         result = self._last_result
-        assert result is not None  # nach erfolgreichem ersten Abruf garantiert
+        if result is None:
+            # Erreichbar, solange noch kein Abruf gelungen ist – etwa wenn die
+            # Mindestwartezeit einen erneuten Versuch gerade bremst. Dann gibt es
+            # schlicht noch nichts anzuzeigen; HA wiederholt die Aktualisierung.
+            raise UpdateFailed("Es liegen noch keine Preisdaten vor")
         return SmartTimesData(
             # Anzeige-Tarif aus der Nutzer-Auswahl; nur als Fallback der API-Wert.
             tariff=self._tariff_name or result.tariff,

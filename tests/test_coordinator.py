@@ -15,12 +15,14 @@ import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient, SmartTimesApiError
 from custom_components.smartenergy.const import (
     FETCH_FAILURE_REPAIR_HOURS,
     FETCH_JITTER_MINUTES,
+    MIN_FETCH_INTERVAL_MINUTES,
     TARIFF_DATA_YEAR,
 )
 from custom_components.smartenergy.coordinator import SmartTimesCoordinator
@@ -120,6 +122,59 @@ async def test_fetch_failure_keeps_cached_data(
     assert len(data.prices) == 192
 
 
+# --- Harte Untergrenze zwischen zwei API-Aufrufen ---------------------------- #
+
+
+async def test_fetch_allowed_boundary(hass: HomeAssistant, smarttimes_payload):
+    """Erst ``MIN_FETCH_INTERVAL_MINUTES`` nach dem letzten Versuch ist ein Abruf erlaubt."""
+    coordinator, _ = await _coordinator(hass, smarttimes_payload)
+    # Ohne vorherigen Versuch gibt es nichts zu bremsen.
+    assert coordinator._fetch_allowed(datetime(2026, 6, 6, 18, 0, tzinfo=VIENNA)) is True
+
+    coordinator._last_fetch = datetime(2026, 6, 6, 18, 0, tzinfo=VIENNA)
+    threshold = coordinator._last_fetch + timedelta(minutes=MIN_FETCH_INTERVAL_MINUTES)
+    assert coordinator._fetch_allowed(threshold - timedelta(seconds=1)) is False
+    assert coordinator._fetch_allowed(threshold) is True
+
+
+async def test_min_interval_blocks_refetch_despite_demand(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """Die Bremse verhindert den Abruf auch dann, wenn fachlich Bedarf bestünde.
+
+    ``_needs_fetch`` wird hier auf „immer wahr" gesetzt – genau der Zustand, den
+    ein künftiger Umbau versehentlich herstellen könnte. Die API darf trotzdem
+    nicht angefragt werden, und die gecachten Preise bleiben erhalten.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    client.async_get_prices = AsyncMock()
+    coordinator._needs_fetch = lambda _: True
+    coordinator._last_fetch = dt_util.now() - timedelta(minutes=1)
+
+    data = await coordinator._async_update_data()
+
+    client.async_get_prices.assert_not_called()
+    # 192 = 2 Tage (05.+06.06.2026) x 96 Viertelstunden/Tag (vgl. Modul-Docstring).
+    assert len(data.prices) == 192
+
+
+async def test_min_interval_without_cache_reports_update_failed(hass: HomeAssistant):
+    """Bremst die Wartezeit den Abruf, ohne dass je Daten vorlagen, meldet HA sauber.
+
+    Grenzfall ohne Cache: Statt an einer Zusicherung zu scheitern, meldet der
+    Koordinator ``UpdateFailed`` – Home Assistant wiederholt die Aktualisierung
+    dann selbst.
+    """
+    coordinator, client = await _coordinator(hass)  # kein Cache
+    client.async_get_prices = AsyncMock()
+    coordinator._last_fetch = dt_util.now() - timedelta(minutes=1)
+
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
+
+    client.async_get_prices.assert_not_called()
+
+
 # --- Abruf-Jitter: deterministische Streuung über die Entry-ID --------------- #
 #
 # Geprüft werden – wie in test_jitter.py – **Invarianten**, kein nachgerechneter
@@ -184,7 +239,7 @@ async def test_fetch_failing_threshold(hass: HomeAssistant, smarttimes_payload):
 
 @pytest.mark.freeze_time("2026-06-08 12:00:00")
 async def test_persistent_fetch_failure_reports_and_clears_repair_issue(
-    hass: HomeAssistant, smarttimes_payload
+    hass: HomeAssistant, smarttimes_payload, freezer
 ):
     """Ein dauerhafter Abruf-Fehler meldet ein Issue, das bei Erfolg wieder schließt."""
     await hass.config.async_set_time_zone("Europe/Vienna")
@@ -201,6 +256,10 @@ async def test_persistent_fetch_failure_reports_and_clears_repair_issue(
     assert issue.severity is ir.IssueSeverity.WARNING
 
     # Der nächste Abruf gelingt wieder -> Issue schließt sich automatisch.
+    # Dafür muss die Uhr weiterlaufen: Zwei echte Abrufe liegen nie im selben
+    # Augenblick, dazwischen liegt mindestens die Wiederholungs-Wartezeit
+    # (siehe _fetch_allowed / MIN_FETCH_INTERVAL_MINUTES).
+    freezer.move_to("2026-06-08 12:30:00")
     parsed = SmartTimesApiClient._parse(smarttimes_payload)
     client.async_get_prices = AsyncMock(return_value=parsed)
     await coordinator._async_update_data()

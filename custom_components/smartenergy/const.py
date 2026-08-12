@@ -126,6 +126,13 @@ FETCH_RETRY_INTERVAL_MINUTES: Final = 30
 # 20-Minuten-Fenster nach NEXT_DAY_PRICES_HOUR.
 FETCH_JITTER_MINUTES: Final = 20
 
+# Harte Untergrenze zwischen zwei echten API-Aufrufen – ein Sicherheitsnetz
+# gegenüber der kostenlos bereitgestellten API: Selbst wenn die Bedingungen in
+# `_needs_fetch` durch einen künftigen Umbau versehentlich dauernd zuträfen,
+# bliebe die Abruf-Frequenz gedeckelt. Im Normalbetrieb greift die Bremse nie,
+# denn der reguläre Abstand liegt bei Stunden (siehe `_fetch_allowed`).
+MIN_FETCH_INTERVAL_MINUTES: Final = 5
+
 # Kalenderjahr, für das die in `grid_fees.py` (Netzentgelte) und
 # `surcharges.py` (Erneuerbaren-Förderbeitrag) hinterlegten "Stand <Jahr>"-
 # Werte gelten. Muss zusammen mit diesen Werten jährlich aktualisiert werden;
