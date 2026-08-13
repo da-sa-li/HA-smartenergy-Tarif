@@ -48,6 +48,15 @@ SMARTENERGY_DOC_URL: Final = "https://www.smartenergy.at/api-schnittstellen"
 # taucht dort bewusst nicht auf – der Server weiß ja, dass er smartENERGY ist.
 USER_AGENT_PRODUCT: Final = "HomeAssistant-Strompreishelfer"
 
+# Link im User-Agent gegenüber der smartENERGY-API (siehe api.py). Bewusst eine
+# eigene Wiki-Seite statt manifest.json/"documentation" (Repo-Root) – die Seite
+# richtet sich an den Betreiber der API, nicht an HA-Endnutzer, die in der
+# Integrations-Oberfläche auf "Dokumentation" klicken.
+API_OPERATOR_DOC_URL: Final = (
+    "https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/"
+    "API-Betreiber"
+)
+
 # Die API liefert Bruttopreise inkl. 20 % österreichischer Umsatzsteuer.
 VAT_RATE: Final = 0.20
 
