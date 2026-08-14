@@ -54,7 +54,7 @@ USER_AGENT_PRODUCT: Final = "HomeAssistant-Strompreishelfer"
 # Integrations-Oberfläche auf "Dokumentation" klicken.
 API_OPERATOR_DOC_URL: Final = (
     "https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/"
-    "API-Betreiber"
+    "API-EVU"
 )
 
 # Die API liefert Bruttopreise inkl. 20 % österreichischer Umsatzsteuer.

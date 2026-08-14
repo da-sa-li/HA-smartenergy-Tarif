@@ -21,9 +21,7 @@ Wiki ergänzt das README um vertiefende Informationen:
 - **[Automatisierungsbeispiele](Automatisierungsbeispiele)** – Verbraucher in
   günstigen Stunden schalten, Gesamtpreis im Energie-Dashboard hinterlegen
 - **[Fehlerbehebung](Fehlerbehebung)** – Lösungen für die häufigsten Probleme
-- **[Hinweise für den API-Betreiber](API-Betreiber)** –
-  technische Infos für den Betreiber der smartENERGY-API (Anfragehäufigkeit,
-  User-Agent, Traffic-Muster); richtet sich nicht an Endanwender
+- **[API-EVU.md](API-EVU)** – technische Infos für den Betreiber der smartENERGY (Anfragehäufigkeit, User-Agent, Traffic-Muster); richtet sich nicht an Endanwender
 
 ## Mitmachen
 
