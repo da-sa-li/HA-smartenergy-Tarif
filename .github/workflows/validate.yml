@@ -16,10 +16,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # Bewusst NICHT auf einen Commit-SHA gepinnt: Das Repository wird nicht
+      # getaggt (einziger Tag: 1.0.0), gepflegt wird allein "master". Ein Pin
+      # würde den Validator einfrieren – und genau der soll die jeweils
+      # aktuellen Hassfest-Regeln prüfen. Dependabot könnte ihn mangels
+      # Releases auch nicht nachziehen.
       - name: Hassfest validation
         uses: home-assistant/actions/hassfest@master
 
@@ -28,10 +33,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # Ebenfalls bewusst ungepinnt, aus demselben Grund: Der letzte Tag von
+      # hacs/action ist Jahre alt, gepflegt wird nur "main". Ein Pin auf den
+      # alten Tag wäre ein Rückschritt beim Validator.
       - name: HACS validation
         uses: hacs/action@main
         with:
@@ -42,12 +50,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
 

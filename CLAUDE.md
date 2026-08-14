@@ -75,6 +75,13 @@ Live-Lauf fehl, legt der Workflow ein Issue mit dem Label `live-api-fehler` an b
 kommentiert das bereits offene – die E-Mail-Benachrichtigung von GitHub ist bei geplanten
 Läufen zu unzuverlässig. Das Issue bleibt offen, bis es jemand von Hand schließt.
 
+**Action-Referenzen in den Workflows:** `actions/checkout` und `actions/setup-python` sind auf
+einen **Commit-SHA** gepinnt, mit der genauen Version als Kommentar dahinter (`# v7.0.1`) –
+daran verankert Dependabot den Ist-Stand und schreibt beim Update SHA *und* Kommentar um.
+`home-assistant/actions/hassfest` und `hacs/action` bleiben dagegen bewusst auf `master`/`main`:
+Beide werden nicht mehr getaggt, und ein Pin würde ausgerechnet die Validatoren einfrieren, die
+die jeweils aktuellen Hassfest-/HACS-Regeln prüfen sollen. Diese Aufteilung beibehalten.
+
 ## Architektur – das große Bild
 
 Datenfluss: **`api.py` (Abruf + Parsing) → `coordinator.py` (Caching, Drosselung, gesamte
