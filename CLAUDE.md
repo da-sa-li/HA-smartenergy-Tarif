@@ -70,7 +70,10 @@ und die Fixtures gehören aktualisiert. Da das HA-Test-Harness Sockets und DNS p
 sperrt, hebt die Fixture `netzwerk_freigeben` diese Sperre gezielt nur für diese Tests auf.
 
 CI läuft bei jedem Push auf `main`, bei jedem PR und manuell (`validate.yml`); die
-Live-Tests laufen getrennt davon nächtlich und manuell (`live-api.yml`).
+Live-Tests laufen getrennt davon nächtlich und manuell (`live-api.yml`). Schlägt ein
+Live-Lauf fehl, legt der Workflow ein Issue mit dem Label `live-api-fehler` an bzw.
+kommentiert das bereits offene – die E-Mail-Benachrichtigung von GitHub ist bei geplanten
+Läufen zu unzuverlässig. Das Issue bleibt offen, bis es jemand von Hand schließt.
 
 ## Architektur – das große Bild
 

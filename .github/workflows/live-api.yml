@@ -13,6 +13,12 @@ on:
 
 permissions:
   contents: read
+  # Für das Fehler-Issue am Ende des Jobs.
+  issues: write
+
+env:
+  # Kennzeichnet das Issue, das dieser Workflow bei Fehlschlägen führt.
+  FEHLER_LABEL: live-api-fehler
 
 jobs:
   live:
@@ -36,3 +42,71 @@ jobs:
 
       - name: Run live tests
         run: pytest -m live --live
+
+      # Bewusst kein Verlass auf die E-Mail-Benachrichtigung von GitHub: Die geht
+      # bei geplanten Läufen nur an die Person, die den cron-Ausdruck zuletzt
+      # geändert hat, und hängt an deren Notification-Einstellungen. Ein Issue
+      # ist dagegen im Repo sichtbar und bleibt liegen, bis es jemand schließt.
+      - name: Fehler-Issue anlegen oder kommentieren
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LAUF_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # Label selbst anlegen, damit der Workflow ohne Vorbereitung im Repo
+          # funktioniert (--force ist idempotent, meckert also beim zweiten Mal nicht).
+          gh label create "$FEHLER_LABEL" \
+            --description "Der nächtliche Vertragstest gegen die smartENERGY-API ist fehlgeschlagen" \
+            --color B60205 \
+            --force
+
+          # Liegt schon ein offenes Issue vor, nur kommentieren – sonst entsteht
+          # bei einer längeren Störung jede Nacht ein neues.
+          nummer="$(gh issue list \
+            --label "$FEHLER_LABEL" --state open --limit 1 \
+            --json number --jq '.[0].number // empty')"
+
+          if [ -n "$nummer" ]; then
+            gh issue comment "$nummer" --body \
+              "Erneut fehlgeschlagen am $(date -u '+%d.%m.%Y %H:%M UTC'): $LAUF_URL"
+            echo "Issue #$nummer kommentiert."
+            exit 0
+          fi
+
+          # Der Fließtext steht in einem Heredoc mit gequotetem Trenner, damit
+          # Backticks und Dollarzeichen darin unangetastet bleiben; die Laufzeit-
+          # Angaben kommen davor per echo dazu.
+          {
+            echo "Der nächtliche Vertragstest gegen die smartENERGY-API ist fehlgeschlagen."
+            echo
+            echo "**Fehlgeschlagener Lauf:** $LAUF_URL"
+            echo
+            cat <<'MARKDOWN'
+          Mögliche Ursachen, absteigend nach Wahrscheinlichkeit:
+
+          - Die API war vorübergehend nicht erreichbar. Dann ist der nächste Lauf wieder
+            grün und dieses Issue kann geschlossen werden.
+          - smartENERGY hat das Antwortformat geändert: `api.py` anpassen und die Fixtures
+            in `tests/fixtures/` aktualisieren.
+          - Die API liefert kein Viertelstundenraster mehr oder keine Daten für den
+            aktuellen Zeitpunkt. Das betrifft die Preis-Mathematik im Koordinator.
+
+          Lokal nachstellen:
+
+          ```bash
+          pytest -m live --live
+          ```
+
+          Weitere Fehlschläge werden als Kommentar an dieses Issue gehängt, solange es
+          offen ist.
+          MARKDOWN
+          } > "$RUNNER_TEMP/issue-body.md"
+
+          gh issue create \
+            --label "$FEHLER_LABEL" \
+            --title "Live-API-Test fehlgeschlagen" \
+            --body-file "$RUNNER_TEMP/issue-body.md"
+          echo "Neues Fehler-Issue angelegt."
