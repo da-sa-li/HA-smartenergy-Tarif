@@ -10,6 +10,7 @@ from homeassistant.loader import async_get_integration
 
 from .api import SmartTimesApiClient
 from .const import (
+    API_OPERATOR_DOC_URL,
     CONF_GRID_ZONE,
     CONF_INCLUDE_VAT,
     CONF_TARIFF,
@@ -55,7 +56,7 @@ async def async_setup_entry(
         session,
         api_url,
         integration_version=str(integration.version),
-        documentation_url=integration.documentation,
+        documentation_url=API_OPERATOR_DOC_URL,
     )
     include_vat = entry.options.get(
         CONF_INCLUDE_VAT,
