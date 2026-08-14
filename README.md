@@ -52,14 +52,6 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 > Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant auf `Europe/Vienna` eingestellt sein.
 
-## Datenschutz
-
-Der Abruf ist **rein lesend**, kommt ohne Konto und API-Schlüssel aus und
-erhebt keine Telemetrie. Verbrauchsdaten, Sensornamen und das gewählte
-Netzgebiet verlassen Home Assistant nicht – Nebenkosten, Gesamtpreis und die
-Auswahl der günstigen Stunden werden lokal berechnet. Details siehe
-**[Datenschutz im Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Datenschutz)**.
-
 ## Installation
 
 ### Über HACS (empfohlen)
@@ -124,8 +116,7 @@ Löschen bleiben keine Konfigurationsreste zurück.
 
 ## Sensoren
 
-> Entitäts-IDs beginnen mit dem gewählten Tarif (`smarttimes_…` bzw.
-> `smartcontrol_…`), unten verkürzt als `…`.
+> Entitäts-IDs beginnen mit dem gewählten Tarif (`smarttimes_…` bzw. `smartcontrol_…`), unten verkürzt als `…`.
 
 | Sensor                                   | Beschreibung                                        |
 |-------------------------------------------|------------------------------------------------------|
