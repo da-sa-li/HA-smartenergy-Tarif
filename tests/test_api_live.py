@@ -143,11 +143,13 @@ def netzwerk_freigeben():
     also wird die Sperre hier gezielt zurückgenommen – nur hier, nur für diesen
     einen Test, und danach wieder hergestellt.
     """
-    gesperrt = (
-        socket.getaddrinfo,
-        socket.gethostbyname,
-        socket.gethostbyname_ex,
-    )
+    gesperrt = {
+        "socket": socket.socket,
+        "connect": socket.socket.connect,
+        "getaddrinfo": socket.getaddrinfo,
+        "gethostbyname": socket.gethostbyname,
+        "gethostbyname_ex": socket.gethostbyname_ex,
+    }
     pytest_socket.enable_socket()
     # ``enable_socket`` stellt nur die Socket-Klasse wieder her; die
     # Host-Beschränkung (auf 127.0.0.1) hängt an ``connect``, die DNS-Sperre an
@@ -156,12 +158,17 @@ def netzwerk_freigeben():
     socket.getaddrinfo = ECHTE_NETZFUNKTIONEN["getaddrinfo"]
     socket.gethostbyname = ECHTE_NETZFUNKTIONEN["gethostbyname"]
     socket.gethostbyname_ex = ECHTE_NETZFUNKTIONEN["gethostbyname_ex"]
-    yield
-    (
-        socket.getaddrinfo,
-        socket.gethostbyname,
-        socket.gethostbyname_ex,
-    ) = gesperrt
+    try:
+        yield
+    finally:
+        # Reihenfolge zählt: ``connect`` hängt an der Klasse, die oben verändert
+        # wurde – also erst dort zurücksetzen, dann die Klasse selbst tauschen.
+        # ``finally``, damit ein fehlgeschlagener Test die Sperre nicht offen lässt.
+        socket.socket.connect = gesperrt["connect"]
+        socket.socket = gesperrt["socket"]
+        socket.getaddrinfo = gesperrt["getaddrinfo"]
+        socket.gethostbyname = gesperrt["gethostbyname"]
+        socket.gethostbyname_ex = gesperrt["gethostbyname_ex"]
 
 
 @pytest.fixture
@@ -195,14 +202,24 @@ def erzeuge_client(
 def schluessel_struktur(wert: object) -> object:
     """Reduziert eine JSON-Struktur auf ihre reine Schlüssel-Signatur.
 
-    Objekte werden auf ihre Schlüssel samt (rekursiver) Struktur abgebildet,
-    Listen auf die Struktur ihres ersten Elements – die API liefert homogene
-    Listen. Konkrete Werte fallen weg, verglichen wird also allein das Format.
+    Objekte werden auf ihre Schlüssel samt (rekursiver) Struktur abgebildet.
+    Bei Listen werden **alle** Elemente ausgewertet und ihre Signaturen als
+    sortierte Menge zurückgegeben: Eine Feldänderung erst im hundertsten
+    Preiseintrag soll ebenso auffallen wie eine im ersten. Bei der homogenen
+    Normalantwort bleibt genau eine Signatur übrig. Konkrete Werte fallen weg,
+    verglichen wird also allein das Format.
     """
     if isinstance(wert, dict):
         return {name: schluessel_struktur(inhalt) for name, inhalt in wert.items()}
     if isinstance(wert, list):
-        return [schluessel_struktur(wert[0])] if wert else []
+        # Über JSON-Text vereinheitlicht, weil verschachtelte Signaturen selbst
+        # Objekte sind und sich damit nicht direkt in eine Menge legen lassen.
+        return sorted(
+            {
+                json.dumps(schluessel_struktur(element), sort_keys=True)
+                for element in wert
+            }
+        )
     return None
 
 

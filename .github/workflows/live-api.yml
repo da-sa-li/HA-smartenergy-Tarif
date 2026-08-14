@@ -11,10 +11,16 @@ on:
     - cron: "17 4 * * *"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  # Für das Fehler-Issue am Ende des Jobs.
-  issues: write
+# Immer nur ein Lauf gleichzeitig: Sonst könnten sich ein geplanter und ein
+# manuell gestarteter Lauf überholen, beide vergeblich nach einem offenen
+# Fehler-Issue suchen und je eines anlegen. Nicht abbrechen, damit ein bereits
+# laufender Test zu Ende kommt.
+concurrency:
+  group: live-api
+  cancel-in-progress: false
+
+# Standardmäßig keine Rechte; jeder Job fordert einzeln an, was er braucht.
+permissions: {}
 
 env:
   # Kennzeichnet das Issue, das dieser Workflow bei Fehlschlägen führt.
@@ -24,6 +30,10 @@ jobs:
   live:
     name: Live-API-Vertragstest
     runs-on: ubuntu-latest
+    permissions:
+      # Nur Lesezugriff aufs Repo. Das Melden erledigt der Job "bericht", damit
+      # Checkout, Setup und Testlauf ohne Schreibrechte auskommen.
+      contents: read
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v7
@@ -43,12 +53,21 @@ jobs:
       - name: Run live tests
         run: pytest -m live --live
 
-      # Bewusst kein Verlass auf die E-Mail-Benachrichtigung von GitHub: Die geht
-      # bei geplanten Läufen nur an die Person, die den cron-Ausdruck zuletzt
-      # geändert hat, und hängt an deren Notification-Einstellungen. Ein Issue
-      # ist dagegen im Repo sichtbar und bleibt liegen, bis es jemand schließt.
+  # Bewusst kein Verlass auf die E-Mail-Benachrichtigung von GitHub: Die geht
+  # bei geplanten Läufen nur an die Person, die den cron-Ausdruck zuletzt
+  # geändert hat, und hängt an deren Notification-Einstellungen. Ein Issue ist
+  # dagegen im Repo sichtbar und bleibt liegen, bis es jemand schließt.
+  bericht:
+    name: Fehlschlag melden
+    needs: live
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      # Legt das Fehler-Issue an bzw. kommentiert es – mehr braucht dieser Job
+      # nicht, insbesondere keinen Checkout.
+      issues: write
+    steps:
       - name: Fehler-Issue anlegen oder kommentieren
-        if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
