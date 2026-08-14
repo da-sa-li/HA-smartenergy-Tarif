@@ -134,7 +134,7 @@ Nutzer-Doku ist zweigeteilt:
 
 - **`README.md`** – kurz und HACS-tauglich: Feature-Pitch, Installation, Einrichtung, knappe
   Sensor-Übersicht. Zielgruppe ist, wer in HACS nach Integrationen sucht.
-- **`wiki/*.md`** – vertiefende Inhalte (Datenschutz, Netzentgelte-und-Nebenkosten,
+- **[Github-Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)** – vertiefende Inhalte (Datenschutz, Netzentgelte-und-Nebenkosten,
   Sensoren-und-Attribute, Automatisierungsbeispiele, Fehlerbehebung).
 
 ## Release-Prozess

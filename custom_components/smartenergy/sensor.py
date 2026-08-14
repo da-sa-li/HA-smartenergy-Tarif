@@ -156,6 +156,10 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
 
     entity_description: SmartTimesSensorDescription
     _attr_has_entity_name = True
+    # Preisvorschau-Listen sind minütlich neu berechnete, rein
+    # zukunftsgerichtete Daten - Recorder-History bringt hier keinen Mehrwert
+    # und die Listen überschreiten sonst die 16-KiB-Attributgrenze.
+    _unrecorded_attributes = frozenset({"prices_today", "prices_tomorrow"})
 
     def __init__(
         self,
@@ -234,7 +238,6 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "basic_fee_unit": data.basic_fee_unit,
             "prices_today": serialise(data.for_day(today)),
             "prices_tomorrow": serialise(data.for_day(tomorrow)),
-            "prices": serialise(data.prices),
         }
 
     def _all_in_attributes(self) -> dict:
@@ -293,5 +296,4 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             ),
             "prices_today": serialise(data.for_day(today)),
             "prices_tomorrow": serialise(data.for_day(tomorrow)),
-            "prices": serialise(data.prices),
         }
