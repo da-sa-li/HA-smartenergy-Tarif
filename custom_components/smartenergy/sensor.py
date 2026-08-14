@@ -157,7 +157,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
     entity_description: SmartTimesSensorDescription
     _attr_has_entity_name = True
     # Preisvorschau-Listen sind minütlich neu berechnete, rein
-    # zukunftsgerichtete Daten – Recorder-History bringt hier keinen Mehrwert
+    # zukunftsgerichtete Daten - Recorder-History bringt hier keinen Mehrwert
     # und die Listen überschreiten sonst die 16-KiB-Attributgrenze.
     _unrecorded_attributes = frozenset({"prices_today", "prices_tomorrow"})
 
