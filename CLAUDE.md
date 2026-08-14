@@ -50,6 +50,9 @@ python3.14 -c "import sys; v = sys.version_info; assert (v.major, v.minor, v.mic
 python3.14 -m venv .venv-test && . .venv-test/bin/activate
 pip install -r requirements_test.txt
 pytest
+
+# Zusätzlich die Live-Tests gegen die echte API (braucht Netzzugang):
+pytest -m live --live
 ```
 
 **Testkonvention:** Die erwarteten Werte (Sollergebnisse) werden **von Hand aus der
@@ -57,7 +60,20 @@ Spezifikation** abgeleitet und als Kommentar dokumentiert – nie aus dem zu tes
 Code erzeugt, sonst wäre der Test eine Tautologie. Fixtures (echte API-Antworten) liegen
 in `tests/fixtures/`.
 
-CI läuft bei jedem Push auf `main`, bei jedem PR, nächtlich und manuell.
+**Live-Tests** (`tests/test_api_live.py`, Marker `live`) sind die einzigen Tests, die die
+echte smartENERGY-API abrufen. Ohne die Option `--live` werden sie übersprungen – der
+normale Lauf bleibt offline und unabhängig vom fremden Server. Sie prüfen **Invarianten**
+(lückenloses Viertelstundenraster, Zeitzone, Einheit, aktueller Zeitpunkt abgedeckt,
+plausible Werte), **nie** konkrete Preise, und vergleichen die **Feldstruktur** der
+Live-Antwort mit den Fixtures – schlägt der Vergleich an, hat die API ihr Format geändert
+und die Fixtures gehören aktualisiert. Da das HA-Test-Harness Sockets und DNS pro Test
+sperrt, hebt die Fixture `netzwerk_freigeben` diese Sperre gezielt nur für diese Tests auf.
+
+CI läuft bei jedem Push auf `main`, bei jedem PR und manuell (`validate.yml`); die
+Live-Tests laufen getrennt davon nächtlich und manuell (`live-api.yml`). Schlägt ein
+Live-Lauf fehl, legt der Workflow ein Issue mit dem Label `live-api-fehler` an bzw.
+kommentiert das bereits offene – die E-Mail-Benachrichtigung von GitHub ist bei geplanten
+Läufen zu unzuverlässig. Das Issue bleibt offen, bis es jemand von Hand schließt.
 
 ## Architektur – das große Bild
 
