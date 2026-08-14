@@ -3,6 +3,9 @@
 Die Sollwerte in den Tests sind **von Hand aus der Spezifikation** (CLAUDE.md,
 README) abgeleitet und nicht aus dem zu testenden Code erzeugt – nur so prüfen
 die Tests die Mathematik unabhängig und werden nicht zur Tautologie.
+
+Hier wird außerdem die Option ``--live`` bereitgestellt, die die Tests mit dem
+Marker ``live`` (echte API-Abrufe, siehe ``test_api_live.py``) freischaltet.
 """
 
 from __future__ import annotations
@@ -22,6 +25,42 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 # Europe/Vienna entspricht im Sommer genau dem +02:00-Offset der API-Daten.
 VIENNA = zoneinfo.ZoneInfo("Europe/Vienna")
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Ergänzt die Kommandozeilen-Option ``--live``.
+
+    Dieser Hook ist nur in einer *initialen* conftest erlaubt; durch
+    ``testpaths = tests`` in ``pytest.ini`` ist diese Datei genau das.
+    """
+    parser.addoption(
+        "--live",
+        action="store_true",
+        default=False,
+        help=(
+            "Führt zusätzlich die Tests aus, die die echte smartENERGY-API "
+            "abrufen (Marker 'live'). Ohne die Option werden sie übersprungen."
+        ),
+    )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Überspringt ``live``-markierte Tests, solange ``--live`` fehlt.
+
+    Bewusst überspringen statt abwählen: So bleiben die Live-Tests in der
+    Zusammenfassung eines normalen Laufs sichtbar, statt stillschweigend zu
+    verschwinden.
+    """
+    if config.getoption("--live"):
+        return
+    skip_live = pytest.mark.skip(
+        reason="Live-Test gegen die echte smartENERGY-API – nur mit --live."
+    )
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip_live)
 
 
 @pytest.fixture(autouse=True)

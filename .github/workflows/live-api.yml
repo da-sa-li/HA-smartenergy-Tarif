@@ -1,0 +1,38 @@
+name: Live-API
+
+# Ruft die echte smartENERGY-API ab und prüft, ob sie noch das liefert, worauf
+# die Integration baut. Bewusst getrennt von validate.yml: Die PR-CI bleibt so
+# offline und unabhängig von einem fremden Server, während ein Formatwechsel der
+# API trotzdem innerhalb eines Tages auffällt.
+on:
+  schedule:
+    # Täglich 04:17 UTC (06:17 Wien). Krumme Minute, um die Lastspitze zur
+    # vollen Stunde bei GitHub zu meiden.
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: Live-API-Vertragstest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_test.txt
+
+      - name: Run live tests
+        run: pytest -m live --live
