@@ -122,8 +122,9 @@ async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
     )
     assert result["type"] is FlowResultType.FORM
 
-    # Ohne "exact_hours" abgeschickt (wie ein älterer Client): Der Schema-Default
-    # greift, der Untereintrag behält also das bisherige Verhalten.
+    # Spezifikation: Fehlt "exact_hours" in der Eingabe – etwa von einem älteren
+    # Client –, bleibt das bisherige Verhalten erhalten (bei Preisgleichstand
+    # wird erweitert). Sollergebnis: Der gespeicherte Wert ist False.
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
         {"name": "Boiler", "cheap_hours": 4.0, "cheap_mode": "individual"},
@@ -163,6 +164,8 @@ async def test_subentry_create_with_exact_hours(
         },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    # Spezifikation: Wird die Option gesetzt, hält der Sensor die Stundenzahl
+    # exakt ein. Sollergebnis: Der gespeicherte Wert ist True.
     assert result["data"]["exact_hours"] is True
 
 

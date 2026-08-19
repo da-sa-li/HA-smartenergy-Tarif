@@ -342,9 +342,14 @@ class SmartTimesData:
         surplus = all_starts - strict_starts
         # [start, end, enthält Überschuss-Intervall]
         blocks: list[list] = []
-        for price in self.cheap_intervals(  # chronologisch
-            day, cheap_hours, mode, exact_hours
-        ):
+        # Direkt über ``for_day`` (chronologisch) statt über ``cheap_intervals``:
+        # Jenes ermittelt die Auswahl über ``_cheap_starts`` ein zweites Mal,
+        # obwohl sie hier bereits vorliegt. Der Koordinator rechnet minütlich,
+        # und ``_cheap_blocks_spanning`` ruft diese Methode je Auswertung bis zu
+        # dreimal – der doppelte Lauf summiert sich entsprechend.
+        for price in self.for_day(day):
+            if price.start not in all_starts:
+                continue
             exceeds = price.start in surplus
             if blocks and blocks[-1][1] == price.start:
                 blocks[-1][1] = price.end
@@ -368,11 +373,13 @@ class SmartTimesData:
         den Tageswechsel (im Einzelstunden-Modus der Normalfall, da die Nacht
         meist am günstigsten ist), zerfiele er in zwei getrennt gejitterte
         Blöcke. Deren Fenster stoßen dann nicht mehr aneinander, sondern klaffen
-        um ``JITTER_SPAN_SECONDS / 2`` auseinander – und zwar für *jede*
-        Phase gleich weit, weil sich beide Flanken um denselben Betrag
-        verschieben. Ohne Jitter gäbe es die Lücke nicht (beide Grenzen fallen
-        exakt auf Mitternacht); erst der Jitter reißt sie auf und erzeugt so
-        genau den Aus-/Einschaltzyklus, den er verhindern soll.
+        um ``JITTER_SPAN_SECONDS`` auseinander – und zwar für *jede* Phase
+        gleich weit, weil sich beide Flanken um denselben Betrag verschieben:
+        Der Vortagsblock schaltet um die volle Breite vorgezogen ab, der
+        Folgeblock um dieselbe Breite verzögert ein. Ohne Jitter gäbe es die
+        Lücke nicht (beide Grenzen fallen exakt auf Mitternacht); erst der
+        Jitter reißt sie auf und erzeugt so genau den Aus-/Einschaltzyklus, den
+        er verhindern soll.
 
         Angrenzende Blöcke zweier Tage werden deshalb hier zu einem
         zusammengefasst. Das geschieht **symmetrisch**: Ein verschmolzener Block

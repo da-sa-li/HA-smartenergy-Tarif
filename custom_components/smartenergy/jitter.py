@@ -78,8 +78,8 @@ def jittered_window(
     Phase ab, also davon, welche Subentry-ID ein Sensor zufällig bekommen hat
     (siehe ``JITTER_SPAN_SECONDS`` in const.py). Ein durchgehender Block wird so
     nie zerteilt und – solange er länger als ``JITTER_SPAN_SECONDS`` ist – auch
-    nie ausgelöscht. Bei der kleinsten Blocklänge (ein 15-Minuten-Intervall)
-    bleiben 5 min Einschaltzeit.
+    nie ausgelöscht. Bei der kleinsten Blocklänge (ein Viertelstunden-Intervall,
+    das Raster der API) bleiben ``15 min - JITTER_SPAN_SECONDS`` Einschaltzeit.
 
     Der Preis dieser Gleichbehandlung ist ein deterministischer Verlust von
     ``JITTER_SPAN_SECONDS`` je Block – nicht nur im Mittel, sondern für jeden

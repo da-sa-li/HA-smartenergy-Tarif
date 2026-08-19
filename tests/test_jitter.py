@@ -89,9 +89,13 @@ def test_both_edges_spread_over_the_full_span():
     phases = [i / 100 for i in range(100)]
     ons = [jitter.jittered_window(START, END, p)[0] for p in phases]
     offs = [jitter.jittered_window(START, END, p)[1] for p in phases]
-    # Streubreite = SPAN abzüglich eines Rasterschritts (99/100 * SPAN).
-    assert max(ons) - min(ons) == SPAN * 0.99
-    assert max(offs) - min(offs) == SPAN * 0.99
+    # Streubreite = SPAN abzüglich eines Rasterschritts (99/100 * SPAN). Beide
+    # Seiten des Vergleichs runden unabhängig voneinander auf Mikrosekunden,
+    # daher mit Toleranz statt auf Gleichheit – sonst hinge der Test doch wieder
+    # am konkreten Wert von JITTER_SPAN_SECONDS.
+    toleranz = timedelta(microseconds=1)
+    assert abs((max(ons) - min(ons)) - SPAN * 0.99) <= toleranz
+    assert abs((max(offs) - min(offs)) - SPAN * 0.99) <= toleranz
 
 
 @pytest.mark.parametrize("phase", [0.0, 0.3, 0.5, 0.99])
