@@ -28,27 +28,8 @@ def _quarter_hours(hour: str) -> list[datetime]:
     return [_iso(f"2026-06-05T{hour}:{m:02d}:00+02:00") for m in (0, 15, 30, 45)]
 
 
-def _synthetic(gross_by_slot: dict[str, float]) -> SmartTimesData:
-    """Ein Tag aus Viertelstunden; nicht genannte Slots sind deutlich teurer.
-
-    Für Gleichstands-Randfälle, die sich in den echten Fixtures nicht ergeben.
-    Ohne Netzgebiet ist die Rangfolge monoton im Bruttopreis, die Sollwerte
-    lassen sich also direkt aus den hier gesetzten Preisen ablesen.
-    """
-    prices = []
-    for slot in range(96):
-        start = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA) + timedelta(
-            minutes=15 * slot
-        )
-        prices.append(
-            MarketPrice(
-                start=start,
-                end=start + timedelta(minutes=15),
-                gross_ct_per_kwh=gross_by_slot.get(
-                    f"{start.hour:02d}:{start.minute:02d}", 50.0
-                ),
-            )
-        )
+def _wrap(prices: list[MarketPrice]) -> SmartTimesData:
+    """Kapselt eine Liste von Intervallen als ``SmartTimesData`` (ohne Netzgebiet)."""
     return SmartTimesData(
         tariff="smartTIMES",
         unit="ct/kWh",
@@ -56,6 +37,52 @@ def _synthetic(gross_by_slot: dict[str, float]) -> SmartTimesData:
         include_vat=True,
         prices=prices,
     )
+
+
+def _synthetic(
+    gross_by_slot: dict[str, float], missing: set[str] = frozenset()
+) -> SmartTimesData:
+    """Ein Tag aus Viertelstunden; nicht genannte Slots sind deutlich teurer.
+
+    Für Gleichstands-Randfälle, die sich in den echten Fixtures nicht ergeben.
+    Ohne Netzgebiet ist die Rangfolge monoton im Bruttopreis, die Sollwerte
+    lassen sich also direkt aus den hier gesetzten Preisen ablesen.
+
+    ``missing`` lässt die genannten Slots ganz weg und reißt so eine echte
+    Lücke ins Tagesraster – der Fall, den der Blockmodus überspringen muss.
+    """
+    prices = []
+    for slot in range(96):
+        start = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA) + timedelta(
+            minutes=15 * slot
+        )
+        label = f"{start.hour:02d}:{start.minute:02d}"
+        if label in missing:
+            continue
+        prices.append(
+            MarketPrice(
+                start=start,
+                end=start + timedelta(minutes=15),
+                gross_ct_per_kwh=gross_by_slot.get(label, 50.0),
+            )
+        )
+    return _wrap(prices)
+
+
+def _partial_day(entries: list[tuple[str, float]]) -> SmartTimesData:
+    """Ein Tag aus **genau** den genannten Viertelstunden (``("HH:MM", brutto)``)."""
+    prices = []
+    for label, gross in entries:
+        hour, minute = (int(part) for part in label.split(":"))
+        start = datetime(2026, 6, 5, hour, minute, tzinfo=VIENNA)
+        prices.append(
+            MarketPrice(
+                start=start,
+                end=start + timedelta(minutes=15),
+                gross_ct_per_kwh=gross,
+            )
+        )
+    return _wrap(prices)
 
 
 def test_individual_picks_cheapest_quarter_hours(make_data, smartcontrol_payload):
@@ -166,6 +193,63 @@ def test_exceeds_flag_covers_the_whole_block(gross):
     data = _synthetic(gross)
     blocks = {start.hour: exceeds for start, _, exceeds in data._cheap_blocks(DAY, 1.0)}
     assert blocks == {2: False, 10: True}
+
+
+def test_consecutive_block_skips_a_gap():
+    """Ein Fenster darf keine Lücke im Tagesraster überspannen.
+
+    09:30 und 09:45 sind mit 1,0 die günstigsten Intervalle des Tages, direkt
+    danach fehlen 10:00 und 10:15. Jedes 4er-Fenster, das die beiden mitnehmen
+    wollte, müsste über die Lücke greifen und ist damit ungültig – ein Block
+    „am Stück" wäre es ja nicht. Das günstigste lückenlose Fenster ist deshalb
+    13:00-14:00 (4 x 2,0 = 8,0); alle übrigen Intervalle kosten 50,0.
+    """
+    data = _synthetic(
+        {
+            "09:30": 1.0,
+            "09:45": 1.0,
+            "13:00": 2.0,
+            "13:15": 2.0,
+            "13:30": 2.0,
+            "13:45": 2.0,
+        },
+        missing={"10:00", "10:15"},
+    )
+    blocks = data._cheap_blocks(DAY, 1.0, "consecutive")  # 1 h = 4 Intervalle
+    assert len(blocks) == 1
+    assert blocks[0][:2] == (
+        _iso("2026-06-05T13:00:00+02:00"),
+        _iso("2026-06-05T14:00:00+02:00"),
+    )
+
+
+def test_consecutive_falls_back_when_no_gapless_window_fits():
+    """Passt gar kein lückenloses Fenster, greift die Einzelauswahl.
+
+    Sechs Intervalle mit einer Lücke um 00:45: Jedes der drei möglichen
+    4er-Fenster überspannt sie. Erwartet wird der Rückfall auf die vier
+    günstigsten Einzelintervalle (4,0 / 5,0 / 6,0 / 7,0) – und zwar ohne
+    Gleichstands-Erweiterung, damit die Zusage einer festen Länge auch in
+    diesem Pfad gilt.
+    """
+    data = _partial_day(
+        [
+            ("00:00", 9.0),
+            ("00:15", 8.0),
+            ("00:30", 7.0),
+            ("01:00", 6.0),
+            ("01:15", 5.0),
+            ("01:30", 4.0),
+        ]
+    )
+    all_starts, strict_starts = data._cheap_selection(DAY, 1.0, "consecutive")
+    assert all_starts == strict_starts
+    assert sorted(all_starts) == [
+        _iso("2026-06-05T00:30:00+02:00"),
+        _iso("2026-06-05T01:00:00+02:00"),
+        _iso("2026-06-05T01:15:00+02:00"),
+        _iso("2026-06-05T01:30:00+02:00"),
+    ]
 
 
 def test_consecutive_ignores_exact_hours_option(make_data, smarttimes_payload):
