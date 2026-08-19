@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -48,7 +49,35 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class SmartTimesData:
-    """Aufbereitete Daten, die der Koordinator den Entitäten bereitstellt."""
+    """Aufbereitete Daten, die der Koordinator den Entitäten bereitstellt.
+
+    Die Felder sind nach dem Erzeugen unveränderlich – mit **einer bewussten
+    Ausnahme**: den privaten ``*_cache``-Feldern am Ende. Sie halten rein
+    abgeleitete Zwischenergebnisse und sind deshalb aus ``__eq__``/``__repr__``
+    ausgenommen (``compare=False``/``repr=False``).
+
+    Der Cache ist nötig, weil der Koordinator **minütlich** neu rechnet und
+    jeder „Günstige Stunde"-Sensor seine Auswahl in den *synchronen* Properties
+    ``is_on``/``extra_state_attributes`` zieht – die Rechenzeit fällt also im
+    Event-Loop von Home Assistant an. Ohne Cache wurde dieselbe Tagesauswahl je
+    Auswertung vielfach neu gebildet: ``is_cheap_now`` wertet zwei Tage aus,
+    ``_cheap_blocks_spanning`` je Tag bis zu drei.
+
+    Die Caches halten ausschließlich **unveränderliche** Container (``tuple``,
+    ``frozenset``). Ein Aufrufer kann eine gecachte Sammlung damit nicht aus
+    Versehen verändern und so die Daten aller Sensoren derselben Instanz
+    verfälschen – die Zusage steht im Typ statt in einem Kommentar. Wer eine
+    veränderbare Fassung braucht, baut sie sich selbst (siehe
+    :meth:`_cheap_blocks_spanning`).
+
+    Eine Invalidierung braucht es nicht: Der Koordinator erzeugt in
+    ``_async_update_data`` bei jeder Neuberechnung eine **frische** Instanz. Der
+    Cache lebt damit genau so lange wie die Daten, die er beschreibt. Alle
+    Sensoren lesen dieselbe ``coordinator.data``; gleich konfigurierte Sensoren
+    teilen sich das Ergebnis zusätzlich. Sperren sind unnötig –
+    Entitäts-Properties und Koordinator laufen beide im Event-Loop, also
+    einfädig.
+    """
 
     tariff: str
     unit: str
@@ -62,6 +91,29 @@ class SmartTimesData:
     # die übrigen Nebenkosten netto summiert (USt. einmal am Ende).
     handling_fee_net: float = 0.0
 
+    # --- Rechen-Cache (abgeleitet, siehe Klassen-Docstring) ---------------- #
+    # Preis-Einträge je lokalem Kalendertag (spart den Durchlauf aller Preise
+    # samt `as_local` je Aufruf).
+    _day_price_cache: dict[date, tuple[MarketPrice, ...]] = field(
+        default_factory=dict, repr=False, compare=False
+    )
+    # Gesamtpreis je Intervall. Schlüssel ist Startzeitpunkt **und** Bruttopreis
+    # – so trifft ein Eintrag, der nicht aus `prices` stammt, nie einen fremden
+    # Wert.
+    _value_cache: dict[tuple[datetime, float], float] = field(
+        default_factory=dict, repr=False, compare=False
+    )
+    # Günstig-Auswahl bzw. -Blöcke je (Tag, Stundenzahl, Modus, exact_hours).
+    # Der Jitter geht bewusst *nicht* in den Schlüssel ein: Er wirkt erst auf
+    # die fertigen Blöcke, sodass sich Sensoren mit gleicher Einstellung die
+    # Auswahl teilen.
+    _selection_cache: dict[
+        tuple[date, float, str, bool], tuple[frozenset[datetime], frozenset[datetime]]
+    ] = field(default_factory=dict, repr=False, compare=False)
+    _block_cache: dict[
+        tuple[date, float, str, bool], tuple[tuple[datetime, datetime, bool], ...]
+    ] = field(default_factory=dict, repr=False, compare=False)
+
     def current(self, moment: datetime | None = None) -> MarketPrice | None:
         """Der für ``moment`` (Standard: jetzt) gültige Preis-Eintrag."""
         moment = moment or dt_util.now()
@@ -70,13 +122,22 @@ class SmartTimesData:
                 return price
         return None
 
-    def for_day(self, day) -> list[MarketPrice]:
-        """Alle Preis-Einträge eines bestimmten lokalen Kalendertages."""
-        return [
-            price
-            for price in self.prices
-            if dt_util.as_local(price.start).date() == day
-        ]
+    def for_day(self, day) -> tuple[MarketPrice, ...]:
+        """Alle Preis-Einträge eines bestimmten lokalen Kalendertages.
+
+        Wird je Tag einmal gebildet und danach aus dem Cache geliefert; das
+        Ergebnis ist deshalb ein Tupel und nicht zu verändern (siehe
+        Klassen-Docstring).
+        """
+        prices = self._day_price_cache.get(day)
+        if prices is None:
+            prices = tuple(
+                price
+                for price in self.prices
+                if dt_util.as_local(price.start).date() == day
+            )
+            self._day_price_cache[day] = prices
+        return prices
 
     def upcoming(self, moment: datetime | None = None) -> list[MarketPrice]:
         """Alle Preis-Einträge ab ``moment`` (Standard: jetzt)."""
@@ -120,7 +181,21 @@ class SmartTimesData:
         – wie in Österreich üblich – auf die *Summe* aus Arbeitspreis und
         Abgaben/Netzentgelten erhoben, daher wird hier netto summiert und die
         Steuer einmal am Ende angewendet.
+
+        Das Ergebnis wird je Instanz zwischengespeichert (siehe Klassen-
+        Docstring): Die Auswahllogik vergleicht dieselben Intervalle vielfach,
+        die Rechnung selbst (zwei ``as_local``, Abgaben-Tabelle, Netzentgelt,
+        Rundung) ist dabei jedes Mal dieselbe.
         """
+        key = (price.start, price.gross_ct_per_kwh)
+        value = self._value_cache.get(key)
+        if value is None:
+            value = self._compute_all_in_value(price)
+            self._value_cache[key] = value
+        return value
+
+    def _compute_all_in_value(self, price: MarketPrice) -> float:
+        """Berechnet den Gesamtpreis eines Eintrags (ohne Cache)."""
         net = price.net_ct_per_kwh + self._surcharges_net(price.start)
         return round(self._apply_vat(net), 4)
 
@@ -167,7 +242,7 @@ class SmartTimesData:
         cheap_hours: float,
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
-    ) -> tuple[set[datetime], set[datetime]]:
+    ) -> tuple[frozenset[datetime], frozenset[datetime]]:
         """``(alle, strikte)`` Startzeiten der günstigsten Intervalle eines Tages.
 
         ``mode`` steuert die Auswahllogik:
@@ -185,10 +260,34 @@ class SmartTimesData:
           (siehe :meth:`_consecutive_selection`). Hier wird **nie** erweitert,
           die Stundenzahl gilt also immer exakt; ``exact_hours`` ist ohne
           Wirkung.
+
+        Das Ergebnis wird je ``(Tag, Stundenzahl, Modus, exact_hours)``
+        zwischengespeichert (siehe Klassen-Docstring) und ist deshalb
+        unveränderlich.
+        """
+        key = (day, cheap_hours, mode, exact_hours)
+        selection = self._selection_cache.get(key)
+        if selection is None:
+            selection = self._compute_cheap_selection(
+                day, cheap_hours, mode, exact_hours
+            )
+            self._selection_cache[key] = selection
+        return selection
+
+    def _compute_cheap_selection(
+        self,
+        day,
+        cheap_hours: float,
+        mode: str,
+        exact_hours: bool,
+    ) -> tuple[frozenset[datetime], frozenset[datetime]]:
+        """Ermittelt die Auswahl eines Tages – ohne Cache.
+
+        Siehe :meth:`_cheap_selection` für Bedeutung und Schlüssel.
         """
         prices = self.for_day(day)
         if not prices:
-            return set(), set()
+            return frozenset(), frozenset()
         count = min(self._cheap_count(cheap_hours), len(prices))
         if mode == CHEAP_MODE_CONSECUTIVE:
             return self._consecutive_selection(prices, count)
@@ -196,10 +295,10 @@ class SmartTimesData:
 
     def _individual_selection(
         self,
-        prices: list[MarketPrice],
+        prices: Sequence[MarketPrice],
         count: int,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
-    ) -> tuple[set[datetime], set[datetime]]:
+    ) -> tuple[frozenset[datetime], frozenset[datetime]]:
         """``(alle, strikte)`` für die günstigsten **Einzel**-Intervalle.
 
         ``strikte`` sind die ``count`` günstigsten Intervalle (Gleichstand nach
@@ -211,16 +310,20 @@ class SmartTimesData:
         """
         valued = [(self.all_in_value(p), p) for p in prices]
         ranked = sorted(valued, key=lambda item: (item[0], item[1].start))
-        strict_starts = {p.start for _, p in ranked[:count]}
+        strict_starts = frozenset(p.start for _, p in ranked[:count])
         if exact_hours:
-            return set(strict_starts), strict_starts
+            # Beide Mengen sind unveränderlich, dieselbe zweimal zu liefern ist
+            # daher unbedenklich.
+            return strict_starts, strict_starts
         cutoff_value = ranked[count - 1][0]
-        all_starts = {p.start for value, p in valued if value <= cutoff_value}
+        all_starts = frozenset(
+            p.start for value, p in valued if value <= cutoff_value
+        )
         return all_starts, strict_starts
 
     def _consecutive_selection(
-        self, prices: list[MarketPrice], count: int
-    ) -> tuple[set[datetime], set[datetime]]:
+        self, prices: Sequence[MarketPrice], count: int
+    ) -> tuple[frozenset[datetime], frozenset[datetime]]:
         """``(alle, strikte)`` für den günstigsten **zusammenhängenden** Block.
 
         ``strikte`` ist das günstigste lückenlose Fenster aus ``count``
@@ -242,29 +345,46 @@ class SmartTimesData:
         Einzelintervalle ausgewichen, damit der Sensor nie dauerhaft „aus"
         bleibt. Auch dort wird **nicht** erweitert, damit die Zusage einer
         festen Länge in jedem Pfad dieser Betriebsart gilt.
+
+        Gesucht wird über **Präfixsummen**, die Kosten eines Fensters sind also
+        eine Differenz statt einer Summe über ``count`` Einträge. Das senkt den
+        Aufwand von O(n·count) auf O(n) – bei 96 Intervallen und 4 h waren das
+        bisher 96 Fensterpositionen × 16 Intervalle, und zwar je Sensor und
+        Minute.
         """
         n = len(prices)
+        values = [self.all_in_value(p) for p in prices]
+        prefix = [0.0] * (n + 1)
+        for i, value in enumerate(values):
+            prefix[i + 1] = prefix[i] + value
+        # ``run_start[j]`` ist der Beginn des lückenlosen Laufs, der bei ``j``
+        # endet. Ein Fenster ab ``i`` hängt damit genau dann zusammen (keine
+        # Lücke, ist also wirklich „am Stück"), wenn der Lauf seines letzten
+        # Intervalls spätestens bei ``i`` beginnt.
+        run_start = [0] * n
+        for j in range(1, n):
+            run_start[j] = (
+                run_start[j - 1] if prices[j - 1].end == prices[j].start else j
+            )
         best_total: float | None = None
         best_index = 0
         for i in range(n - count + 1):
-            window = prices[i : i + count]
-            # Das Fenster muss zeitlich zusammenhängen (keine Lücke), sonst wäre
-            # der Block nicht wirklich „am Stück".
-            if any(
-                window[j].end != window[j + 1].start for j in range(count - 1)
-            ):
+            if run_start[i + count - 1] > i:
                 continue
-            total = sum(self.all_in_value(p) for p in window)
+            # Die Differenz zweier Präfixsummen weicht in den letzten Bits von
+            # der Direktsumme ab; die Toleranz unten (1e-9) liegt weit darüber
+            # (auf 4 Nachkommastellen gerundete Werte, höchstens 96 Summanden).
+            total = prefix[i + count] - prefix[i]
             if best_total is None or total < best_total - 1e-9:
                 best_total = total
                 best_index = i
         if best_total is None:
             return self._individual_selection(prices, count, True)
 
-        starts = {
+        starts = frozenset(
             prices[i].start for i in range(best_index, best_index + count)
-        }
-        return set(starts), starts
+        )
+        return starts, starts
 
     def _cheap_starts(
         self,
@@ -272,7 +392,7 @@ class SmartTimesData:
         cheap_hours: float,
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
-    ) -> set[datetime]:
+    ) -> frozenset[datetime]:
         """Startzeiten *aller* günstigen Intervalle eines Tages (inkl. Gleichstand)."""
         return self._cheap_selection(day, cheap_hours, mode, exact_hours)[0]
 
@@ -306,7 +426,7 @@ class SmartTimesData:
         cheap_hours: float,
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
-    ) -> list[tuple[datetime, datetime, bool]]:
+    ) -> tuple[tuple[datetime, datetime, bool], ...]:
         """Günstig-Blöcke eines Tages als ``(start, end, exceeds_cheap_hours)``.
 
         Direkt aufeinanderfolgende günstige Intervalle werden zu einem Block
@@ -335,7 +455,29 @@ class SmartTimesData:
         nächste (teurere) Preiszone ausgreift. Das gilt inzwischen für *jedes*
         Blockende (siehe :func:`.jitter.jittered_window`), weshalb die Angabe
         nichts mehr mit dem Blockende zu tun hat.
+
+        Das Ergebnis wird je ``(Tag, Stundenzahl, Modus, exact_hours)``
+        zwischengespeichert (siehe Klassen-Docstring): ``_cheap_blocks_spanning``
+        ruft diese Methode je Auswertung für bis zu drei Tage auf, und
+        ``is_cheap_now``/``next_cheap_on`` werten je zwei Tage aus – dieselben
+        Tage also mehrfach. Das Ergebnis ist deshalb ein Tupel und nicht zu
+        verändern.
         """
+        key = (day, cheap_hours, mode, exact_hours)
+        blocks = self._block_cache.get(key)
+        if blocks is None:
+            blocks = self._compute_cheap_blocks(day, cheap_hours, mode, exact_hours)
+            self._block_cache[key] = blocks
+        return blocks
+
+    def _compute_cheap_blocks(
+        self,
+        day,
+        cheap_hours: float,
+        mode: str,
+        exact_hours: bool,
+    ) -> tuple[tuple[datetime, datetime, bool], ...]:
+        """Bildet die Blöcke eines Tages (ohne Cache, siehe :meth:`_cheap_blocks`)."""
         all_starts, strict_starts = self._cheap_selection(
             day, cheap_hours, mode, exact_hours
         )
@@ -356,7 +498,7 @@ class SmartTimesData:
                 blocks[-1][2] = blocks[-1][2] or exceeds
             else:
                 blocks.append([price.start, price.end, exceeds])
-        return [(start, end, exceeds) for start, end, exceeds in blocks]
+        return tuple((start, end, exceeds) for start, end, exceeds in blocks)
 
     def _cheap_blocks_spanning(
         self,
@@ -397,7 +539,10 @@ class SmartTimesData:
         Der Block wird dann wie bisher an der Tagesgrenze gejittert und rückt
         mit dem nächsten Abruf zusammen.
         """
-        blocks = self._cheap_blocks(day, cheap_hours, mode, exact_hours)
+        # Veränderbare Arbeitskopie: Unten werden Randblöcke ersetzt,
+        # ``_cheap_blocks`` liefert seinen Tagesstand aber unveränderlich aus dem
+        # Cache (siehe Klassen-Docstring).
+        blocks = list(self._cheap_blocks(day, cheap_hours, mode, exact_hours))
         if not blocks:
             return blocks
         # Nur ein Block, der eine Tagesgrenze exakt berührt, kann überhaupt an
