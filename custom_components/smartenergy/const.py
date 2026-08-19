@@ -94,6 +94,30 @@ CHEAP_MODE_INDIVIDUAL: Final = "individual"
 CHEAP_MODE_CONSECUTIVE: Final = "consecutive"
 DEFAULT_CHEAP_MODE: Final = CHEAP_MODE_INDIVIDUAL
 
+# Ob die eingestellte Stundenzahl exakt eingehalten wird ("Stundenzahl exakt
+# einhalten") – also NICHT bei Preisgleichstand am Schwellwert darüber hinaus
+# erweitert wird.
+#
+# Kosten mehrere Intervalle exakt so viel wie das teuerste noch ausgewählte,
+# ist die Auswahl unter ihnen willkürlich – standardmäßig werden deshalb alle
+# markiert. Das verteuert die kWh nie (alle liegen auf dem Schwellwert),
+# verlängert aber die Einschaltdauer. Wie stark, hängt am Tarif: smartCONTROL
+# hat pro Tag fast durchweg verschiedene Preise (die Erweiterung ist dort
+# praktisch wirkungslos), smartTIMES als Zeittarif nur drei Preisstufen zu je
+# 32 Viertelstunden – dort liefert jede Einstellung zwischen 0,25 h und 8 h
+# dieselben 8 Stunden, die Stundenzahl ist also faktisch wirkungslos.
+#
+# Vorgabe "aus" (= erweitern): bisheriges Verhalten, und für selbstbegrenzende
+# Verbraucher (Boiler mit Thermostat, Wallbox mit Ziel-Ladestand) ist die
+# zusätzliche Gelegenheit zum selben Preis ein Vorteil. Wer eine echte
+# Laufzeit-Vorgabe braucht, schaltet die Option ein.
+#
+# Gilt nur für CHEAP_MODE_INDIVIDUAL. Im Blockmodus wird ohnehin nie erweitert:
+# Dort ist eine feste Fensterlänge der Zweck der Betriebsart (Waschmaschine,
+# Geschirrspüler), den eine Verlängerung gerade aufheben würde.
+CONF_EXACT_HOURS: Final = "exact_hours"
+DEFAULT_EXACT_HOURS: Final = False
+
 # Untereintrag-Typ (Config Subentry) für einen "Günstige Stunde"-Sensor.
 SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
 

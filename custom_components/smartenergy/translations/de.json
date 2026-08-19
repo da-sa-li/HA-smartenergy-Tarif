@@ -47,10 +47,12 @@
           "data": {
             "name": "Name (z. B. Boiler, Wallbox)",
             "cheap_hours": "Günstige Stunden pro Tag",
-            "cheap_mode": "Logik der günstigen Stunden"
+            "cheap_mode": "Logik der günstigen Stunden",
+            "exact_hours": "Stundenzahl exakt einhalten"
           },
           "data_description": {
-            "cheap_mode": "„Günstigste Einzelstunden“: die billigsten Viertelstunden des Tages – sie dürfen über den Tag verteilt sein (z. B. Boiler, Wallbox). „Zusammenhängender Block“: ein günstigstes Zeitfenster am Stück – für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen (Waschmaschine, Geschirrspüler)."
+            "cheap_mode": "„Günstigste Einzelstunden“: die billigsten Viertelstunden des Tages – sie dürfen über den Tag verteilt sein (z. B. Boiler, Wallbox). „Zusammenhängender Block“: ein günstigstes Zeitfenster am Stück – für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen (Waschmaschine, Geschirrspüler).",
+            "exact_hours": "Normalerweise werden weitere Zeiten, die genau so viel kosten wie die teuerste ausgewählte, ebenfalls als günstig markiert – der Sensor ist dann länger an als eingestellt, aber nie zu einem höheren Preis. Eingeschaltet liefert er exakt die eingestellte Stundenzahl. Betrifft nur „Günstigste Einzelstunden“; bei smartTIMES mit seinen wenigen Preisstufen ist der Unterschied groß."
           }
         },
         "reconfigure": {
@@ -58,10 +60,12 @@
           "data": {
             "name": "Name (z. B. Boiler, Wallbox)",
             "cheap_hours": "Günstige Stunden pro Tag",
-            "cheap_mode": "Logik der günstigen Stunden"
+            "cheap_mode": "Logik der günstigen Stunden",
+            "exact_hours": "Stundenzahl exakt einhalten"
           },
           "data_description": {
-            "cheap_mode": "„Günstigste Einzelstunden“: die billigsten Viertelstunden des Tages – sie dürfen über den Tag verteilt sein (z. B. Boiler, Wallbox). „Zusammenhängender Block“: ein günstigstes Zeitfenster am Stück – für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen (Waschmaschine, Geschirrspüler)."
+            "cheap_mode": "„Günstigste Einzelstunden“: die billigsten Viertelstunden des Tages – sie dürfen über den Tag verteilt sein (z. B. Boiler, Wallbox). „Zusammenhängender Block“: ein günstigstes Zeitfenster am Stück – für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen (Waschmaschine, Geschirrspüler).",
+            "exact_hours": "Normalerweise werden weitere Zeiten, die genau so viel kosten wie die teuerste ausgewählte, ebenfalls als günstig markiert – der Sensor ist dann länger an als eingestellt, aber nie zu einem höheren Preis. Eingeschaltet liefert er exakt die eingestellte Stundenzahl. Betrifft nur „Günstigste Einzelstunden“; bei smartTIMES mit seinen wenigen Preisstufen ist der Unterschied groß."
           }
         }
       },

@@ -51,6 +51,32 @@ def test_individual_tie_expands_selection(make_data, smarttimes_payload):
     assert len(all_starts) == 32
 
 
+def test_individual_exact_hours_suppresses_expansion(make_data, smarttimes_payload):
+    """Mit ``exact_hours`` bleibt es bei genau der eingestellten Stundenzahl.
+
+    Ohne die Option liefert smartTIMES wegen seiner nur drei Preisstufen für
+    *jede* Einstellung zwischen 0,25 h und 8 h dieselben 32 Intervalle – die
+    Stundenzahl wäre damit faktisch wirkungslos (siehe Test darüber).
+    """
+    data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
+    all_starts, strict_starts = data._cheap_selection(
+        DAY, 1.0, "individual", True
+    )
+    assert len(strict_starts) == 4
+    assert all_starts == strict_starts
+    # Gewählt sind die 4 frühesten der 32 preisgleichen Intervalle: Stunde 02.
+    assert sorted(all_starts) == _quarter_hours("02")
+
+
+def test_exact_hours_scales_with_the_setting(make_data, smarttimes_payload):
+    """Mit ``exact_hours`` schlägt die Stundenzahl wieder durch."""
+    # Ohne die Option ergibt jede dieser Einstellungen 32 Intervalle.
+    data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
+    for hours, expected in ((0.25, 1), (1.0, 4), (2.0, 8), (4.0, 16)):
+        selected = data.cheap_intervals(DAY, hours, "individual", True)
+        assert len(selected) == expected
+
+
 def test_consecutive_block_crosses_hour_boundary(make_data, smartcontrol_payload):
     """Der zusammenhängende Block ist das günstigste lückenlose Fenster."""
     # 2 h = 8 zusammenhängende Intervalle mit minimaler Summe.
@@ -63,15 +89,31 @@ def test_consecutive_block_crosses_hour_boundary(make_data, smartcontrol_payload
     assert sorted(p.start for p in intervals) == _quarter_hours("13") + _quarter_hours("14")
 
 
-def test_consecutive_soft_end_on_tie(make_data, smarttimes_payload):
-    """Ein gleichstandsbedingt verlängertes Blockende wird als soft_end markiert."""
-    # smartTIMES, 1 h Block: günstigstes Fenster ist 02:00-02:45 (11,316). Direkt
-    # danach folgen weitere 11,316-Intervalle bis 03:45 -> der Block wird bei
-    # Gleichstand zusammenhängend bis 04:00 verlängert und als soft_end markiert.
+def test_consecutive_keeps_the_requested_length_on_tie(
+    make_data, smarttimes_payload
+):
+    """Der Block behält bei Gleichstand exakt die angeforderte Länge.
+
+    Eine feste Fensterlänge ist der Zweck dieser Betriebsart (Geräte mit fester
+    Laufzeit, die nicht unterbrochen werden dürfen). Eine Verlängerung bei
+    Gleichstand hob genau das auf: Bei smartTIMES reicht der Tiefstpreis 11,316
+    lückenlos von 02:00 bis 04:00, aus der angeforderten Stunde wurden so zwei.
+    Grenzen preisgleiche Intervalle an, ist die Wahl zwischen ihnen ohnehin
+    beliebig – dann gilt das angeforderte Fenster (frühestes bei Gleichstand).
+    """
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
     blocks = data._cheap_blocks(DAY, 1.0, "consecutive")
     assert len(blocks) == 1
     start, end, soft_end = blocks[0]
     assert start == _iso("2026-06-05T02:00:00+02:00")
-    assert end == _iso("2026-06-05T04:00:00+02:00")
-    assert soft_end is True
+    assert end == _iso("2026-06-05T03:00:00+02:00")
+    # Ohne Erweiterung gibt es im Blockmodus keine Überschuss-Intervalle mehr.
+    assert soft_end is False
+
+
+def test_consecutive_ignores_exact_hours_option(make_data, smarttimes_payload):
+    """``exact_hours`` ist im Blockmodus wirkungslos – dort gilt sie immer."""
+    data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
+    assert data._cheap_blocks(DAY, 1.0, "consecutive", False) == data._cheap_blocks(
+        DAY, 1.0, "consecutive", True
+    )

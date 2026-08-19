@@ -47,10 +47,12 @@
           "data": {
             "name": "Ime (npr. bojler, wallbox)",
             "cheap_hours": "Ugodne ure na dan",
-            "cheap_mode": "Logika ugodnih ur"
+            "cheap_mode": "Logika ugodnih ur",
+            "exact_hours": "Natančno upoštevaj število ur"
           },
           "data_description": {
-            "cheap_mode": "„Najugodnejše posamezne ure“: najcenejše četrturice dneva – lahko so razporejene čez cel dan (npr. bojler, wallbox). „Strnjen blok“: eno samo najugodnejše časovno okno v kosu – za naprave s fiksnim časom delovanja, ki ga ni dovoljeno prekiniti (pralni stroj, pomivalni stroj)."
+            "cheap_mode": "„Najugodnejše posamezne ure“: najcenejše četrturice dneva – lahko so razporejene čez cel dan (npr. bojler, wallbox). „Strnjen blok“: eno samo najugodnejše časovno okno v kosu – za naprave s fiksnim časom delovanja, ki ga ni dovoljeno prekiniti (pralni stroj, pomivalni stroj).",
+            "exact_hours": "Privzeto se kot ugodni označijo tudi drugi časi, ki stanejo natanko toliko kot najdražji izbrani – senzor je tedaj vklopljen dlje od nastavljenega, a nikoli po višji ceni. Ko je vklopljeno, zagotovi natanko nastavljeno število ur. Velja le za „Najugodnejše posamezne ure“; pri smartTIMES z malo cenovnimi stopnjami je razlika velika."
           }
         },
         "reconfigure": {
@@ -58,10 +60,12 @@
           "data": {
             "name": "Ime (npr. bojler, wallbox)",
             "cheap_hours": "Ugodne ure na dan",
-            "cheap_mode": "Logika ugodnih ur"
+            "cheap_mode": "Logika ugodnih ur",
+            "exact_hours": "Natančno upoštevaj število ur"
           },
           "data_description": {
-            "cheap_mode": "„Najugodnejše posamezne ure“: najcenejše četrturice dneva – lahko so razporejene čez cel dan (npr. bojler, wallbox). „Strnjen blok“: eno samo najugodnejše časovno okno v kosu – za naprave s fiksnim časom delovanja, ki ga ni dovoljeno prekiniti (pralni stroj, pomivalni stroj)."
+            "cheap_mode": "„Najugodnejše posamezne ure“: najcenejše četrturice dneva – lahko so razporejene čez cel dan (npr. bojler, wallbox). „Strnjen blok“: eno samo najugodnejše časovno okno v kosu – za naprave s fiksnim časom delovanja, ki ga ni dovoljeno prekiniti (pralni stroj, pomivalni stroj).",
+            "exact_hours": "Privzeto se kot ugodni označijo tudi drugi časi, ki stanejo natanko toliko kot najdražji izbrani – senzor je tedaj vklopljen dlje od nastavljenega, a nikoli po višji ceni. Ko je vklopljeno, zagotovi natanko nastavljeno število ur. Velja le za „Najugodnejše posamezne ure“; pri smartTIMES z malo cenovnimi stopnjami je razlika velika."
           }
         }
       },

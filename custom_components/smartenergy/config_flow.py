@@ -25,11 +25,13 @@ from .const import (
     CHEAP_MODE_INDIVIDUAL,
     CONF_CHEAP_HOURS,
     CONF_CHEAP_MODE,
+    CONF_EXACT_HOURS,
     CONF_GRID_ZONE,
     CONF_INCLUDE_VAT,
     CONF_TARIFF,
     DEFAULT_CHEAP_HOURS,
     DEFAULT_CHEAP_MODE,
+    DEFAULT_EXACT_HOURS,
     DEFAULT_GRID_ZONE,
     DEFAULT_INCLUDE_VAT,
     DEFAULT_TARIFF,
@@ -119,6 +121,7 @@ def _cheap_hour_schema(
     name: str | None = None,
     cheap_hours: float = DEFAULT_CHEAP_HOURS,
     cheap_mode: str = DEFAULT_CHEAP_MODE,
+    exact_hours: bool = DEFAULT_EXACT_HOURS,
 ) -> vol.Schema:
     """Schema für einen „Günstige Stunde"-Untereintrag (Name, Stundenzahl, Logik).
 
@@ -141,6 +144,7 @@ def _cheap_hour_schema(
             vol.Required(
                 CONF_CHEAP_MODE, default=cheap_mode
             ): _cheap_mode_selector(),
+            vol.Required(CONF_EXACT_HOURS, default=exact_hours): bool,
         }
     )
 
@@ -265,6 +269,7 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                     data={
                         CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS],
                         CONF_CHEAP_MODE: user_input[CONF_CHEAP_MODE],
+                        CONF_EXACT_HOURS: user_input[CONF_EXACT_HOURS],
                     },
                 )
         return self.async_show_form(
@@ -282,6 +287,11 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                     user_input.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
                     if user_input
                     else DEFAULT_CHEAP_MODE
+                ),
+                exact_hours=(
+                    user_input.get(CONF_EXACT_HOURS, DEFAULT_EXACT_HOURS)
+                    if user_input
+                    else DEFAULT_EXACT_HOURS
                 ),
             ),
             errors=errors,
@@ -305,10 +315,12 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                     data={
                         CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS],
                         CONF_CHEAP_MODE: user_input[CONF_CHEAP_MODE],
+                        CONF_EXACT_HOURS: user_input[CONF_EXACT_HOURS],
                     },
                 )
         stored_cheap_hours = subentry.data.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS)
         stored_cheap_mode = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
+        stored_exact_hours = subentry.data.get(CONF_EXACT_HOURS, DEFAULT_EXACT_HOURS)
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=_cheap_hour_schema(
@@ -328,6 +340,11 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                     user_input.get(CONF_CHEAP_MODE, stored_cheap_mode)
                     if user_input is not None
                     else stored_cheap_mode
+                ),
+                exact_hours=(
+                    user_input.get(CONF_EXACT_HOURS, stored_exact_hours)
+                    if user_input is not None
+                    else stored_exact_hours
                 ),
             ),
             errors=errors,

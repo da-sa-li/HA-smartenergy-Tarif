@@ -125,8 +125,14 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   einer pro Verbraucher, mit eigener Stundenzahl (`cheap_hours`) und Auswahllogik (`cheap_mode`):
   - `individual`: günstigste **Einzel**-Intervalle (dürfen über den Tag verteilt sein).
   - `consecutive`: ein **zusammenhängender Block** „am Stück".
-  Bei **Gleichstand** am Schwellwert wird die Auswahl in beiden Modi erweitert; solche
-  Überschuss-Enden sind als `soft_end` markiert.
+  Bei **Gleichstand** am Schwellwert wird die Auswahl in `individual` erweitert (alle gleich
+  teuren Intervalle mitmarkiert); solche Überschuss-Enden sind als `soft_end` markiert. Das
+  verteuert die kWh nie, verlängert aber die Einschaltdauer – und weil smartTIMES als Zeittarif
+  nur **drei** Preisstufen kennt, liefert dort jede Stundenzahl zwischen 0,25 h und 8 h dieselben
+  8 Stunden. Wer eine echte Laufzeit-Vorgabe braucht, aktiviert `exact_hours` („Stundenzahl exakt
+  einhalten", Vorgabe **aus**, damit Bestandssensoren unverändert bleiben). In `consecutive` wird
+  **nie** erweitert und `exact_hours` ist wirkungslos: Eine feste Fensterlänge ist dort der Zweck
+  der Betriebsart (Waschmaschine, Geschirrspüler).
 
 - **`jitter.py`** – **Last-Glättung**: jeder Günstig-Stunde-Sensor verschiebt seine Schaltflanken
   um einen **deterministischen, aus der Subentry-ID (SHA-256) abgeleiteten** Versatz, damit nicht
