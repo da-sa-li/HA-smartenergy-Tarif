@@ -108,9 +108,11 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   HA. **Keine Invalidierung nötig:** `_async_update_data` erzeugt je Neuberechnung eine frische
   Instanz, der Cache lebt also genau so lange wie die Daten (eine Minute); alle Sensoren lesen
   dieselbe Instanz, gleich konfigurierte teilen sich das Ergebnis. Der Jitter geht bewusst
-  **nicht** in den Schlüssel ein (er wirkt erst auf die fertigen Blöcke). Wer eine gecachte
-  Liste/Menge weiterreicht, darf sie **nicht verändern** – `_cheap_blocks_spanning` kopiert
-  deshalb, bevor es Randblöcke zusammenfasst.
+  **nicht** in den Schlüssel ein (er wirkt erst auf die fertigen Blöcke). Gecacht werden
+  ausschließlich **unveränderliche** Container (`tuple`/`frozenset`), damit ein Aufrufer die
+  Daten aller Sensoren nicht aus Versehen verfälschen kann; wer eine veränderbare Fassung
+  braucht, baut sie sich selbst (so `_cheap_blocks_spanning`, bevor es Randblöcke
+  zusammenfasst).
 
 - **Brutto/Netto & USt.**: Preise werden so gespeichert, wie die API sie liefert – **brutto
   (inkl. 20 % USt.)** in ct/kWh; netto wird bei Bedarf berechnet. **Wichtige Konvention:** Der

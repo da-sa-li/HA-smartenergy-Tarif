@@ -152,7 +152,7 @@ def test_zusammenfassung_laesst_die_gecachten_bloecke_unberuehrt(
     """``_cheap_blocks_spanning`` darf den gecachten Tagesstand nicht verändern.
 
     Die Zusammenfassung über die Tagesgrenze ersetzt den ersten bzw. letzten
-    Block der Liste. Die stammt jetzt aus dem Cache – ohne Kopie schlüge der
+    Block. Ihre Vorlage stammt aus dem Cache – arbeitete sie darauf, schlüge der
     zusammengefasste Block auf die *tageweise* Auswahl durch, die bewusst
     tageweise bleibt (siehe ``test_jitter.test_selection_itself_stays_per_day``).
     """
@@ -160,9 +160,22 @@ def test_zusammenfassung_laesst_die_gecachten_bloecke_unberuehrt(
     # gilt: Bei 9 h grenzt der letzte Block des 05.06. (22:00-24:00) exakt an
     # den ersten des 06.06. (00:00-06:00).
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
-    vorher = list(data._cheap_blocks(DAY, 9.0))
-    assert [(s.hour, e.hour) for s, e, _ in vorher] == [(0, 6), (9, 17), (22, 0)]
+    assert [(s.hour, e.hour) for s, e, _ in data._cheap_blocks(DAY, 9.0)] == [
+        (0, 6),
+        (9, 17),
+        (22, 0),
+    ]
 
-    data._cheap_blocks_spanning(DAY, 9.0)
+    zusammengefasst = data._cheap_blocks_spanning(DAY, 9.0)
 
-    assert data._cheap_blocks(DAY, 9.0) == vorher
+    # Die Zusammenfassung hat gegriffen – der letzte Block reicht in den 06.06.
+    assert zusammengefasst[-1][1] == datetime(2026, 6, 6, 6, 0, tzinfo=VIENNA)
+    # ... und der tageweise Stand ist derselbe geblieben. Bewusst erneut gegen
+    # die von Hand hergeleiteten Stundenpaare geprüft statt gegen einen vorher
+    # gezogenen Schnappschuss: Der wäre dasselbe (unveränderliche) Objekt und
+    # der Vergleich damit tautologisch.
+    assert [(s.hour, e.hour) for s, e, _ in data._cheap_blocks(DAY, 9.0)] == [
+        (0, 6),
+        (9, 17),
+        (22, 0),
+    ]
