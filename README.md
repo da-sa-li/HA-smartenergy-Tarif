@@ -31,9 +31,6 @@ günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
 - 🗓️ **Vollständige Preisvorschau** für heute und morgen als Attribute
 - 💶 Umschaltbar zwischen **Brutto** (inkl. 20 % USt.) und **Netto**
 - ⚙️ Komplette Einrichtung über die **Benutzeroberfläche** (kein YAML, kein API-Schlüssel)
-- 🌐 **Oberfläche in 11 Sprachen** – Deutsch, Englisch, Bosnisch, Kroatisch,
-  Polnisch, Serbisch (kyrillisch & lateinisch), Slowakisch, Slowenisch,
-  Tschechisch, Türkisch und Ungarisch
 
 > [!TIP]
 > 📖 Ausführliche Dokumentation (Datenschutz, Netzentgelte, vollständige
