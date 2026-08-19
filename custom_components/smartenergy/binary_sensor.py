@@ -22,9 +22,11 @@ from . import SmartTimesConfigEntry
 from .const import (
     CONF_CHEAP_HOURS,
     CONF_CHEAP_MODE,
+    CONF_EXACT_HOURS,
     DEFAULT_CHEAP_MODE,
+    DEFAULT_EXACT_HOURS,
     DOMAIN,
-    JITTER_ON_MAX_SECONDS,
+    JITTER_SPAN_SECONDS,
     SUBENTRY_TYPE_CHEAP_HOUR,
     UNIT_CT_PER_KWH,
     documentation_url,
@@ -73,6 +75,13 @@ class CheapHourBinarySensor(
         # zusammenhängender Block „am Stück". Ältere Untereinträge ohne diese
         # Option fallen auf den Standard (Einzelstunden) zurück.
         self._cheap_mode: str = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
+        # Die eingestellte Stundenzahl exakt einhalten, statt bei
+        # Preisgleichstand darüber hinaus zu erweitern? Ältere Untereinträge
+        # kennen die Option nicht und behalten mit dem Standard (aus) ihr
+        # bisheriges Verhalten.
+        self._exact_hours: bool = subentry.data.get(
+            CONF_EXACT_HOURS, DEFAULT_EXACT_HOURS
+        )
         # Deterministischer, vom Nutzer nicht editierbarer Last-Glättungs-Versatz.
         # Aus der Subentry-ID abgeleitet, damit er stabil und je Sensor
         # gleichverteilt ist (siehe jitter.py).
@@ -98,7 +107,11 @@ class CheapHourBinarySensor(
         if data.current(now) is None:
             return None
         return data.is_cheap_now(
-            now, self._cheap_hours, self._jitter_phase, self._cheap_mode
+            now,
+            self._cheap_hours,
+            self._jitter_phase,
+            self._cheap_mode,
+            self._exact_hours,
         )
 
     @property
@@ -108,12 +121,22 @@ class CheapHourBinarySensor(
         now = dt_util.now()
         today = now.date()
         price = data.current(now)
-        cheap = data.cheap_intervals(today, self._cheap_hours, self._cheap_mode)
+        cheap = data.cheap_intervals(
+            today, self._cheap_hours, self._cheap_mode, self._exact_hours
+        )
         windows = data.jittered_cheap_windows(
-            today, self._cheap_hours, self._jitter_phase, self._cheap_mode
+            today,
+            self._cheap_hours,
+            self._jitter_phase,
+            self._cheap_mode,
+            self._exact_hours,
         )
         next_on = data.next_cheap_on(
-            now, self._cheap_hours, self._jitter_phase, self._cheap_mode
+            now,
+            self._cheap_hours,
+            self._jitter_phase,
+            self._cheap_mode,
+            self._exact_hours,
         )
 
         def current_price() -> StateType:
@@ -122,8 +145,11 @@ class CheapHourBinarySensor(
         return {
             "cheap_hours": self._cheap_hours,
             "cheap_mode": self._cheap_mode,
+            # Ob die Stundenzahl exakt gilt, statt bei Preisgleichstand darüber
+            # hinaus zu erweitern (nur im Einzelstunden-Modus wirksam).
+            "exact_hours": self._exact_hours,
             "threshold_ct_kwh": data.cheap_cutoff(
-                today, self._cheap_hours, self._cheap_mode
+                today, self._cheap_hours, self._cheap_mode, self._exact_hours
             ),
             "current_price_ct_kwh": current_price(),
             "unit_ct": UNIT_CT_PER_KWH,
@@ -131,7 +157,7 @@ class CheapHourBinarySensor(
             # Last-Glättung: konstanter Einschalt-Versatz dieses Sensors in
             # Sekunden (deterministisch, vom Nutzer nicht änderbar).
             "jitter_offset_seconds": round(
-                self._jitter_phase * JITTER_ON_MAX_SECONDS
+                self._jitter_phase * JITTER_SPAN_SECONDS
             ),
             "next_cheap_start": next_on.isoformat() if next_on else None,
             "cheap_intervals": [
@@ -143,14 +169,15 @@ class CheapHourBinarySensor(
                 for p in cheap
             ],
             # Tatsächliche, gejitterte Schaltfenster (so, wie der Sensor schaltet).
-            # ``soft_end``: Blockende gleichstandsbedingt gekappt (kein Ausgreifen
-            # in die nächste Preiszone).
+            # ``exceeds_cheap_hours``: Der Block reicht wegen eines
+            # Preis-Gleichstands über die eingestellte Stundenzahl hinaus – rein
+            # informativ, das Schaltverhalten ist dasselbe.
             "cheap_windows": [
                 {
                     "on": on_time.isoformat(),
                     "off": off_time.isoformat(),
-                    "soft_end": soft_end,
+                    "exceeds_cheap_hours": exceeds,
                 }
-                for on_time, off_time, soft_end in windows
+                for on_time, off_time, exceeds in windows
             ],
         }

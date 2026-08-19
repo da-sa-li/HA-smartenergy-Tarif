@@ -47,10 +47,12 @@
           "data": {
             "name": "Název (např. bojler, nabíječka)",
             "cheap_hours": "Levné hodiny za den",
-            "cheap_mode": "Logika levných hodin"
+            "cheap_mode": "Logika levných hodin",
+            "exact_hours": "Přesně dodržet počet hodin"
           },
           "data_description": {
-            "cheap_mode": "\"Nejlevnější jednotlivé hodiny\": nejlevnější čtvrthodiny dne – mohou být rozptýleny v průběhu dne (např. bojler, nabíječka). \"Souvislý blok\": jedno nejlevnější časové okno vcelku – pro zařízení s pevnou dobou chodu, která nesmějí být přerušena (pračka, myčka)."
+            "cheap_mode": "\"Nejlevnější jednotlivé hodiny\": nejlevnější čtvrthodiny dne – mohou být rozptýleny v průběhu dne (např. bojler, nabíječka). \"Souvislý blok\": jedno nejlevnější časové okno vcelku – pro zařízení s pevnou dobou chodu, která nesmějí být přerušena (pračka, myčka).",
+            "exact_hours": "Ve výchozím nastavení se jako levné označí i další časy, které stojí přesně tolik jako nejdražší vybraný — senzor je pak zapnutý déle, než je nastaveno, ale nikdy za vyšší cenu. Při zapnutí dodrží přesně nastavený počet hodin. Týká se pouze „Nejlevnějších jednotlivých hodin“."
           }
         },
         "reconfigure": {
@@ -58,10 +60,12 @@
           "data": {
             "name": "Název (např. bojler, nabíječka)",
             "cheap_hours": "Levné hodiny za den",
-            "cheap_mode": "Logika levných hodin"
+            "cheap_mode": "Logika levných hodin",
+            "exact_hours": "Přesně dodržet počet hodin"
           },
           "data_description": {
-            "cheap_mode": "\"Nejlevnější jednotlivé hodiny\": nejlevnější čtvrthodiny dne – mohou být rozptýleny v průběhu dne (např. bojler, nabíječka). \"Souvislý blok\": jedno nejlevnější časové okno vcelku – pro zařízení s pevnou dobou chodu, která nesmějí být přerušena (pračka, myčka)."
+            "cheap_mode": "\"Nejlevnější jednotlivé hodiny\": nejlevnější čtvrthodiny dne – mohou být rozptýleny v průběhu dne (např. bojler, nabíječka). \"Souvislý blok\": jedno nejlevnější časové okno vcelku – pro zařízení s pevnou dobou chodu, která nesmějí být přerušena (pračka, myčka).",
+            "exact_hours": "Ve výchozím nastavení se jako levné označí i další časy, které stojí přesně tolik jako nejdražší vybraný — senzor je pak zapnutý déle, než je nastaveno, ale nikdy za vyšší cenu. Při zapnutí dodrží přesně nastavený počet hodin. Týká se pouze „Nejlevnějších jednotlivých hodin“."
           }
         }
       },

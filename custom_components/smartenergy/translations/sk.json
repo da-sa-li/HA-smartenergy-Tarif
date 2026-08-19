@@ -47,10 +47,12 @@
           "data": {
             "name": "Názov (napr. bojler, nabíjacia stanica)",
             "cheap_hours": "Lacné hodiny za deň",
-            "cheap_mode": "Logika lacného času"
+            "cheap_mode": "Logika lacného času",
+            "exact_hours": "Presne dodržať počet hodín"
           },
           "data_description": {
-            "cheap_mode": "\"Najlacnejšie jednotlivé hodiny\": najlacnejšie štvrťhodiny dňa – môžu byť rozptýlené počas dňa (napr. bojler, nabíjacia stanica). \"Súvislý blok\": jedno najlacnejšie časové okno naraz – pre zariadenia s pevným časom prevádzky, ktoré nesmú byť prerušené (pračka, umývačka riadu)."
+            "cheap_mode": "\"Najlacnejšie jednotlivé hodiny\": najlacnejšie štvrťhodiny dňa – môžu byť rozptýlené počas dňa (napr. bojler, nabíjacia stanica). \"Súvislý blok\": jedno najlacnejšie časové okno naraz – pre zariadenia s pevným časom prevádzky, ktoré nesmú byť prerušené (pračka, umývačka riadu).",
+            "exact_hours": "Štandardne sa ako lacné označia aj ďalšie časy, ktoré stoja presne toľko ako najdrahší vybraný — senzor je potom zapnutý dlhšie, než je nastavené, ale nikdy za vyššiu cenu. Po zapnutí dodrží presne nastavený počet hodín. Týka sa iba „Najlacnejších jednotlivých hodín“."
           }
         },
         "reconfigure": {
@@ -58,10 +60,12 @@
           "data": {
             "name": "Názov (napr. bojler, nabíjacia stanica)",
             "cheap_hours": "Lacné hodiny za deň",
-            "cheap_mode": "Logika lacného času"
+            "cheap_mode": "Logika lacného času",
+            "exact_hours": "Presne dodržať počet hodín"
           },
           "data_description": {
-            "cheap_mode": "\"Najlacnejšie jednotlivé hodiny\": najlacnejšie štvrťhodiny dňa – môžu byť rozptýlené počas dňa (napr. bojler, nabíjacia stanica). \"Súvislý blok\": jedno najlacnejšie časové okno naraz – pre zariadenia s pevným časom prevádzky, ktoré nesmú byť prerušené (pračka, umývačka riadu)."
+            "cheap_mode": "\"Najlacnejšie jednotlivé hodiny\": najlacnejšie štvrťhodiny dňa – môžu byť rozptýlené počas dňa (napr. bojler, nabíjacia stanica). \"Súvislý blok\": jedno najlacnejšie časové okno naraz – pre zariadenia s pevným časom prevádzky, ktoré nesmú byť prerušené (pračka, umývačka riadu).",
+            "exact_hours": "Štandardne sa ako lacné označia aj ďalšie časy, ktoré stoja presne toľko ako najdrahší vybraný — senzor je potom zapnutý dlhšie, než je nastavené, ale nikdy za vyššiu cenu. Po zapnutí dodrží presne nastavený počet hodín. Týka sa iba „Najlacnejších jednotlivých hodín“."
           }
         }
       },

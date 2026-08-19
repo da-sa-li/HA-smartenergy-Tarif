@@ -47,10 +47,12 @@
           "data": {
             "name": "Naziv (npr. bojler, wallbox)",
             "cheap_hours": "Jeftini sati po danu",
-            "cheap_mode": "Logika jeftine cijene"
+            "cheap_mode": "Logika jeftine cijene",
+            "exact_hours": "Tačno se pridržavaj broja sati"
           },
           "data_description": {
-            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftinije četvrtine sata u danu – mogu biti raspodijeljene tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smiju prekidati (veš mašina, mašina za pranje posuđa)."
+            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftinije četvrtine sata u danu – mogu biti raspodijeljene tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smiju prekidati (veš mašina, mašina za pranje posuđa).",
+            "exact_hours": "Podrazumijevano se kao jeftini označavaju i drugi termini koji koštaju tačno isto kao najskuplji odabrani – senzor je tada uključen duže nego što je podešeno, ali nikada po višoj cijeni. Kada je uključeno, isporučuje tačno podešeni broj sati. Odnosi se samo na „Najjeftinije pojedinačne sate“."
           }
         },
         "reconfigure": {
@@ -58,10 +60,12 @@
           "data": {
             "name": "Naziv (npr. bojler, wallbox)",
             "cheap_hours": "Jeftini sati po danu",
-            "cheap_mode": "Logika jeftine cijene"
+            "cheap_mode": "Logika jeftine cijene",
+            "exact_hours": "Tačno se pridržavaj broja sati"
           },
           "data_description": {
-            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftinije četvrtine sata u danu – mogu biti raspodijeljene tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smiju prekidati (veš mašina, mašina za pranje posuđa)."
+            "cheap_mode": "\"Najjeftiniji pojedinačni sati\": najjeftinije četvrtine sata u danu – mogu biti raspodijeljene tokom dana (npr. bojler, wallbox). \"Neprekidni blok\": jedan najjeftiniji vremenski prozor bez prekida – za uređaje sa fiksnim vremenom rada koji se ne smiju prekidati (veš mašina, mašina za pranje posuđa).",
+            "exact_hours": "Podrazumijevano se kao jeftini označavaju i drugi termini koji koštaju tačno isto kao najskuplji odabrani – senzor je tada uključen duže nego što je podešeno, ali nikada po višoj cijeni. Kada je uključeno, isporučuje tačno podešeni broj sati. Odnosi se samo na „Najjeftinije pojedinačne sate“."
           }
         }
       },

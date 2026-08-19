@@ -47,10 +47,12 @@
           "data": {
             "name": "Név (pl. bojler, wallbox)",
             "cheap_hours": "Olcsó órák naponta",
-            "cheap_mode": "Az olcsó órák logikája"
+            "cheap_mode": "Az olcsó órák logikája",
+            "exact_hours": "Az órák számának pontos betartása"
           },
           "data_description": {
-            "cheap_mode": "„Legolcsóbb egyedi órák”: a nap legolcsóbb negyedórái – ezek szét lehetnek szórva a nap folyamán (pl. bojler, wallbox). „Összefüggő blokk”: egyetlen, egybefüggő legolcsóbb időablak – olyan készülékekhez, amelyeknek fix futási idejük van, és nem szakíthatók meg (mosógép, mosogatógép)."
+            "cheap_mode": "„Legolcsóbb egyedi órák”: a nap legolcsóbb negyedórái – ezek szét lehetnek szórva a nap folyamán (pl. bojler, wallbox). „Összefüggő blokk”: egyetlen, egybefüggő legolcsóbb időablak – olyan készülékekhez, amelyeknek fix futási idejük van, és nem szakíthatók meg (mosógép, mosogatógép).",
+            "exact_hours": "Alapértelmezés szerint a további időpontok is olcsónak számítanak, amelyek pontosan annyiba kerülnek, mint a legdrágább kiválasztott — az érzékelő ilyenkor a beállítottnál tovább van bekapcsolva, de soha nem magasabb áron. Bekapcsolva pontosan a beállított óraszámot adja. Csak a „Legolcsóbb egyedi órák” esetén hat."
           }
         },
         "reconfigure": {
@@ -58,10 +60,12 @@
           "data": {
             "name": "Név (pl. bojler, wallbox)",
             "cheap_hours": "Olcsó órák naponta",
-            "cheap_mode": "Az olcsó órák logikája"
+            "cheap_mode": "Az olcsó órák logikája",
+            "exact_hours": "Az órák számának pontos betartása"
           },
           "data_description": {
-            "cheap_mode": "„Legolcsóbb egyedi órák”: a nap legolcsóbb negyedórái – ezek szét lehetnek szórva a nap folyamán (pl. bojler, wallbox). „Összefüggő blokk”: egyetlen, egybefüggő legolcsóbb időablak – olyan készülékekhez, amelyeknek fix futási idejük van, és nem szakíthatók meg (mosógép, mosogatógép)."
+            "cheap_mode": "„Legolcsóbb egyedi órák”: a nap legolcsóbb negyedórái – ezek szét lehetnek szórva a nap folyamán (pl. bojler, wallbox). „Összefüggő blokk”: egyetlen, egybefüggő legolcsóbb időablak – olyan készülékekhez, amelyeknek fix futási idejük van, és nem szakíthatók meg (mosógép, mosogatógép).",
+            "exact_hours": "Alapértelmezés szerint a további időpontok is olcsónak számítanak, amelyek pontosan annyiba kerülnek, mint a legdrágább kiválasztott — az érzékelő ilyenkor a beállítottnál tovább van bekapcsolva, de soha nem magasabb áron. Bekapcsolva pontosan a beállított óraszámot adja. Csak a „Legolcsóbb egyedi órák” esetén hat."
           }
         }
       },

@@ -94,6 +94,30 @@ CHEAP_MODE_INDIVIDUAL: Final = "individual"
 CHEAP_MODE_CONSECUTIVE: Final = "consecutive"
 DEFAULT_CHEAP_MODE: Final = CHEAP_MODE_INDIVIDUAL
 
+# Ob die eingestellte Stundenzahl exakt eingehalten wird ("Stundenzahl exakt
+# einhalten") – also NICHT bei Preisgleichstand am Schwellwert darüber hinaus
+# erweitert wird.
+#
+# Kosten mehrere Intervalle exakt so viel wie das teuerste noch ausgewählte,
+# ist die Auswahl unter ihnen willkürlich – standardmäßig werden deshalb alle
+# markiert. Das verteuert die kWh nie (alle liegen auf dem Schwellwert),
+# verlängert aber die Einschaltdauer. Wie stark, hängt am Tarif: smartCONTROL
+# hat pro Tag fast durchweg verschiedene Preise (die Erweiterung ist dort
+# praktisch wirkungslos), smartTIMES als Zeittarif nur drei Preisstufen zu je
+# 32 Viertelstunden – dort liefert jede Einstellung zwischen 0,25 h und 8 h
+# dieselben 8 Stunden, die Stundenzahl ist also faktisch wirkungslos.
+#
+# Vorgabe "aus" (= erweitern): bisheriges Verhalten, und für selbstbegrenzende
+# Verbraucher (Boiler mit Thermostat, Wallbox mit Ziel-Ladestand) ist die
+# zusätzliche Gelegenheit zum selben Preis ein Vorteil. Wer eine echte
+# Laufzeit-Vorgabe braucht, schaltet die Option ein.
+#
+# Gilt nur für CHEAP_MODE_INDIVIDUAL. Im Blockmodus wird ohnehin nie erweitert:
+# Dort ist eine feste Fensterlänge der Zweck der Betriebsart (Waschmaschine,
+# Geschirrspüler), den eine Verlängerung gerade aufheben würde.
+CONF_EXACT_HOURS: Final = "exact_hours"
+DEFAULT_EXACT_HOURS: Final = False
+
 # Untereintrag-Typ (Config Subentry) für einen "Günstige Stunde"-Sensor.
 SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
 
@@ -104,13 +128,23 @@ SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
 # Jeder Sensor verschiebt seine Schaltflanken deshalb um einen kleinen,
 # deterministisch aus der Subentry-ID abgeleiteten Versatz (siehe jitter.py).
 #
-# - Einschalten: Verzögerung gleichverteilt in [0, JITTER_ON_MAX_SECONDS]; es
+# Bewusst EINE Konstante für beide Flanken: Ein- und Ausschalten verschieben
+# sich um denselben Betrag (phase * JITTER_SPAN_SECONDS) und unterscheiden sich
+# nur um einen festen, phasenunabhängigen Abzug. Genau dadurch verschiebt sich
+# das Schaltfenster als Ganzes und ist für jeden Sensor gleich lang. Zwei
+# getrennt einstellbare Breiten hätten diese Zusage still ausgehebelt, sobald
+# sie auseinanderlaufen: Die Fensterlänge hinge dann von der Phase ab, also
+# davon, welche Subentry-ID ein Sensor zufällig bekommen hat.
+#
+# Beide Flanken werden gleich behandelt: Sie wandern nach innen, das Fenster
+# verlässt den günstigen Block also nie (Herleitung in jitter.py):
+# - Einschalten: Verzögerung gleichverteilt in [0, JITTER_SPAN_SECONDS]; es
 #   wird nie *vor* Beginn des günstigen Blocks eingeschaltet.
-# - Ausschalten: symmetrischer Versatz in [-JITTER_OFF_SPAN_SECONDS/2,
-#   +JITTER_OFF_SPAN_SECONDS/2] um die Blockgrenze – der Erwartungswert fällt
-#   damit genau auf die volle (Block-)Grenze.
-JITTER_ON_MAX_SECONDS: Final = 600
-JITTER_OFF_SPAN_SECONDS: Final = 600
+# - Ausschalten: Vorziehen gleichverteilt in [-JITTER_SPAN_SECONDS, 0]; es wird
+#   nie *nach* Ende des günstigen Blocks ausgeschaltet.
+# Jeder Block kostet dadurch deterministisch JITTER_SPAN_SECONDS Laufzeit –
+# bewusst in Kauf genommen, um nie zum teureren Preis zu laufen.
+JITTER_SPAN_SECONDS: Final = 600
 
 # Wie oft der Koordinator die Entitäten neu berechnet (aktueller Preis).
 # Die eigentlichen API-Aufrufe werden intern stark gedrosselt (siehe unten),

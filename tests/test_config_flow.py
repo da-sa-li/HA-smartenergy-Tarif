@@ -122,12 +122,51 @@ async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
     )
     assert result["type"] is FlowResultType.FORM
 
+    # Spezifikation: Fehlt "exact_hours" in der Eingabe – etwa von einem älteren
+    # Client –, bleibt das bisherige Verhalten erhalten (bei Preisgleichstand
+    # wird erweitert). Sollergebnis: Der gespeicherte Wert ist False.
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
         {"name": "Boiler", "cheap_hours": 4.0, "cheap_mode": "individual"},
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Boiler"
+    assert result["data"] == {
+        "cheap_hours": 4.0,
+        "cheap_mode": "individual",
+        "exact_hours": False,
+    }
+
+
+async def test_subentry_create_with_exact_hours(
+    hass: HomeAssistant, enable_custom_integrations
+):
+    """Die Option „Stundenzahl exakt einhalten" wird im Untereintrag gespeichert."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "none"},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, "cheap_hour"),
+        context={"source": config_entries.SOURCE_USER},
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Waschmaschine",
+            "cheap_hours": 2.0,
+            "cheap_mode": "individual",
+            "exact_hours": True,
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    # Spezifikation: Wird die Option gesetzt, hält der Sensor die Stundenzahl
+    # exakt ein. Sollergebnis: Der gespeicherte Wert ist True.
+    assert result["data"]["exact_hours"] is True
 
 
 async def test_subentry_name_required(
