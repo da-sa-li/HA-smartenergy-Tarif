@@ -41,30 +41,27 @@ def test_phase_in_unit_interval(seed):
 
 
 @pytest.mark.parametrize("phase", [0.0, 0.25, 0.5, 0.75, 0.999])
-def test_normal_window_invariants(phase):
-    """Normales Blockende: nie vor Start, feste Fensterlänge (L - SPAN/2)."""
-    on, off = jitter.jittered_window(START, END, phase, soft_end=False)
-    # Nie vor Blockbeginn einschalten; Einschaltversatz höchstens SPAN.
-    assert on >= START
-    assert on <= START + SPAN
-    # Ausschalten symmetrisch um die Blockgrenze.
-    assert END - SPAN / 2 <= off <= END + SPAN / 2
-    # Fensterlänge ist konstant, unabhängig von der Phase.
-    assert (off - on) == (END - START) - SPAN / 2
+def test_window_stays_inside_the_cheap_block(phase):
+    """Beide Flanken wandern nach innen – das Fenster verlässt den Block nie.
+
+    Das ist die Gleichbehandlung der Flanken: Wie schon beim Einschalten nie
+    *vor* den Blockbeginn geschaltet wird, wird auch nie *nach* dem Blockende
+    ausgeschaltet. Der Verbraucher läuft damit zu keinem Zeitpunkt in einer
+    teureren Preiszone.
+    """
+    on, off = jitter.jittered_window(START, END, phase)
+    assert START <= on <= START + SPAN
+    assert END - SPAN <= off <= END
 
 
 @pytest.mark.parametrize("phase", [0.0, 0.25, 0.5, 0.75, 0.999])
-def test_soft_end_window_invariants(phase):
-    """soft_end: Ausschalten nie über das Blockende hinaus, Länge (L - SPAN)."""
-    on, off = jitter.jittered_window(START, END, phase, soft_end=True)
-    assert on >= START
-    assert off <= END
-    assert off >= END - SPAN
+def test_window_length_is_block_minus_span(phase):
+    """Die Fensterlänge ist L - SPAN, unabhängig von der Phase."""
+    on, off = jitter.jittered_window(START, END, phase)
     assert (off - on) == (END - START) - SPAN
 
 
-@pytest.mark.parametrize("soft_end", [False, True])
-def test_window_length_identical_for_every_phase(soft_end):
+def test_window_length_identical_for_every_phase():
     """Alle Sensoren schalten gleich lang – unabhängig von ihrer Phase.
 
     Das ist die eigentliche Zusage des Jitters: Er *verschiebt* das Fenster,
@@ -74,39 +71,52 @@ def test_window_length_identical_for_every_phase(soft_end):
     dann hinge die Fensterlänge davon ab, welche Subentry-ID ein Sensor
     zufällig bekommen hat.
     """
-    lengths = set()
-    for phase in (0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999):
-        on, off = jitter.jittered_window(START, END, phase, soft_end=soft_end)
-        lengths.add(off - on)
+    lengths = {
+        jitter.jittered_window(START, END, phase)[1]
+        - jitter.jittered_window(START, END, phase)[0]
+        for phase in (0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999)
+    }
     assert len(lengths) == 1
 
 
-@pytest.mark.parametrize("soft_end", [False, True])
+def test_both_edges_spread_over_the_full_span():
+    """Die Last-Glättung bleibt trotz Innen-Verschiebung erhalten.
+
+    Beide Flanken streuen weiterhin über die volle Breite SPAN – verschoben ist
+    nur die *Lage* des Fensters, nicht die Streuung. Sonst würden die
+    Verbraucher zwar nie zu teuer laufen, dafür aber wieder gemeinsam schalten.
+    """
+    phases = [i / 100 for i in range(100)]
+    ons = [jitter.jittered_window(START, END, p)[0] for p in phases]
+    offs = [jitter.jittered_window(START, END, p)[1] for p in phases]
+    # Streubreite = SPAN abzüglich eines Rasterschritts (99/100 * SPAN).
+    assert max(ons) - min(ons) == SPAN * 0.99
+    assert max(offs) - min(offs) == SPAN * 0.99
+
+
 @pytest.mark.parametrize("phase", [0.0, 0.3, 0.5, 0.99])
 @pytest.mark.parametrize(
     "length",
     [SPAN * 0.4, SPAN / 2, SPAN * 0.7, SPAN, timedelta(minutes=15)],
     ids=["0.4*span", "span/2", "0.7*span", "span", "viertelstunde"],
 )
-def test_short_block_never_yields_empty_window(length, phase, soft_end):
+def test_short_block_never_yields_empty_window(length, phase):
     """Ein Block, den der Jitter aufzehren würde, wird ungejittert geschaltet.
 
-    Die feste Verkürzung beträgt SPAN/2 (normales Blockende) bzw. SPAN
-    (``soft_end``). Ist der Block nicht länger als das, fiele das Fenster auf
-    einen Punkt zusammen: ``on <= moment < off`` träfe nie zu und der Sensor
-    bliebe dauerhaft „aus". Die Längen sind an SPAN geknüpft und decken beide
-    Regime ab: 0,7*SPAN ist nur für ``soft_end`` zu kurz, die Viertelstunde
-    (das Raster der API und damit die kleinste real vorkommende Blocklänge)
-    für keines von beiden.
+    Die feste Verkürzung beträgt SPAN. Ist der Block nicht länger als das,
+    fiele das Fenster auf einen Punkt zusammen: ``on <= moment < off`` träfe
+    nie zu und der Sensor bliebe dauerhaft „aus". Die Längen sind an SPAN
+    geknüpft; alle bis einschließlich SPAN greifen auf das Sicherheitsnetz
+    zurück, die Viertelstunde (das Raster der API und damit die kleinste real
+    vorkommende Blocklänge) nicht.
     """
     end = START + length
-    on, off = jitter.jittered_window(START, end, phase, soft_end=soft_end)
+    on, off = jitter.jittered_window(START, end, phase)
     # Das Fenster ist nie leer – der Sensor schaltet also überhaupt ein.
     assert off > on
     # Und die zugesagten Flankengrenzen gelten weiterhin.
     assert on >= START
-    if soft_end:
-        assert off <= end
+    assert off <= end
 
 
 # --- Schaltfenster über die Tagesgrenze -------------------------------------- #
@@ -114,10 +124,9 @@ def test_short_block_never_yields_empty_window(length, phase, soft_end):
 # Die *Auswahl* der günstigen Intervalle erfolgt je Kalendertag. Ein über
 # Mitternacht durchgehend günstiger Zeitraum darf dadurch aber nicht in zwei
 # getrennt gejitterte Blöcke zerfallen: Deren Fenster stoßen nicht mehr
-# aneinander, sondern klaffen um SPAN/2 auseinander (bei soft_end um SPAN) – und
-# zwar für jede Phase gleich weit, weil sich beide Flanken um denselben Betrag
-# verschieben. Ohne Jitter gäbe es die Lücke nicht, beide Grenzen fallen exakt
-# auf Mitternacht.
+# aneinander, sondern klaffen um SPAN auseinander – und zwar für jede Phase
+# gleich weit, weil sich beide Flanken um denselben Betrag verschieben. Ohne
+# Jitter gäbe es die Lücke nicht, beide Grenzen fallen exakt auf Mitternacht.
 #
 # Datengrundlage: Die smartTIMES-Fixture hat je Tag drei Preisstufen zu je 32
 # Viertelstunden, an beiden Tagen identisch verteilt:

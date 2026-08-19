@@ -131,8 +131,13 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
 - **`jitter.py`** – **Last-Glättung**: jeder Günstig-Stunde-Sensor verschiebt seine Schaltflanken
   um einen **deterministischen, aus der Subentry-ID (SHA-256) abgeleiteten** Versatz, damit nicht
   alle Verbraucher gleichzeitig schalten. Deterministisch (nicht zufällig), damit der Sensor bei
-  der minütlichen Neuberechnung nicht flackert. Bei `soft_end`-Blöcken wird **rückwärts**
-  ausgeschaltet, um nicht in die nächste, teurere Preiszone auszugreifen.
+  der minütlichen Neuberechnung nicht flackert. **Beide Flanken wandern nach innen** (Einschalten
+  verzögert, Ausschalten vorgezogen, je um denselben Betrag aus *einer* Breite
+  `JITTER_SPAN_SECONDS`): Das Fenster verlässt den günstigen Block nie, verschiebt sich als Ganzes
+  und ist für jeden Sensor gleich lang. Preis dafür ist ein fester Laufzeitverlust von
+  `JITTER_SPAN_SECONDS` je Block – bewusst gewählt, um nie zum teureren Preis zu laufen.
+  Zusammenhängende Blöcke werden dafür auch **über die Tagesgrenze** hinweg zusammengefasst
+  (`_cheap_blocks_spanning`), sonst risse der Jitter an Mitternacht eine Schaltlücke auf.
 
 - **`config_flow.py`** – UI-Einrichtung (kein YAML): Haupteintrag (Tarif, USt., Netzgebiet) +
   Options-Flow + Subentry-Flow für die Günstige-Stunde-Sensoren. Der **Tarif** (`CONF_TARIFF`:

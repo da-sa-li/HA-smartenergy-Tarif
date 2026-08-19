@@ -112,15 +112,14 @@ SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
 # sie auseinanderlaufen: Die Fensterlänge hinge dann von der Phase ab, also
 # davon, welche Subentry-ID ein Sensor zufällig bekommen hat.
 #
-# Daraus ergeben sich die Flanken (Herleitung in jitter.py):
+# Beide Flanken werden gleich behandelt: Sie wandern nach innen, das Fenster
+# verlässt den günstigen Block also nie (Herleitung in jitter.py):
 # - Einschalten: Verzögerung gleichverteilt in [0, JITTER_SPAN_SECONDS]; es
 #   wird nie *vor* Beginn des günstigen Blocks eingeschaltet.
-# - Ausschalten: symmetrischer Versatz in [-JITTER_SPAN_SECONDS/2,
-#   +JITTER_SPAN_SECONDS/2] um die Blockgrenze – der Erwartungswert fällt
-#   damit genau auf die volle (Block-)Grenze.
-# - Ausschalten bei einem gleichstandsbedingt verlängerten Blockende
-#   (soft_end): rückwärts in [-JITTER_SPAN_SECONDS, 0], damit ein solcher Block
-#   nicht zusätzlich in die nächste, teurere Preiszone ausgreift.
+# - Ausschalten: Vorziehen gleichverteilt in [-JITTER_SPAN_SECONDS, 0]; es wird
+#   nie *nach* Ende des günstigen Blocks ausgeschaltet.
+# Jeder Block kostet dadurch deterministisch JITTER_SPAN_SECONDS Laufzeit –
+# bewusst in Kauf genommen, um nie zum teureren Preis zu laufen.
 JITTER_SPAN_SECONDS: Final = 600
 
 # Wie oft der Koordinator die Entitäten neu berechnet (aktueller Preis).

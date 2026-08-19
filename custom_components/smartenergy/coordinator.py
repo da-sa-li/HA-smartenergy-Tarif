@@ -304,11 +304,16 @@ class SmartTimesData:
         ``soft_end`` ist ``True``, wenn das Blockende nur durch die
         Gleichstands-Mechanik zustande kommt: Das letzte Intervall des Blocks
         ist ein „Überschuss"-Intervall am Schwellwert, das über die
-        konfigurierte Stundenzahl hinausgeht. Bei einem solchen Ende soll der
-        Sensor nicht zusätzlich in die nächste (teurere) Preiszone ausgreifen.
-        Das gilt für **beide** Modi: Auch ein zusammenhängender Block kann am
-        Ende durch Gleichstand verlängert sein (siehe
-        :meth:`_consecutive_selection`).
+        konfigurierte Stundenzahl hinausgeht. Das gilt für **beide** Modi: Auch
+        ein zusammenhängender Block kann am Ende durch Gleichstand verlängert
+        sein (siehe :meth:`_consecutive_selection`).
+
+        Die Angabe ist rein informativ und wird im Sensor-Attribut
+        ``cheap_windows`` ausgewiesen; auf das Schalten wirkt sie sich nicht
+        aus. Früher wurde bei einem solchen Ende rückwärts ausgeschaltet, damit
+        der Block nicht zusätzlich in die nächste (teurere) Preiszone
+        ausgreift – das gilt inzwischen für *jedes* Blockende (siehe
+        :func:`.jitter.jittered_window`).
         """
         all_starts, strict_starts = self._cheap_selection(day, cheap_hours, mode)
         surplus = all_starts - strict_starts
@@ -379,9 +384,14 @@ class SmartTimesData:
         """Gejitterte Schaltfenster der Günstig-Blöcke als ``(on, off, soft_end)``.
 
         ``phase`` ist der sensoreigene, deterministische Versatz-Wert (siehe
-        :func:`.jitter.cheap_phase`). ``soft_end`` zeigt an, dass das Blockende
-        gleichstandsbedingt gekappt wurde (Ausschalten nicht in die nächste
-        Preiszone). Wirkt ausschließlich für den „Günstige Stunde"-Sensor.
+        :func:`.jitter.cheap_phase`). Wirkt ausschließlich für den „Günstige
+        Stunde"-Sensor.
+
+        ``soft_end`` ist rein informativ: Es zeigt an, dass der Block nur durch
+        die Gleichstands-Mechanik über die konfigurierte Stundenzahl hinaus
+        reicht (siehe :meth:`_cheap_blocks`). Auf das Schalten wirkt es sich
+        nicht aus – da beide Flanken nach innen wandern, greift **kein** Block
+        in die nächste Preiszone aus.
 
         Grundlage sind die über die Tagesgrenze zusammengefassten Blöcke (siehe
         :meth:`_cheap_blocks_spanning`); ein Fenster kann daher vor ``day``
@@ -389,7 +399,7 @@ class SmartTimesData:
         """
         windows: list[tuple[datetime, datetime, bool]] = []
         for start, end, soft_end in self._cheap_blocks_spanning(day, cheap_hours, mode):
-            on_time, off_time = jittered_window(start, end, phase, soft_end=soft_end)
+            on_time, off_time = jittered_window(start, end, phase)
             windows.append((on_time, off_time, soft_end))
         return windows
 
