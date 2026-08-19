@@ -59,6 +59,10 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 ### Über HACS (empfohlen)
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=da-sa-li&repository=HA-smartenergy-Tarif)
+
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=smartenergy)
+
 1. HACS öffnen → **Integrationen**.
 2. Nach **smartENERGY Strompreishelfer** suchen, herunterladen und Home Assistant neu starten.
 
@@ -72,9 +76,7 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 1. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 2. Nach **smartENERGY Strompreishelfer** suchen.
-3. Das **Tarifmodell** wählen: **smartTIMES** (zeitabhängig) oder **smartCONTROL**
-   (an den Börsenpreis gekoppelt, inkl. Abwicklungsgebühr von 1,2 ct/kWh netto /
-   1,44 ct/kWh brutto).
+3. Das **Tarifmodell** wählen: **smartTIMES** (zeitabhängig) oder **smartCONTROL**.
 4. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 5. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
    Netzgebiet“ lässt die Netzentgelte weg. Das Netzgebiet steht im
