@@ -322,6 +322,57 @@ class SmartTimesData:
                 blocks.append([price.start, price.end, price.start])
         return [(start, end, last in surplus) for start, end, last in blocks]
 
+    def _cheap_blocks_spanning(
+        self, day, cheap_hours: float, mode: str = DEFAULT_CHEAP_MODE
+    ) -> list[tuple[datetime, datetime, bool]]:
+        """Günstig-Blöcke eines Tages, über die Tagesgrenze hinweg zusammengefasst.
+
+        Die *Auswahl* der günstigen Intervalle bleibt bewusst tageweise – jeder
+        Kalendertag bekommt seine eigenen ``cheap_hours``. Für den Jitter ist
+        Mitternacht aber keine echte Grenze: Läuft ein günstiger Zeitraum über
+        den Tageswechsel (im Einzelstunden-Modus der Normalfall, da die Nacht
+        meist am günstigsten ist), zerfiele er in zwei getrennt gejitterte
+        Blöcke. Deren Fenster stoßen dann nicht mehr aneinander, sondern klaffen
+        um ``JITTER_OFF_SPAN_SECONDS / 2`` auseinander – und zwar für *jede*
+        Phase gleich weit, weil sich beide Flanken um denselben Betrag
+        verschieben. Ohne Jitter gäbe es die Lücke nicht (beide Grenzen fallen
+        exakt auf Mitternacht); erst der Jitter reißt sie auf und erzeugt so
+        genau den Aus-/Einschaltzyklus, den er verhindern soll.
+
+        Angrenzende Blöcke zweier Tage werden deshalb hier zu einem
+        zusammengefasst. Das geschieht **symmetrisch**: Ein verschmolzener Block
+        erscheint identisch im Ergebnis beider beteiligten Tage, sodass es
+        keine Rolle spielt, über welchen Tag ein Aufrufer ihn findet.
+
+        Zusammengefasst wird jeweils ein Tag nach vorn und einer nach hinten.
+        Ein Block über drei Kalendertage hinweg setzte einen vollständig
+        günstigen Tag voraus (``cheap_hours`` = 24) und käme praktisch nicht
+        vor; er wird von dem Tag aus, der ihn enthält, dennoch vollständig
+        aufgelöst.
+
+        Fehlen die Preise des Nachbartages noch – die Morgen-Preise stehen erst
+        ab ``NEXT_DAY_PRICES_HOUR`` bereit –, gibt es nichts zusammenzufassen:
+        Der Block wird dann wie bisher an der Tagesgrenze gejittert und rückt
+        mit dem nächsten Abruf zusammen.
+        """
+        blocks = self._cheap_blocks(day, cheap_hours, mode)
+        if not blocks:
+            return blocks
+        # Nur ein Block, der eine Tagesgrenze exakt berührt, kann überhaupt an
+        # den Nachbartag angrenzen. Ohne diese Vorprüfung liefe die (im
+        # Blockmodus nicht ganz billige) Auswahl an jedem Tag dreifach.
+        if blocks[0][0] == dt_util.start_of_local_day(day):
+            previous = self._cheap_blocks(day - timedelta(days=1), cheap_hours, mode)
+            if previous and previous[-1][1] == blocks[0][0]:
+                blocks[0] = (previous[-1][0], blocks[0][1], blocks[0][2])
+        if blocks[-1][1] == dt_util.start_of_local_day(day + timedelta(days=1)):
+            following = self._cheap_blocks(day + timedelta(days=1), cheap_hours, mode)
+            if following and following[0][0] == blocks[-1][1]:
+                # ``soft_end`` des Folgeblocks übernehmen: Maßgeblich ist, wie
+                # das *Ende* des zusammengefassten Blocks zustande gekommen ist.
+                blocks[-1] = (blocks[-1][0], following[0][1], following[0][2])
+        return blocks
+
     def jittered_cheap_windows(
         self, day, cheap_hours: float, phase: float, mode: str = DEFAULT_CHEAP_MODE
     ) -> list[tuple[datetime, datetime, bool]]:
@@ -331,9 +382,13 @@ class SmartTimesData:
         :func:`.jitter.cheap_phase`). ``soft_end`` zeigt an, dass das Blockende
         gleichstandsbedingt gekappt wurde (Ausschalten nicht in die nächste
         Preiszone). Wirkt ausschließlich für den „Günstige Stunde"-Sensor.
+
+        Grundlage sind die über die Tagesgrenze zusammengefassten Blöcke (siehe
+        :meth:`_cheap_blocks_spanning`); ein Fenster kann daher vor ``day``
+        beginnen oder nach ``day`` enden.
         """
         windows: list[tuple[datetime, datetime, bool]] = []
-        for start, end, soft_end in self._cheap_blocks(day, cheap_hours, mode):
+        for start, end, soft_end in self._cheap_blocks_spanning(day, cheap_hours, mode):
             on_time, off_time = jittered_window(start, end, phase, soft_end=soft_end)
             windows.append((on_time, off_time, soft_end))
         return windows
@@ -349,7 +404,9 @@ class SmartTimesData:
 
         Geprüft werden die Fenster des aktuellen **und** des vorigen Tages, da
         das Ausschaltfenster des letzten Blocks über Mitternacht hinausreichen
-        kann.
+        kann. Ein über den Tageswechsel zusammengefasster Block (siehe
+        :meth:`_cheap_blocks_spanning`) ist damit ebenfalls abgedeckt: Er
+        erscheint bereits im Ergebnis des Tages von ``moment`` selbst.
         """
         day = dt_util.as_local(moment).date()
         for d in (day - timedelta(days=1), day):

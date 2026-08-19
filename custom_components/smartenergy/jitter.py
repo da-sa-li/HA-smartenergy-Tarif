@@ -78,14 +78,25 @@ def jittered_window(
     so nie zerteilt und – solange er länger als dieser feste Betrag ist – auch
     nie ausgelöscht. Bei der kleinsten Blocklänge (ein 15-Minuten-Intervall)
     bleiben 10 min bzw. 5 min Einschaltzeit.
+
+    Ist ein Block **kürzer** als dieser feste Betrag, würde ihn der Jitter ganz
+    aufzehren; dann wird ungejittert exakt auf ``start``/``end`` geschaltet
+    (siehe unten). Das kann mit dem Viertelstundenraster der API nicht
+    vorkommen, ``interval_minutes`` stammt aber aus deren Antwort und ist damit
+    keine Konstante dieser Integration.
     """
     on_time = start + timedelta(seconds=phase * JITTER_ON_MAX_SECONDS)
     if soft_end:
         off_time = end - timedelta(seconds=(1.0 - phase) * JITTER_OFF_SPAN_SECONDS)
     else:
         off_time = end + timedelta(seconds=(phase - 0.5) * JITTER_OFF_SPAN_SECONDS)
-    # Sicherheitsnetz für (hier nicht vorkommende) extrem kurze Blöcke: das
-    # Fenster darf nie leer oder negativ werden.
-    if off_time < on_time:
-        off_time = on_time
+    # Sicherheitsnetz für (hier nicht vorkommende) extrem kurze Blöcke: Der
+    # Jitter darf den Block nie ganz aufzehren. Ein auf einen Punkt
+    # zusammengefallenes Fenster (`off == on`) wäre leer – `on <= moment < off`
+    # träfe nie zu und der Sensor bliebe dauerhaft „aus". Lieber ungejittert
+    # exakt den Block schalten als gar nicht: Beide Flanken bleiben damit
+    # innerhalb ihres oben zugesagten Bereichs (`on` nicht vor `start`, `off`
+    # bei `soft_end` nicht nach `end`), nur eben ohne Last-Glättung.
+    if off_time <= on_time:
+        return start, end
     return on_time, off_time
