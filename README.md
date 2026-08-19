@@ -8,6 +8,7 @@ dynamischen Stromtarife **[smartTIMES](https://www.smartenergy.at/smarttimes)**
 Sensoren bereitstellt – ideal zum automatischen Schalten von Verbrauchern in
 günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
 
+> [!NOTE]
 > Diese Integration ist ein Community-Projekt und steht in keiner Verbindung zu smartENERGY oder der Energie Steiermark Kunden GmbH.
 
 ## Funktionen
@@ -34,6 +35,7 @@ günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
   Polnisch, Serbisch (kyrillisch & lateinisch), Slowakisch, Slowenisch,
   Tschechisch, Türkisch und Ungarisch
 
+> [!TIP]
 > 📖 Ausführliche Dokumentation (Datenschutz, Netzentgelte, vollständige
 > Sensor-Attribute, Automatisierungsbeispiele, Fehlerbehebung) steht im
 > **[Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)**.
@@ -50,6 +52,7 @@ smartTIMES:   https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 smartCONTROL: https://apis.smartenergy.at/market/v1/price
 ```
 
+> [!WARNING]
 > Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant auf `Europe/Vienna` eingestellt sein.
 
 ## Installation
