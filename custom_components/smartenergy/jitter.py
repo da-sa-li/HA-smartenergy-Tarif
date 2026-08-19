@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timedelta
 
-from .const import JITTER_OFF_SPAN_SECONDS, JITTER_ON_MAX_SECONDS
+from .const import JITTER_SPAN_SECONDS
 
 
 def cheap_phase(seed: str) -> float:
@@ -54,30 +54,36 @@ def jittered_window(
     durchgehenden günstigen Blocks; ``phase`` ist der sensoreigene Wert aus
     :func:`cheap_phase`.
 
-    * **Einschalten:** Verzögerung ``phase * JITTER_ON_MAX_SECONDS`` →
-      gleichverteilt in ``[0, JITTER_ON_MAX_SECONDS]``. Es wird **nie vor**
-      Beginn des günstigen Blocks eingeschaltet (sonst liefe der Verbraucher in
-      die noch teure Zeit hinein).
-    * **Ausschalten (normales Blockende, ``soft_end=False``):** Versatz
-      ``(phase - 0.5) * JITTER_OFF_SPAN_SECONDS`` → symmetrisch um die
-      Blockgrenze. Der Erwartungswert fällt genau auf die Grenze; das
-      Ausschalten darf bis zu ``JITTER_OFF_SPAN_SECONDS / 2`` in die nächste
-      Preiszone hineinreichen.
-    * **Ausschalten (gleichstandsbedingtes Blockende, ``soft_end=True``):**
-      Versatz ``-(1 - phase) * JITTER_OFF_SPAN_SECONDS`` → das Ausschalten
-      liegt **immer vor oder genau auf** der Blockgrenze (``[end -
-      JITTER_OFF_SPAN_SECONDS, end]``, Erwartungswert ``end -
-      JITTER_OFF_SPAN_SECONDS / 2``). So greift ein nur durch Gleichstand
-      verlängerter Block nicht zusätzlich in die nächste (teurere) Preiszone
-      aus, bleibt aber gejittert.
+    Beide Flanken verschieben sich um **denselben** Betrag ``phase *
+    JITTER_SPAN_SECONDS`` und unterscheiden sich nur um einen festen,
+    phasenunabhängigen Abzug:
 
-    Da für beide Flanken **dieselbe** ``phase`` verwendet wird, verschiebt sich
-    das Fenster als Ganzes; seine Länge ist für *jeden* Sensor konstant
-    (unabhängig von ``phase``): ``L - JITTER_OFF_SPAN_SECONDS / 2`` bzw. bei
-    ``soft_end`` ``L - JITTER_OFF_SPAN_SECONDS``. Ein durchgehender Block wird
-    so nie zerteilt und – solange er länger als dieser feste Betrag ist – auch
-    nie ausgelöscht. Bei der kleinsten Blocklänge (ein 15-Minuten-Intervall)
-    bleiben 10 min bzw. 5 min Einschaltzeit.
+    * **Einschalten:** kein Abzug → Verzögerung gleichverteilt in ``[0,
+      JITTER_SPAN_SECONDS]``. Es wird **nie vor** Beginn des günstigen Blocks
+      eingeschaltet (sonst liefe der Verbraucher in die noch teure Zeit
+      hinein).
+    * **Ausschalten (normales Blockende, ``soft_end=False``):** Abzug
+      ``JITTER_SPAN_SECONDS / 2`` → symmetrisch um die Blockgrenze
+      (``[end - JITTER_SPAN_SECONDS / 2, end + JITTER_SPAN_SECONDS / 2]``). Der
+      Erwartungswert fällt genau auf die Grenze; das Ausschalten darf bis zu
+      ``JITTER_SPAN_SECONDS / 2`` in die nächste Preiszone hineinreichen.
+    * **Ausschalten (gleichstandsbedingtes Blockende, ``soft_end=True``):**
+      Abzug ``JITTER_SPAN_SECONDS`` → das Ausschalten liegt **immer vor oder
+      genau auf** der Blockgrenze (``[end - JITTER_SPAN_SECONDS, end]``,
+      Erwartungswert ``end - JITTER_SPAN_SECONDS / 2``). So greift ein nur
+      durch Gleichstand verlängerter Block nicht zusätzlich in die nächste
+      (teurere) Preiszone aus, bleibt aber gejittert.
+
+    Weil sich beide Flanken denselben Versatz teilen, verschiebt sich das
+    Fenster als Ganzes; seine Länge ist für *jeden* Sensor dieselbe:
+    ``L - JITTER_SPAN_SECONDS / 2`` bzw. bei ``soft_end``
+    ``L - JITTER_SPAN_SECONDS``. Das folgt aus der **einen** Breite und kann
+    nicht dadurch kippen, dass zwei getrennte Breiten auseinanderlaufen – dann
+    hinge die Fensterlänge von der Phase ab, also davon, welche Subentry-ID ein
+    Sensor zufällig bekommen hat (siehe ``JITTER_SPAN_SECONDS`` in const.py).
+    Ein durchgehender Block wird so nie zerteilt und – solange er länger als
+    dieser feste Abzug ist – auch nie ausgelöscht. Bei der kleinsten Blocklänge
+    (ein 15-Minuten-Intervall) bleiben 10 min bzw. 5 min Einschaltzeit.
 
     Ist ein Block **kürzer** als dieser feste Betrag, würde ihn der Jitter ganz
     aufzehren; dann wird ungejittert exakt auf ``start``/``end`` geschaltet
@@ -85,11 +91,15 @@ def jittered_window(
     vorkommen, ``interval_minutes`` stammt aber aus deren Antwort und ist damit
     keine Konstante dieser Integration.
     """
-    on_time = start + timedelta(seconds=phase * JITTER_ON_MAX_SECONDS)
+    # Ein gemeinsamer Versatz für beide Flanken – nur so verschiebt sich das
+    # Fenster als Ganzes (siehe Docstring). Die Flanken unterscheiden sich
+    # ausschließlich im festen Abzug darunter.
+    shift = timedelta(seconds=phase * JITTER_SPAN_SECONDS)
+    on_time = start + shift
     if soft_end:
-        off_time = end - timedelta(seconds=(1.0 - phase) * JITTER_OFF_SPAN_SECONDS)
+        off_time = end + shift - timedelta(seconds=JITTER_SPAN_SECONDS)
     else:
-        off_time = end + timedelta(seconds=(phase - 0.5) * JITTER_OFF_SPAN_SECONDS)
+        off_time = end + shift - timedelta(seconds=JITTER_SPAN_SECONDS / 2)
     # Sicherheitsnetz für (hier nicht vorkommende) extrem kurze Blöcke: Der
     # Jitter darf den Block nie ganz aufzehren. Ein auf einen Punkt
     # zusammengefallenes Fenster (`off == on`) wäre leer – `on <= moment < off`

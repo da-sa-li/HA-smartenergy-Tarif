@@ -24,7 +24,7 @@ from .const import (
     CONF_CHEAP_MODE,
     DEFAULT_CHEAP_MODE,
     DOMAIN,
-    JITTER_ON_MAX_SECONDS,
+    JITTER_SPAN_SECONDS,
     SUBENTRY_TYPE_CHEAP_HOUR,
     UNIT_CT_PER_KWH,
     documentation_url,
@@ -131,7 +131,7 @@ class CheapHourBinarySensor(
             # Last-Glättung: konstanter Einschalt-Versatz dieses Sensors in
             # Sekunden (deterministisch, vom Nutzer nicht änderbar).
             "jitter_offset_seconds": round(
-                self._jitter_phase * JITTER_ON_MAX_SECONDS
+                self._jitter_phase * JITTER_SPAN_SECONDS
             ),
             "next_cheap_start": next_on.isoformat() if next_on else None,
             "cheap_intervals": [

@@ -104,13 +104,24 @@ SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
 # Jeder Sensor verschiebt seine Schaltflanken deshalb um einen kleinen,
 # deterministisch aus der Subentry-ID abgeleiteten Versatz (siehe jitter.py).
 #
-# - Einschalten: Verzögerung gleichverteilt in [0, JITTER_ON_MAX_SECONDS]; es
+# Bewusst EINE Konstante für beide Flanken: Ein- und Ausschalten verschieben
+# sich um denselben Betrag (phase * JITTER_SPAN_SECONDS) und unterscheiden sich
+# nur um einen festen, phasenunabhängigen Abzug. Genau dadurch verschiebt sich
+# das Schaltfenster als Ganzes und ist für jeden Sensor gleich lang. Zwei
+# getrennt einstellbare Breiten hätten diese Zusage still ausgehebelt, sobald
+# sie auseinanderlaufen: Die Fensterlänge hinge dann von der Phase ab, also
+# davon, welche Subentry-ID ein Sensor zufällig bekommen hat.
+#
+# Daraus ergeben sich die Flanken (Herleitung in jitter.py):
+# - Einschalten: Verzögerung gleichverteilt in [0, JITTER_SPAN_SECONDS]; es
 #   wird nie *vor* Beginn des günstigen Blocks eingeschaltet.
-# - Ausschalten: symmetrischer Versatz in [-JITTER_OFF_SPAN_SECONDS/2,
-#   +JITTER_OFF_SPAN_SECONDS/2] um die Blockgrenze – der Erwartungswert fällt
+# - Ausschalten: symmetrischer Versatz in [-JITTER_SPAN_SECONDS/2,
+#   +JITTER_SPAN_SECONDS/2] um die Blockgrenze – der Erwartungswert fällt
 #   damit genau auf die volle (Block-)Grenze.
-JITTER_ON_MAX_SECONDS: Final = 600
-JITTER_OFF_SPAN_SECONDS: Final = 600
+# - Ausschalten bei einem gleichstandsbedingt verlängerten Blockende
+#   (soft_end): rückwärts in [-JITTER_SPAN_SECONDS, 0], damit ein solcher Block
+#   nicht zusätzlich in die nächste, teurere Preiszone ausgreift.
+JITTER_SPAN_SECONDS: Final = 600
 
 # Wie oft der Koordinator die Entitäten neu berechnet (aktueller Preis).
 # Die eigentlichen API-Aufrufe werden intern stark gedrosselt (siehe unten),

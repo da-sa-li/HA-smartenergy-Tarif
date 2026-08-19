@@ -333,7 +333,7 @@ class SmartTimesData:
         den Tageswechsel (im Einzelstunden-Modus der Normalfall, da die Nacht
         meist am günstigsten ist), zerfiele er in zwei getrennt gejitterte
         Blöcke. Deren Fenster stoßen dann nicht mehr aneinander, sondern klaffen
-        um ``JITTER_OFF_SPAN_SECONDS / 2`` auseinander – und zwar für *jede*
+        um ``JITTER_SPAN_SECONDS / 2`` auseinander – und zwar für *jede*
         Phase gleich weit, weil sich beide Flanken um denselben Betrag
         verschieben. Ohne Jitter gäbe es die Lücke nicht (beide Grenzen fallen
         exakt auf Mitternacht); erst der Jitter reißt sie auf und erzeugt so
