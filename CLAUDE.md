@@ -126,7 +126,7 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   - `individual`: günstigste **Einzel**-Intervalle (dürfen über den Tag verteilt sein).
   - `consecutive`: ein **zusammenhängender Block** „am Stück".
   Bei **Gleichstand** am Schwellwert wird die Auswahl in `individual` erweitert (alle gleich
-  teuren Intervalle mitmarkiert); solche Überschuss-Enden sind als `soft_end` markiert. Das
+  teuren Intervalle mitmarkiert); betroffene Blöcke sind als `exceeds_cheap_hours` markiert. Das
   verteuert die kWh nie, verlängert aber die Einschaltdauer – und weil smartTIMES als Zeittarif
   nur **drei** Preisstufen kennt, liefert dort jede Stundenzahl zwischen 0,25 h und 8 h dieselben
   8 Stunden. Wer eine echte Laufzeit-Vorgabe braucht, aktiviert `exact_hours` („Stundenzahl exakt

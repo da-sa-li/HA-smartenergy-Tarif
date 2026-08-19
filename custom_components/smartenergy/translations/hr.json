@@ -52,7 +52,7 @@
           },
           "data_description": {
             "cheap_mode": "\"Najpovoljniji pojedinačni sati\": najjeftinije četvrtine sata u danu – mogu biti raspoređene tijekom dana (npr. bojler, wallbox). \"Neprekinuti blok\": jedno najpovoljnije vremensko razdoblje u komadu – za uređaje s fiksnim trajanjem rada koji se ne smiju prekidati (perilica rublja, perilica posuđa).",
-            "exact_hours": "Prema zadanome kao povoljni se označavaju i drugi termini koji stoje točno jednako kao najskuplji odabrani – senzor je tada uključen dulje nego što je postavljeno, ali nikada po višoj cijeni. Kada je uključeno, isporučuje točno postavljeni broj sati. Odnosi se samo na „Najpovoljnije pojedinačne sate“; kod smartTIMES-a s njegovih nekoliko cjenovnih razina razlika je velika."
+            "exact_hours": "Prema zadanome kao povoljni se označavaju i drugi termini koji stoje točno jednako kao najskuplji odabrani – senzor je tada uključen dulje nego što je postavljeno, ali nikada po višoj cijeni. Kada je uključeno, isporučuje točno postavljeni broj sati. Odnosi se samo na „Najpovoljnije pojedinačne sate“."
           }
         },
         "reconfigure": {
@@ -65,7 +65,7 @@
           },
           "data_description": {
             "cheap_mode": "\"Najpovoljniji pojedinačni sati\": najjeftinije četvrtine sata u danu – mogu biti raspoređene tijekom dana (npr. bojler, wallbox). \"Neprekinuti blok\": jedno najpovoljnije vremensko razdoblje u komadu – za uređaje s fiksnim trajanjem rada koji se ne smiju prekidati (perilica rublja, perilica posuđa).",
-            "exact_hours": "Prema zadanome kao povoljni se označavaju i drugi termini koji stoje točno jednako kao najskuplji odabrani – senzor je tada uključen dulje nego što je postavljeno, ali nikada po višoj cijeni. Kada je uključeno, isporučuje točno postavljeni broj sati. Odnosi se samo na „Najpovoljnije pojedinačne sate“; kod smartTIMES-a s njegovih nekoliko cjenovnih razina razlika je velika."
+            "exact_hours": "Prema zadanome kao povoljni se označavaju i drugi termini koji stoje točno jednako kao najskuplji odabrani – senzor je tada uključen dulje nego što je postavljeno, ali nikada po višoj cijeni. Kada je uključeno, isporučuje točno postavljeni broj sati. Odnosi se samo na „Najpovoljnije pojedinačne sate“."
           }
         }
       },

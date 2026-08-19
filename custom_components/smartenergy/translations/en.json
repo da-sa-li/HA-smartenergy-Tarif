@@ -52,7 +52,7 @@
           },
           "data_description": {
             "cheap_mode": "\"Cheapest individual hours\": the cheapest quarter-hours of the day — they may be spread across the day (e.g. boiler, wallbox). \"Consecutive block\": a single cheapest window in one piece — for appliances with a fixed run time that must not be interrupted (washing machine, dishwasher).",
-            "exact_hours": "By default, further times that cost exactly as much as the most expensive selected one are also marked cheap — the sensor is then on longer than configured, but never at a higher price. When enabled, it delivers exactly the configured number of hours. Only affects \"Cheapest individual hours\"; with smartTIMES and its few price levels the difference is large."
+            "exact_hours": "By default, further times that cost exactly as much as the most expensive selected one are also marked cheap — the sensor is then on longer than configured, but never at a higher price. When enabled, it delivers exactly the configured number of hours. Only affects \"Cheapest individual hours\"."
           }
         },
         "reconfigure": {
@@ -65,7 +65,7 @@
           },
           "data_description": {
             "cheap_mode": "\"Cheapest individual hours\": the cheapest quarter-hours of the day — they may be spread across the day (e.g. boiler, wallbox). \"Consecutive block\": a single cheapest window in one piece — for appliances with a fixed run time that must not be interrupted (washing machine, dishwasher).",
-            "exact_hours": "By default, further times that cost exactly as much as the most expensive selected one are also marked cheap — the sensor is then on longer than configured, but never at a higher price. When enabled, it delivers exactly the configured number of hours. Only affects \"Cheapest individual hours\"; with smartTIMES and its few price levels the difference is large."
+            "exact_hours": "By default, further times that cost exactly as much as the most expensive selected one are also marked cheap — the sensor is then on longer than configured, but never at a higher price. When enabled, it delivers exactly the configured number of hours. Only affects \"Cheapest individual hours\"."
           }
         }
       },

@@ -52,7 +52,7 @@
           },
           "data_description": {
             "cheap_mode": "\"Najtańsze poszczególne godziny\": najtańsze kwadransy dnia – mogą być rozłożone przez cały dzień (np. bojler, ładowarka). \"Blok ciągły\": jedno najtańsze okno czasowe bez przerwy – dla urządzeń z ustalonym czasem pracy, które nie mogą być przerwane (pralka, zmywarka).",
-            "exact_hours": "Domyślnie jako tanie oznaczane są także kolejne czasy, które kosztują dokładnie tyle co najdroższy wybrany — czujnik jest wtedy włączony dłużej niż ustawiono, ale nigdy po wyższej cenie. Po włączeniu zapewnia dokładnie ustawioną liczbę godzin. Dotyczy tylko „Najtańszych poszczególnych godzin”; przy smartTIMES z jego kilkoma poziomami cen różnica jest duża."
+            "exact_hours": "Domyślnie jako tanie oznaczane są także kolejne czasy, które kosztują dokładnie tyle co najdroższy wybrany — czujnik jest wtedy włączony dłużej niż ustawiono, ale nigdy po wyższej cenie. Po włączeniu zapewnia dokładnie ustawioną liczbę godzin. Dotyczy tylko „Najtańszych poszczególnych godzin”."
           }
         },
         "reconfigure": {
@@ -65,7 +65,7 @@
           },
           "data_description": {
             "cheap_mode": "\"Najtańsze poszczególne godziny\": najtańsze kwadransy dnia – mogą być rozłożone przez cały dzień (np. bojler, ładowarka). \"Blok ciągły\": jedno najtańsze okno czasowe bez przerwy – dla urządzeń z ustalonym czasem pracy, które nie mogą być przerwane (pralka, zmywarka).",
-            "exact_hours": "Domyślnie jako tanie oznaczane są także kolejne czasy, które kosztują dokładnie tyle co najdroższy wybrany — czujnik jest wtedy włączony dłużej niż ustawiono, ale nigdy po wyższej cenie. Po włączeniu zapewnia dokładnie ustawioną liczbę godzin. Dotyczy tylko „Najtańszych poszczególnych godzin”; przy smartTIMES z jego kilkoma poziomami cen różnica jest duża."
+            "exact_hours": "Domyślnie jako tanie oznaczane są także kolejne czasy, które kosztują dokładnie tyle co najdroższy wybrany — czujnik jest wtedy włączony dłużej niż ustawiono, ale nigdy po wyższej cenie. Po włączeniu zapewnia dokładnie ustawioną liczbę godzin. Dotyczy tylko „Najtańszych poszczególnych godzin”."
           }
         }
       },

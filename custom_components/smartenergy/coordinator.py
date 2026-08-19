@@ -307,7 +307,7 @@ class SmartTimesData:
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
     ) -> list[tuple[datetime, datetime, bool]]:
-        """Zusammenhängende Günstig-Blöcke eines Tages als ``(start, end, soft_end)``.
+        """Günstig-Blöcke eines Tages als ``(start, end, exceeds_cheap_hours)``.
 
         Direkt aufeinanderfolgende günstige Intervalle werden zu einem Block
         zusammengefasst, damit der Jitter pro **Block** (nicht pro Intervall)
@@ -315,35 +315,43 @@ class SmartTimesData:
         Modus ``CHEAP_MODE_CONSECUTIVE`` ist die Auswahl ohnehin bereits ein
         einziger zusammenhängender Block.
 
-        ``soft_end`` ist ``True``, wenn das Blockende nur durch die
-        Gleichstands-Mechanik zustande kommt: Das letzte Intervall des Blocks
-        ist ein „Überschuss"-Intervall am Schwellwert, das über die
+        ``exceeds_cheap_hours`` ist ``True``, wenn der Block **mindestens ein**
+        „Überschuss"-Intervall enthält: eines, das nur durch die
+        Gleichstands-Mechanik am Schwellwert dazukam und damit über die
         konfigurierte Stundenzahl hinausgeht. Das kann folglich nur im
         Einzelstunden-Modus **ohne** ``exact_hours`` vorkommen; sonst ist die
         Angabe immer ``False``.
 
+        Maßgeblich ist der **ganze** Block, nicht sein letztes Intervall: Ein
+        Überschuss-Intervall kann genauso am Anfang oder in der Mitte liegen –
+        etwa wenn es preisgleich mit dem Schwellwert ist, die darauf folgenden
+        Intervalle aber darunter liegen. Die frühere Prüfung nur des letzten
+        Intervalls meldete solche Blöcke fälschlich als unauffällig.
+
         Die Angabe ist rein informativ und wird im Sensor-Attribut
         ``cheap_windows`` ausgewiesen; auf das Schalten wirkt sie sich nicht
-        aus. Früher wurde bei einem solchen Ende rückwärts ausgeschaltet, damit
-        der Block nicht zusätzlich in die nächste (teurere) Preiszone
-        ausgreift – das gilt inzwischen für *jedes* Blockende (siehe
-        :func:`.jitter.jittered_window`).
+        aus. Sie hieß früher ``soft_end`` und steuerte ein vorgezogenes
+        Ausschalten, damit ein so verlängerter Block nicht zusätzlich in die
+        nächste (teurere) Preiszone ausgreift. Das gilt inzwischen für *jedes*
+        Blockende (siehe :func:`.jitter.jittered_window`), weshalb die Angabe
+        nichts mehr mit dem Blockende zu tun hat.
         """
         all_starts, strict_starts = self._cheap_selection(
             day, cheap_hours, mode, exact_hours
         )
         surplus = all_starts - strict_starts
-        # [start, end, letzter Intervallstart]
-        blocks: list[list[datetime]] = []
+        # [start, end, enthält Überschuss-Intervall]
+        blocks: list[list] = []
         for price in self.cheap_intervals(  # chronologisch
             day, cheap_hours, mode, exact_hours
         ):
+            exceeds = price.start in surplus
             if blocks and blocks[-1][1] == price.start:
                 blocks[-1][1] = price.end
-                blocks[-1][2] = price.start
+                blocks[-1][2] = blocks[-1][2] or exceeds
             else:
-                blocks.append([price.start, price.end, price.start])
-        return [(start, end, last in surplus) for start, end, last in blocks]
+                blocks.append([price.start, price.end, exceeds])
+        return [(start, end, exceeds) for start, end, exceeds in blocks]
 
     def _cheap_blocks_spanning(
         self,
@@ -393,15 +401,24 @@ class SmartTimesData:
                 day - timedelta(days=1), cheap_hours, mode, exact_hours
             )
             if previous and previous[-1][1] == blocks[0][0]:
-                blocks[0] = (previous[-1][0], blocks[0][1], blocks[0][2])
+                # ``exceeds_cheap_hours`` verodern: Es gilt für den gesamten
+                # zusammengefassten Block, also auch, wenn nur der Teil aus dem
+                # Nachbartag Überschuss-Intervalle beisteuert.
+                blocks[0] = (
+                    previous[-1][0],
+                    blocks[0][1],
+                    previous[-1][2] or blocks[0][2],
+                )
         if blocks[-1][1] == dt_util.start_of_local_day(day + timedelta(days=1)):
             following = self._cheap_blocks(
                 day + timedelta(days=1), cheap_hours, mode, exact_hours
             )
             if following and following[0][0] == blocks[-1][1]:
-                # ``soft_end`` des Folgeblocks übernehmen: Maßgeblich ist, wie
-                # das *Ende* des zusammengefassten Blocks zustande gekommen ist.
-                blocks[-1] = (blocks[-1][0], following[0][1], following[0][2])
+                blocks[-1] = (
+                    blocks[-1][0],
+                    following[0][1],
+                    blocks[-1][2] or following[0][2],
+                )
         return blocks
 
     def jittered_cheap_windows(
@@ -412,28 +429,28 @@ class SmartTimesData:
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
     ) -> list[tuple[datetime, datetime, bool]]:
-        """Gejitterte Schaltfenster der Günstig-Blöcke als ``(on, off, soft_end)``.
+        """Schaltfenster der Blöcke als ``(on, off, exceeds_cheap_hours)``.
 
         ``phase`` ist der sensoreigene, deterministische Versatz-Wert (siehe
         :func:`.jitter.cheap_phase`). Wirkt ausschließlich für den „Günstige
         Stunde"-Sensor.
 
-        ``soft_end`` ist rein informativ: Es zeigt an, dass der Block nur durch
-        die Gleichstands-Mechanik über die konfigurierte Stundenzahl hinaus
-        reicht (siehe :meth:`_cheap_blocks`). Auf das Schalten wirkt es sich
-        nicht aus – da beide Flanken nach innen wandern, greift **kein** Block
-        in die nächste Preiszone aus.
+        ``exceeds_cheap_hours`` ist rein informativ: Es zeigt an, dass der Block
+        durch die Gleichstands-Mechanik über die konfigurierte Stundenzahl
+        hinaus reicht (siehe :meth:`_cheap_blocks`). Auf das Schalten wirkt es
+        sich nicht aus – da beide Flanken nach innen wandern, greift **kein**
+        Block in die nächste Preiszone aus.
 
         Grundlage sind die über die Tagesgrenze zusammengefassten Blöcke (siehe
         :meth:`_cheap_blocks_spanning`); ein Fenster kann daher vor ``day``
         beginnen oder nach ``day`` enden.
         """
         windows: list[tuple[datetime, datetime, bool]] = []
-        for start, end, soft_end in self._cheap_blocks_spanning(
+        for start, end, exceeds in self._cheap_blocks_spanning(
             day, cheap_hours, mode, exact_hours
         ):
             on_time, off_time = jittered_window(start, end, phase)
-            windows.append((on_time, off_time, soft_end))
+            windows.append((on_time, off_time, exceeds))
         return windows
 
     def is_cheap_now(

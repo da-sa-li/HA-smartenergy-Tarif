@@ -52,7 +52,7 @@
           },
           "data_description": {
             "cheap_mode": "\"En uygun bireysel saatler\": günün en ucuz çeyrek saatleri – gün içinde dağılabilir (örn. boyler, wallbox). \"Ardışık blok\": bir en uygun zaman penceresi – kesintiye uğramaması gereken sabit çalışma süreli cihazlar için (çamaşır makinesi, bulaşık makinesi).",
-            "exact_hours": "Varsayılan olarak, seçilen en pahalı zamanla tam olarak aynı fiyattaki diğer zamanlar da uygun olarak işaretlenir — sensör o zaman ayarlanandan daha uzun süre açık kalır, ama asla daha yüksek bir fiyata değil. Etkinleştirildiğinde tam olarak ayarlanan saat sayısını verir. Yalnızca \"En uygun bireysel saatler\" için geçerlidir; az sayıda fiyat kademesi olan smartTIMES'ta fark büyüktür."
+            "exact_hours": "Varsayılan olarak, seçilen en pahalı zamanla tam olarak aynı fiyattaki diğer zamanlar da uygun olarak işaretlenir — sensör o zaman ayarlanandan daha uzun süre açık kalır, ama asla daha yüksek bir fiyata değil. Etkinleştirildiğinde tam olarak ayarlanan saat sayısını verir. Yalnızca \"En uygun bireysel saatler\" için geçerlidir."
           }
         },
         "reconfigure": {
@@ -65,7 +65,7 @@
           },
           "data_description": {
             "cheap_mode": "\"En uygun bireysel saatler\": günün en ucuz çeyrek saatleri – gün içinde dağılabilir (örn. boyler, wallbox). \"Ardışık blok\": bir en uygun zaman penceresi – kesintiye uğramaması gereken sabit çalışma süreli cihazlar için (çamaşır makinesi, bulaşık makinesi).",
-            "exact_hours": "Varsayılan olarak, seçilen en pahalı zamanla tam olarak aynı fiyattaki diğer zamanlar da uygun olarak işaretlenir — sensör o zaman ayarlanandan daha uzun süre açık kalır, ama asla daha yüksek bir fiyata değil. Etkinleştirildiğinde tam olarak ayarlanan saat sayısını verir. Yalnızca \"En uygun bireysel saatler\" için geçerlidir; az sayıda fiyat kademesi olan smartTIMES'ta fark büyüktür."
+            "exact_hours": "Varsayılan olarak, seçilen en pahalı zamanla tam olarak aynı fiyattaki diğer zamanlar da uygun olarak işaretlenir — sensör o zaman ayarlanandan daha uzun süre açık kalır, ama asla daha yüksek bir fiyata değil. Etkinleştirildiğinde tam olarak ayarlanan saat sayısını verir. Yalnızca \"En uygun bireysel saatler\" için geçerlidir."
           }
         }
       },

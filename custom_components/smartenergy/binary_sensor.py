@@ -169,15 +169,15 @@ class CheapHourBinarySensor(
                 for p in cheap
             ],
             # Tatsächliche, gejitterte Schaltfenster (so, wie der Sensor schaltet).
-            # ``soft_end``: Der Block reicht nur wegen eines Preis-Gleichstands
-            # über die konfigurierte Stundenzahl hinaus – rein informativ, das
-            # Schaltverhalten ist dasselbe.
+            # ``exceeds_cheap_hours``: Der Block reicht wegen eines
+            # Preis-Gleichstands über die eingestellte Stundenzahl hinaus – rein
+            # informativ, das Schaltverhalten ist dasselbe.
             "cheap_windows": [
                 {
                     "on": on_time.isoformat(),
                     "off": off_time.isoformat(),
-                    "soft_end": soft_end,
+                    "exceeds_cheap_hours": exceeds,
                 }
-                for on_time, off_time, soft_end in windows
+                for on_time, off_time, exceeds in windows
             ],
         }
