@@ -1,0 +1,114 @@
+name: Fehlerbericht
+description: Etwas funktioniert nicht wie erwartet
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für den Bericht. Die Angaben unten sparen eine Rückfragerunde –
+        vor allem **Tarif** und **Netzgebiet**, weil davon sowohl die
+        abgerufene API als auch die gesamte Nebenkosten-Mathematik abhängt.
+
+        **Schneller geht es mit der Diagnose-Datei:** unter
+        **Einstellungen → Geräte & Dienste → smartENERGY Strompreishelfer →
+        Drei-Punkte-Menü → Diagnose herunterladen**. Sie enthält Konfiguration,
+        Cache-Zustand und das aktuelle Preisintervall – ohne Debug-Logging und
+        ohne die selbst vergebenen Sensornamen. Sie kann unverändert angehängt
+        werden; enthalten ist bewusst nur das Netzgebiet (grobe
+        Versorgungsregion, keine Adresse).
+
+  - type: checkboxes
+    id: vorabpruefung
+    attributes:
+      label: Vorabprüfung
+      options:
+        - label: Ich verwende die aktuelle Version der Integration.
+          required: true
+        - label: Ich habe die [Fehlerbehebung im Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Fehlerbehebung) gelesen.
+          required: true
+
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Was passiert?
+      description: Was ist zu beobachten, und was wäre stattdessen zu erwarten gewesen?
+      placeholder: |
+        Beobachtet: …
+        Erwartet: …
+    validations:
+      required: true
+
+  - type: input
+    id: version_integration
+    attributes:
+      label: Version der Integration
+      description: Steht in HACS bzw. im Gerät der Integration.
+      placeholder: "4.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: version_ha
+    attributes:
+      label: Home-Assistant-Version
+      description: Einstellungen → System → Info.
+      placeholder: "2026.3.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tarif
+    attributes:
+      label: Tarif
+      options:
+        - smartTIMES
+        - smartCONTROL
+    validations:
+      required: true
+
+  - type: dropdown
+    id: netzgebiet
+    attributes:
+      label: Netzgebiet
+      description: Die Auswahl aus der Einrichtung – sie bestimmt die Netzentgelte im Gesamtpreis.
+      options:
+        - Kein Netzgebiet (Netzentgelte nicht einrechnen)
+        - Burgenland
+        - Kärnten
+        - Klagenfurt
+        - Niederösterreich
+        - Oberösterreich
+        - Linz
+        - Salzburg
+        - Steiermark
+        - Graz
+        - Tirol
+        - Innsbruck
+        - Vorarlberg
+        - Wien
+        - Kleinwalsertal
+    validations:
+      required: true
+
+  - type: textarea
+    id: protokoll
+    attributes:
+      label: Protokollauszug
+      description: |
+        Einstellungen → System → Protokolle. Ausführlicher wird es mit
+        Debug-Logging – dafür in die `configuration.yaml`:
+
+        ```yaml
+        logger:
+          logs:
+            custom_components.smartenergy: debug
+        ```
+
+        Wird automatisch als Code formatiert, Backticks sind nicht nötig.
+      render: text
+
+  - type: textarea
+    id: diagnose
+    attributes:
+      label: Diagnose-Datei
+      description: Datei hier per Drag-and-drop anhängen (siehe Hinweis oben).
