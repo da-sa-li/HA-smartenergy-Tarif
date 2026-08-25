@@ -161,3 +161,68 @@ async def test_gesamtpreis_entitaet_behaelt_ihren_registry_eintrag(
         )
         is None
     )
+
+
+async def test_entity_id_wird_angeglichen(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Der Einheitenzusatz verschwindet aus der Entity-ID.
+
+    Damit tragen Bestands- und Neuinstallationen dieselbe ID. Das ist der
+    einzige für Nutzer spürbare Teil der Migration.
+    """
+    from homeassistant.helpers import entity_registry as er
+
+    entry = _eintrag(1, {"cheap_hours": 4.0, "cheap_mode": "individual"})
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_current_price_eur",
+        config_entry=entry,
+        suggested_object_id="smarttimes_strompreishelfer_total_price_eur_kwh",
+    )
+
+    await _einrichten(hass, entry, smarttimes_payload)
+
+    neu = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_total_price"
+    )
+    assert neu == "sensor.smarttimes_strompreishelfer_total_price"
+
+
+async def test_belegte_entity_id_wird_nicht_ueberschrieben(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Ist der Zielname vergeben, bleibt die alte Entity-ID bestehen.
+
+    Eine fremde Entität zu verschieben, um Platz zu schaffen, wäre schlimmer
+    als die uneinheitliche ID.
+    """
+    from homeassistant.helpers import entity_registry as er
+
+    entry = _eintrag(1, {"cheap_hours": 4.0, "cheap_mode": "individual"})
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_current_price_eur",
+        config_entry=entry,
+        suggested_object_id="smarttimes_strompreishelfer_total_price_eur_kwh",
+    )
+    # Fremde Entität besetzt den Zielnamen.
+    registry.async_get_or_create(
+        "sensor",
+        "demo",
+        "fremd",
+        suggested_object_id="smarttimes_strompreishelfer_total_price",
+    )
+
+    await _einrichten(hass, entry, smarttimes_payload)
+
+    behalten = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_total_price"
+    )
+    assert behalten == "sensor.smarttimes_strompreishelfer_total_price_eur_kwh"

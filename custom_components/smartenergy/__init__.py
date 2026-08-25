@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -29,6 +31,8 @@ from .const import (
 )
 from .coordinator import SmartTimesCoordinator
 from .grid_fees import get_zone
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
@@ -154,6 +158,47 @@ def _migriere_gesamtpreis_entitaet(
 
     registry.async_update_entity(
         entity_id, new_unique_id=f"{entry.entry_id}_total_price"
+    )
+
+    _migriere_gesamtpreis_entity_id(registry, entity_id)
+
+
+def _migriere_gesamtpreis_entity_id(
+    registry: er.EntityRegistry, entity_id: str
+) -> None:
+    """Streicht das ``_eur_kwh`` aus der Entity-ID der Gesamtpreis-Entität.
+
+    Der Sensor hieß „Gesamtpreis (EUR/kWh)"; aus dem Zusatz wurde bei der
+    erstmaligen Anlage die Entity-ID abgeleitet. Ohne diesen Schritt behielten
+    Bestandsinstallationen dauerhaft eine andere Entity-ID als
+    Neuinstallationen, und Doku und Wiki könnten keine einheitliche nennen.
+
+    Das ist der einzige Schritt der Migration, den Nutzer merken: Wer die alte
+    Entity-ID in Automatisierungen, Vorlagen oder Dashboards referenziert, muss
+    sie anpassen.
+    """
+    suffix = "_eur_kwh"
+    if not entity_id.endswith(suffix):
+        # Von Hand vergeben oder bereits umgezogen – nicht anfassen.
+        return
+
+    neue_entity_id = entity_id.removesuffix(suffix)
+    if registry.async_get(neue_entity_id) is not None:
+        # Der Name ist belegt. Eine Kollision aufzulösen hieße, eine fremde
+        # Entität zu verschieben; die alte ID zu behalten ist das kleinere Übel.
+        _LOGGER.warning(
+            "Entity-ID %s ist bereits vergeben; %s behält seine bisherige ID.",
+            neue_entity_id,
+            entity_id,
+        )
+        return
+
+    registry.async_update_entity(entity_id, new_entity_id=neue_entity_id)
+    _LOGGER.info(
+        "Gesamtpreis-Sensor von %s nach %s umbenannt (einheitliche Entity-ID "
+        "für Bestands- und Neuinstallationen).",
+        entity_id,
+        neue_entity_id,
     )
 
 

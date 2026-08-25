@@ -142,8 +142,10 @@ ebenfalls darauf.
 > wird erst beim Sensor. Der Einheiten-String der API steht im Attribut
 > `source_unit`.
 >
-> Bestandsinstallationen behalten für den Gesamtpreis ihre bisherige Entity-ID
-> `…_gesamtpreis_eur_kwh`; nur bei Neuinstallationen heißt sie `…_gesamtpreis`. Details zu den
+> Beim Update von einer Version vor 4.0 wird der Gesamtpreis-Sensor von
+> `…_gesamtpreis_eur_kwh` auf `…_gesamtpreis` umbenannt, damit alle
+> Installationen dieselbe Entity-ID tragen. **Automatisierungen, Vorlagen und
+> Dashboards, die die alte ID verwenden, müssen angepasst werden.** Details zu den
 Nebenkosten und die vollständige Attribut-Referenz stehen im
 **[Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)**.
 
