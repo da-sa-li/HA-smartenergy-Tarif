@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
@@ -29,6 +30,13 @@ from .const import (
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
 from .grid_fees import is_snap
+
+_LOGGER = logging.getLogger(__name__)
+
+# Einheit, in der die API die Grundgebühr meldet. Angezeigt wird stattdessen die
+# eingedeutschte Fassung UNIT_EUR_PER_MONTH; weicht die API davon ab, wird
+# gewarnt (siehe async_setup_entry).
+API_BASIC_FEE_UNIT = "EUR/month"
 
 # Die Entitäten lesen ausschließlich aus dem Koordinator (keine eigenen
 # API-Aufrufe, keine schaltenden Aktionen) – eine Drosselung paralleler Updates
@@ -139,15 +147,50 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
 )
 
 
+def _is_available(description: SmartTimesSensorDescription, data: SmartTimesData) -> bool:
+    """Ob der Tarif die Datengrundlage für diesen Sensor überhaupt liefert.
+
+    Betrifft bislang nur die Grundgebühr: smartTIMES liefert den optionalen
+    ``basicFee``-Block der API, smartCONTROL nicht. Ohne ihn stünde der Sensor
+    dauerhaft auf „unbekannt" und sähe aus wie ein Defekt.
+    """
+    if description.key == "basic_fee":
+        return bool(data.basic_fees)
+    return True
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: SmartTimesConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Richtet die smartTIMES-Sensoren ein."""
+    """Richtet die smartTIMES-Sensoren ein.
+
+    Die Auswahl stützt sich auf die Koordinatordaten, die hier bereits
+    vorliegen: ``async_config_entry_first_refresh()`` läuft in ``__init__.py``
+    vor dem Weiterreichen an die Plattformen. Liefert die API später doch eine
+    Grundgebühr, erscheint der Sensor nach einem Neuladen des Eintrags.
+    """
     coordinator = entry.runtime_data
+    data = coordinator.data
+
+    if data.basic_fee_unit is not None and data.basic_fee_unit != API_BASIC_FEE_UNIT:
+        # Die Anzeige-Einheit ist bewusst eingedeutscht ("EUR/Monat" statt des
+        # von der API gelieferten "EUR/month"). Wechselt die API die Einheit,
+        # zeigte der Sensor sonst stillschweigend eine falsche an.
+        _LOGGER.warning(
+            "Die smartENERGY-API meldet die Grundgebühr in '%s', erwartet wurde "
+            "'%s'. Der Sensor zeigt weiterhin '%s' an – dieser Wert könnte damit "
+            "nicht mehr passen.",
+            data.basic_fee_unit,
+            API_BASIC_FEE_UNIT,
+            UNIT_EUR_PER_MONTH,
+        )
+
     async_add_entities(
-        SmartTimesSensor(coordinator, entry, description) for description in SENSORS
+        SmartTimesSensor(coordinator, entry, description)
+        for description in SENSORS
+        if _is_available(description, data)
     )
 
 
