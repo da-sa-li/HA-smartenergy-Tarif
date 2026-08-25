@@ -11,14 +11,17 @@ from homeassistant.loader import async_get_integration
 from .api import SmartTimesApiClient
 from .const import (
     API_OPERATOR_DOC_URL,
+    CONF_EXACT_HOURS,
     CONF_GRID_ZONE,
     CONF_INCLUDE_VAT,
     CONF_TARIFF,
     DEFAULT_GRID_ZONE,
     DEFAULT_INCLUDE_VAT,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_TARIFF,
     DOMAIN,
     SMARTCONTROL_HANDLING_FEE_NET,
+    SUBENTRY_TYPE_CHEAP_HOUR,
     TARIFF_API_URLS,
     TARIFF_DISPLAY_NAMES,
     TARIFF_SMARTCONTROL,
@@ -79,6 +82,49 @@ async def async_setup_entry(
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant, entry: SmartTimesConfigEntry
+) -> bool:
+    """Hebt einen älteren Config-Eintrag auf die aktuelle Schema-Version.
+
+    Home Assistant ruft die Funktion auf, solange ``entry.version`` unter
+    ``CONFIG_ENTRY_VERSION`` liegt – bei Neueinrichtungen also nie.
+    """
+    if entry.version > CONFIG_ENTRY_VERSION:
+        # Der Eintrag stammt aus einer neueren Fassung der Integration; ihn
+        # herunterzustufen kann diese Version nicht leisten.
+        return False
+
+    if entry.version == 1:
+        _migriere_exact_hours(hass, entry)
+        hass.config_entries.async_update_entry(entry, version=CONFIG_ENTRY_VERSION)
+
+    return True
+
+
+def _migriere_exact_hours(
+    hass: HomeAssistant, entry: SmartTimesConfigEntry
+) -> None:
+    """Schreibt Untereinträgen ohne ``exact_hours`` den bisherigen Wert fest.
+
+    Die Vorgabe wechselt mit dieser Schema-Version von "aus" auf "ein".
+    Untereinträge, die vor Einführung der Option angelegt wurden, führen den
+    Schlüssel nicht und würden die neue Vorgabe erben – ihr Schaltverhalten
+    änderte sich damit ungefragt. Der ausdrückliche Eintrag hält sie beim Alten;
+    umstellen kann man sie weiterhin von Hand.
+    """
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_TYPE_CHEAP_HOUR:
+            continue
+        if CONF_EXACT_HOURS in subentry.data:
+            continue
+        hass.config_entries.async_update_subentry(
+            entry,
+            subentry,
+            data={**subentry.data, CONF_EXACT_HOURS: False},
+        )
 
 
 async def async_unload_entry(

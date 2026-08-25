@@ -83,9 +83,10 @@ class CheapHourBinarySensor(
         # Option fallen auf den Standard (Einzelstunden) zurück.
         self._cheap_mode: str = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
         # Die eingestellte Stundenzahl exakt einhalten, statt bei
-        # Preisgleichstand darüber hinaus zu erweitern? Ältere Untereinträge
-        # kennen die Option nicht und behalten mit dem Standard (aus) ihr
-        # bisheriges Verhalten.
+        # Preisgleichstand darüber hinaus zu erweitern? Untereinträge, die die
+        # Option noch nicht kannten, haben ihren bisherigen Wert bei der
+        # Migration auf Schema-Version 2 ausdrücklich eingetragen (siehe
+        # __init__.py); der Rückfall auf die Vorgabe ist nur noch ein Netz.
         self._exact_hours: bool = subentry.data.get(
             CONF_EXACT_HOURS, DEFAULT_EXACT_HOURS
         )

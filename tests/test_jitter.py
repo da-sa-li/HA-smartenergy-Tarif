@@ -146,6 +146,10 @@ def test_short_block_never_yields_empty_window(length, phase):
 DAY_5 = date(2026, 6, 5)
 DAY_6 = date(2026, 6, 6)
 CHEAP_HOURS = 9.0
+# Die zusammenhängenden Blöcke dieses Szenarios entstehen erst durch die
+# Gleichstands-Erweiterung. Sie ist seit der Umstellung der Vorgabe nicht
+# mehr der Standard und wird hier deshalb ausdrücklich angefordert.
+ERWEITERN = False
 # Fester Phasenwert: Die geprüften Eigenschaften gelten für jede Phase, ein
 # nachgerechneter Hash wäre hier nur Implementierungsdetail.
 PHASE = 0.25
@@ -160,7 +164,7 @@ def _two_day_data(make_data, smarttimes_payload):
 def test_blocks_merge_across_midnight(two_day_data):
     """Der über Mitternacht durchgehende Zeitraum ist ein einziger Block."""
     # Erwartet: 05.06. 22:00 -> 06.06. 06:00 (Herleitung siehe oben).
-    start, end, _ = two_day_data._cheap_blocks_spanning(DAY_5, CHEAP_HOURS)[-1]
+    start, end, _ = two_day_data._cheap_blocks_spanning(DAY_5, CHEAP_HOURS, exact_hours=ERWEITERN)[-1]
     assert start == datetime(2026, 6, 5, 22, 0, tzinfo=VIENNA)
     assert end == datetime(2026, 6, 6, 6, 0, tzinfo=VIENNA)
 
@@ -173,8 +177,8 @@ def test_merged_block_looks_the_same_from_both_days(two_day_data):
     Folgetag.
     """
     assert (
-        two_day_data._cheap_blocks_spanning(DAY_5, CHEAP_HOURS)[-1]
-        == two_day_data._cheap_blocks_spanning(DAY_6, CHEAP_HOURS)[0]
+        two_day_data._cheap_blocks_spanning(DAY_5, CHEAP_HOURS, exact_hours=ERWEITERN)[-1]
+        == two_day_data._cheap_blocks_spanning(DAY_6, CHEAP_HOURS, exact_hours=ERWEITERN)[0]
     )
 
 
@@ -186,7 +190,7 @@ def test_selection_itself_stays_per_day(two_day_data):
     """
     # Je Tag unverändert die Stunden 00-05, 09-16 und 22-23 (siehe oben).
     for day in (DAY_5, DAY_6):
-        blocks = two_day_data._cheap_blocks(day, CHEAP_HOURS)
+        blocks = two_day_data._cheap_blocks(day, CHEAP_HOURS, exact_hours=ERWEITERN)
         assert [(s.hour, e.hour) for s, e, _ in blocks] == [(0, 6), (9, 17), (22, 0)]
 
 
@@ -196,7 +200,7 @@ def test_no_switch_off_gap_at_midnight(two_day_data, phase):
     moment = datetime(2026, 6, 5, 23, 30, tzinfo=VIENNA)
     last = datetime(2026, 6, 6, 0, 30, tzinfo=VIENNA)
     while moment <= last:
-        assert two_day_data.is_cheap_now(moment, CHEAP_HOURS, phase), moment
+        assert two_day_data.is_cheap_now(moment, CHEAP_HOURS, phase, exact_hours=ERWEITERN), moment
         moment += timedelta(minutes=1)
 
 
@@ -209,7 +213,10 @@ def test_next_cheap_start_has_no_phantom_midnight_restart(two_day_data, phase):
     *echte* Block, also der 06.06. 09:00 (gejittert innerhalb der Stunde 09).
     """
     next_on = two_day_data.next_cheap_on(
-        datetime(2026, 6, 5, 23, 30, tzinfo=VIENNA), CHEAP_HOURS, phase
+        datetime(2026, 6, 5, 23, 30, tzinfo=VIENNA),
+        CHEAP_HOURS,
+        phase,
+        exact_hours=ERWEITERN,
     )
     assert next_on is not None
     assert next_on.date() == DAY_6

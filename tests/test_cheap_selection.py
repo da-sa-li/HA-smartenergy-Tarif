@@ -105,7 +105,7 @@ def test_individual_tie_expands_selection(make_data, smarttimes_payload):
     # (Stunden 02-03 und 10-15). Ohne Netzgebiet sind sie exakt gleich teuer,
     # daher wird die Auswahl über die 4 strikten hinaus erweitert.
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
-    all_starts, strict_starts = data._cheap_selection(DAY, 1.0, "individual")
+    all_starts, strict_starts = data._cheap_selection(DAY, 1.0, "individual", False)
     assert len(strict_starts) == 4
     assert len(all_starts) == 32
 
@@ -191,7 +191,7 @@ def test_exceeds_flag_covers_the_whole_block(gross):
     beide Fälle fälschlich als unauffällig.
     """
     data = _synthetic(gross)
-    blocks = {start.hour: exceeds for start, _, exceeds in data._cheap_blocks(DAY, 1.0)}
+    blocks = {start.hour: exceeds for start, _, exceeds in data._cheap_blocks(DAY, 1.0, "individual", False)}
     assert blocks == {2: False, 10: True}
 
 

@@ -107,19 +107,31 @@ DEFAULT_CHEAP_MODE: Final = CHEAP_MODE_INDIVIDUAL
 # 32 Viertelstunden – dort liefert jede Einstellung zwischen 0,25 h und 8 h
 # dieselben 8 Stunden, die Stundenzahl ist also faktisch wirkungslos.
 #
-# Vorgabe "aus" (= erweitern): bisheriges Verhalten, und für selbstbegrenzende
-# Verbraucher (Boiler mit Thermostat, Wallbox mit Ziel-Ladestand) ist die
-# zusätzliche Gelegenheit zum selben Preis ein Vorteil. Wer eine echte
-# Laufzeit-Vorgabe braucht, schaltet die Option ein.
+# Vorgabe "ein" (= exakt einhalten): Die eingestellte Stundenzahl bedeutet, was
+# sie sagt. Die frühere Vorgabe "aus" war mit Rückwärtskompatibilität begründet
+# und überraschte gerade bei smartTIMES – wer "4 Stunden" für den Boiler
+# einstellte, bekam 8. Wer die Gleichstands-Erweiterung will (selbstbegrenzende
+# Verbraucher wie ein Boiler mit Thermostat oder eine Wallbox mit
+# Ziel-Ladestand profitieren von der zusätzlichen Gelegenheit zum selben Preis),
+# schaltet die Option aus.
+#
+# Bestehende Untereinträge behalten ihr Verhalten: `async_migrate_entry` in
+# __init__.py schreibt ihnen beim Versionswechsel den bisherigen Wert (aus)
+# explizit in die Daten, sodass sie die neue Vorgabe nicht erben.
 #
 # Gilt nur für CHEAP_MODE_INDIVIDUAL. Im Blockmodus wird ohnehin nie erweitert:
 # Dort ist eine feste Fensterlänge der Zweck der Betriebsart (Waschmaschine,
 # Geschirrspüler), den eine Verlängerung gerade aufheben würde.
 CONF_EXACT_HOURS: Final = "exact_hours"
-DEFAULT_EXACT_HOURS: Final = False
+DEFAULT_EXACT_HOURS: Final = True
 
 # Untereintrag-Typ (Config Subentry) für einen "Günstige Stunde"-Sensor.
 SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
+
+# Schema-Version des Config-Eintrags. Wird sie angehoben, muss
+# `async_migrate_entry` in __init__.py den Schritt von der Vorgängerversion
+# beschreiben – Home Assistant ruft die Funktion für jeden älteren Eintrag auf.
+CONFIG_ENTRY_VERSION: Final = 2
 
 # Last-Glättung ("Jitter") für die "Günstige Stunde"-Sensoren.
 #
