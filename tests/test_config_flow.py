@@ -73,6 +73,11 @@ async def test_only_single_instance_allowed(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     assert result["type"] is FlowResultType.ABORT
+    # Wegen "single_config_entry": true im Manifest bricht Home Assistant schon
+    # VOR async_step_user ab – mit diesem Grund, nicht mit "already_configured".
+    # Der Grund wird mitgeprüft, weil sonst ein fehlender Übersetzungstext
+    # unbemerkt bliebe (die Oberfläche zeigte dann den rohen Schlüssel).
+    assert result["reason"] == "single_instance_allowed"
 
 
 async def test_options_flow_updates_options_and_title(
