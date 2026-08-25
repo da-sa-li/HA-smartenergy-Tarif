@@ -63,7 +63,10 @@ VAT_RATE: Final = 0.20
 # Anzeige-Einheiten.
 UNIT_CT_PER_KWH: Final = "ct/kWh"
 UNIT_EUR_PER_KWH: Final = "EUR/kWh"
-UNIT_EUR_PER_MONTH: Final = "EUR/Monat"
+# Sprachneutral, wie Home-Assistant-Einheiten allgemein: Sie werden nicht
+# übersetzt, ein deutsches "EUR/Monat" stünde also auch in einer englischen
+# Oberfläche. Der Wert entspricht zugleich dem, was die API meldet.
+UNIT_EUR_PER_MONTH: Final = "EUR/month"
 
 # Konfigurationsoptionen
 CONF_INCLUDE_VAT: Final = "include_vat"

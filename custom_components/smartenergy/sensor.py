@@ -33,11 +33,6 @@ from .grid_fees import is_snap
 
 _LOGGER = logging.getLogger(__name__)
 
-# Einheit, in der die API die Grundgebühr meldet. Angezeigt wird stattdessen die
-# eingedeutschte Fassung UNIT_EUR_PER_MONTH; weicht die API davon ab, wird
-# gewarnt (siehe async_setup_entry).
-API_BASIC_FEE_UNIT = "EUR/month"
-
 # Die Entitäten lesen ausschließlich aus dem Koordinator (keine eigenen
 # API-Aufrufe, keine schaltenden Aktionen) – eine Drosselung paralleler Updates
 # ist daher nicht nötig.
@@ -174,16 +169,15 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     data = coordinator.data
 
-    if data.basic_fee_unit is not None and data.basic_fee_unit != API_BASIC_FEE_UNIT:
-        # Die Anzeige-Einheit ist bewusst eingedeutscht ("EUR/Monat" statt des
-        # von der API gelieferten "EUR/month"). Wechselt die API die Einheit,
-        # zeigte der Sensor sonst stillschweigend eine falsche an.
+    if data.basic_fee_unit is not None and data.basic_fee_unit != UNIT_EUR_PER_MONTH:
+        # Die Anzeige-Einheit ist fest hinterlegt. Wechselte die API auf eine
+        # andere (etwa EUR/year), zeigte der Sensor sonst stillschweigend eine
+        # falsche an.
         _LOGGER.warning(
-            "Die smartENERGY-API meldet die Grundgebühr in '%s', erwartet wurde "
-            "'%s'. Der Sensor zeigt weiterhin '%s' an – dieser Wert könnte damit "
-            "nicht mehr passen.",
+            "Die smartENERGY-API meldet die Grundgebühr in '%s'. Der Sensor "
+            "zeigt sie weiterhin als '%s' an – dieser Wert könnte damit nicht "
+            "mehr passen.",
             data.basic_fee_unit,
-            API_BASIC_FEE_UNIT,
             UNIT_EUR_PER_MONTH,
         )
 

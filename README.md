@@ -130,7 +130,7 @@ Löschen bleiben keine Konfigurationsreste zurück.
 | `…_durchschnittlicher_gesamtpreis_heute`  | Ø-Gesamtpreis heute (EUR/kWh)                        |
 | `…_niedrigster_gesamtpreis_heute`         | Niedrigster Gesamtpreis heute (EUR/kWh)              |
 | `…_hochster_gesamtpreis_heute`            | Höchster Gesamtpreis heute (EUR/kWh)                 |
-| `…_grundgebuhr`                           | Grundgebühr (EUR/Monat)                              |
+| `…_grundgebuhr`                           | Grundgebühr (EUR/month)                              |
 
 Der **Gesamtpreis**-Sensor enthält alle Nebenkosten (Steuern, Abgaben,
 Netzentgelte inkl. SNAP) und ist die richtige Wahl fürs Energie-Dashboard und

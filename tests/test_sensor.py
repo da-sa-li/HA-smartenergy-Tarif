@@ -96,9 +96,8 @@ async def test_warnung_bei_abweichender_grundgebuehr_einheit(
 ):
     """Meldet die API eine andere Einheit, wird gewarnt.
 
-    Angezeigt wird bewusst das eingedeutschte „EUR/Monat" statt des von der API
-    gelieferten „EUR/month". Wechselte die API auf z. B. „EUR/year", zeigte der
-    Sensor sonst stillschweigend eine falsche Einheit an.
+    Die Anzeige-Einheit ist fest hinterlegt. Wechselte die API auf z. B.
+    „EUR/year", zeigte der Sensor sonst stillschweigend eine falsche an.
     """
     payload = dict(smarttimes_payload)
     payload["basicFee"] = dict(payload["basicFee"], unit="EUR/year")
@@ -106,7 +105,7 @@ async def test_warnung_bei_abweichender_grundgebuehr_einheit(
     await _richte_ein(hass, payload, "smarttimes")
 
     assert "EUR/year" in caplog.text
-    assert "EUR/Monat" in caplog.text
+    assert "EUR/month" in caplog.text
 
 
 # Sollwerte von Hand aus tests/fixtures/smarttimes.json abgeleitet.
@@ -213,7 +212,8 @@ def test_alle_preissensoren_melden_eur_pro_kwh():
     for beschreibung in SENSORS:
         if beschreibung.key == "basic_fee":
             # Begründete Ausnahme: eine monatliche Pauschale, kein Arbeitspreis.
-            assert beschreibung.unit == UNIT_EUR_PER_MONTH
+            # Sprachneutral, weil Home Assistant Einheiten nicht übersetzt.
+            assert beschreibung.unit == UNIT_EUR_PER_MONTH == "EUR/month"
             continue
         assert beschreibung.unit == UNIT_EUR_PER_KWH, (
             f"{beschreibung.key} meldet {beschreibung.unit!r} statt EUR/kWh"
