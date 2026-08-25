@@ -248,3 +248,23 @@ async def test_keine_ct_attribute_mehr(
         # "cent/kWh", gleichbedeutend mit ct/kWh.
         assert attribute["unit"] == "EUR/kWh"
         assert attribute["source_unit"] == "cent/kWh"
+
+
+def test_preissensoren_fuehren_langzeitstatistik():
+    """Jeder Preissensor trägt eine ``state_class``.
+
+    Ohne sie legt der Recorder keine Langzeitstatistik an und der Sensor fehlt
+    in Statistik-Karten. Die Grundgebühr ist ausgenommen: eine Pauschale, die
+    sich höchstens jährlich ändert, gewinnt dadurch nichts.
+    """
+    from homeassistant.components.sensor import SensorStateClass
+
+    from custom_components.smartenergy.sensor import SENSORS
+
+    for beschreibung in SENSORS:
+        if beschreibung.key == "basic_fee":
+            assert beschreibung.state_class is None
+            continue
+        assert beschreibung.state_class == SensorStateClass.MEASUREMENT, (
+            f"{beschreibung.key} ohne state_class"
+        )

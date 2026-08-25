@@ -117,18 +117,21 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
     SmartTimesSensorDescription(
         key="average_today",
         translation_key="average_today",
+        state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=5,
         value_fn=_average_today,
     ),
     SmartTimesSensorDescription(
         key="lowest_today",
         translation_key="lowest_today",
+        state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=5,
         value_fn=_lowest_today,
     ),
     SmartTimesSensorDescription(
         key="highest_today",
         translation_key="highest_today",
+        state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=5,
         value_fn=_highest_today,
     ),
