@@ -26,6 +26,13 @@ Konvention beibehalten.
   zugreift – das führt beim Laden der pytest-Plugins zu `AttributeError: module 'typing' has no
   attribute 'ByteString'`. Die Entfernung wurde für den finalen 3.14.0-Release zurückgenommen
   (jetzt für 3.17 vorgesehen), betrifft finale 3.14.x-Releases also nicht (siehe Issue #41).
+- **Mindestversion für HACS**: `hacs.json` führt `"homeassistant"` – die Version, ab der HACS
+  die Integration überhaupt anbietet. Sie folgt der oben genannten Zielruntime (**2026.3.0**,
+  die erste Home-Assistant-Reihe auf Python 3.14) und **nicht** der Version, die
+  `pytest-homeassistant-custom-component` gerade nachzieht: Letztere ist die jeweils
+  *neueste* getestete Version, nicht die *niedrigste* lauffähige – als Mindestangabe
+  eingetragen schlösse sie alle Nutzer aus, die nicht sofort aktualisieren. Beim Anheben der
+  Zielruntime diesen Wert mitziehen.
 
 ## Befehle
 
