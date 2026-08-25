@@ -26,6 +26,13 @@ Konvention beibehalten.
   zugreift – das führt beim Laden der pytest-Plugins zu `AttributeError: module 'typing' has no
   attribute 'ByteString'`. Die Entfernung wurde für den finalen 3.14.0-Release zurückgenommen
   (jetzt für 3.17 vorgesehen), betrifft finale 3.14.x-Releases also nicht (siehe Issue #41).
+- **Mindestversion für HACS**: `hacs.json` führt `"homeassistant"` – die Version, ab der HACS
+  die Integration überhaupt anbietet. Sie folgt der oben genannten Zielruntime (**2026.3.0**,
+  die erste Home-Assistant-Reihe auf Python 3.14) und **nicht** der Version, die
+  `pytest-homeassistant-custom-component` gerade nachzieht: Letztere ist die jeweils
+  *neueste* getestete Version, nicht die *niedrigste* lauffähige – als Mindestangabe
+  eingetragen schlösse sie alle Nutzer aus, die nicht sofort aktualisieren. Beim Anheben der
+  Zielruntime diesen Wert mitziehen.
 
 ## Befehle
 
@@ -123,6 +130,17 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   Konvention: Sie fließt netto in `_surcharges_net` und erscheint als eigene Breakdown-Position
   `handling_fee` (USt. einmal am Ende → 1,44 ct/kWh brutto).
 
+- **Einheiten – ct/kWh innen, EUR/kWh außen**: `api.py` und `coordinator.py` rechnen
+  durchgehend in **ct/kWh**, der Einheit, in der die API liefert; daran hängt die gesamte
+  handgerechnete Preis-Mathematik in den Tests. Die **Entitäts-Ebene** (`sensor.py`,
+  `binary_sensor.py`) gibt dagegen ausschließlich **EUR/kWh** aus – die Einheit, die das
+  Energie-Dashboard erwartet und die alle Preissensoren vergleichbar macht. Umgerechnet wird
+  nur über `const.to_eur()` (Rundung auf `EUR_DECIMALS` = 6 Stellen, weil der Coordinator auf
+  4 Stellen in ct rundet). Diese Trennung beibehalten: Rechnet man im Coordinator in EUR,
+  müssten sämtliche Sollwerte der Mathematik-Tests umgeschrieben werden, ohne dass etwas
+  gewonnen wäre. Das Attribut `source_unit` weist den Einheiten-String der API aus
+  (smartTIMES meldet `cent/kWh`).
+
 - **`surcharges.py`** – bundeseinheitliche Steuern/Abgaben (Elektrizitätsabgabe,
   Erneuerbaren-Förderbeitrag) als **deklarative, datierte Tabelle** (`DatedRate` mit
   `since`/`until`). Es gilt der erste passende Satz nach Kalendertag → künftige Satzänderungen
@@ -164,6 +182,17 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   `single_config_entry: true` → nur **eine** Instanz. Schemas müssen frontend-serialisierbar
   bleiben (keine Lambdas/`vol.All` mit Callable; Validierung stattdessen im Flow-Schritt).
 
+- **Schema-Migration** – `CONFIG_ENTRY_VERSION` in `const.py` ist die einzige Quelle für
+  `ConfigFlow.VERSION`. Wird sie angehoben, muss `async_migrate_entry` in `__init__.py` den
+  Schritt von der Vorgängerversion beschreiben; Home Assistant ruft die Funktion für jeden
+  älteren Eintrag auf, bevor `async_setup_entry` läuft. Zwei Muster stehen dort schon:
+  **Vorgabewechsel** (`_migriere_exact_hours` schreibt Bestands-Untereinträgen den alten Wert
+  ausdrücklich hinein, damit sie eine geänderte Vorgabe nicht erben) und **Umbenennung einer
+  Entität** (`_migriere_gesamtpreis_entitaet` schreibt die `unique_id` über die Entity-Registry
+  *an Ort und Stelle* um – die Historie bleibt so erhalten, statt dass HA die Entität neu
+  anlegt und die alte verwaist zurückbleibt). Beides sind die Wege, mit denen sich ein Bruch
+  vermeiden lässt; nur eine geänderte **Entity-ID** ist für Nutzer unvermeidlich spürbar.
+
 ## Wichtige Hinweise
 
 - **Zeitzone**: HA sollte auf `Europe/Vienna` stehen. smartTIMES liefert **lokale** Zeitstempel
@@ -187,7 +216,10 @@ Nutzer-Doku ist zweigeteilt:
 ## Release-Prozess
 
 1. Version in **`custom_components/smartenergy/manifest.json`** anheben (SemVer; Minor = neue
-   abwärtskompatible Features, Major = Breaking Change wie ein Domain-Wechsel).
+   abwärtskompatible Features, Major = Breaking Change wie ein Domain-Wechsel). **Vorher prüfen,
+   ob sich der Bruch per Migration vermeiden lässt** (siehe „Schema-Migration" oben) – geänderte
+   Attributnamen, Einheiten und Entity-IDs sind für Nutzer spürbar, eine umgeschriebene
+   `unique_id` oder ein nachgetragener Vorgabewert nicht.
 2. Mergen nach `main`.
 3. Veröffentlichen als **Git-Tag `vX.Y.Z` + GitHub-Release** (HACS zieht Releases darüber). Der
    `version`-Wert im Manifest muss mit dem Release-Tag übereinstimmen.

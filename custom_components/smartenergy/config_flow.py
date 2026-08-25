@@ -21,6 +21,7 @@ from homeassistant.helpers import selector
 
 from .api import SmartTimesApiClient, SmartTimesApiError
 from .const import (
+    CONFIG_ENTRY_VERSION,
     CHEAP_MODE_CONSECUTIVE,
     CHEAP_MODE_INDIVIDUAL,
     CONF_CHEAP_HOURS,
@@ -152,7 +153,7 @@ def _cheap_hour_schema(
 class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
     """Behandelt die Einrichtung über die Benutzeroberfläche."""
 
-    VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

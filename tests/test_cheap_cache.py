@@ -160,13 +160,13 @@ def test_zusammenfassung_laesst_die_gecachten_bloecke_unberuehrt(
     # gilt: Bei 9 h grenzt der letzte Block des 05.06. (22:00-24:00) exakt an
     # den ersten des 06.06. (00:00-06:00).
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
-    assert [(s.hour, e.hour) for s, e, _ in data._cheap_blocks(DAY, 9.0)] == [
+    assert [(s.hour, e.hour) for s, e, _ in data._cheap_blocks(DAY, 9.0, exact_hours=False)] == [
         (0, 6),
         (9, 17),
         (22, 0),
     ]
 
-    zusammengefasst = data._cheap_blocks_spanning(DAY, 9.0)
+    zusammengefasst = data._cheap_blocks_spanning(DAY, 9.0, exact_hours=False)
 
     # Die Zusammenfassung hat gegriffen – der letzte Block reicht in den 06.06.
     assert zusammengefasst[-1][1] == datetime(2026, 6, 6, 6, 0, tzinfo=VIENNA)
@@ -174,7 +174,7 @@ def test_zusammenfassung_laesst_die_gecachten_bloecke_unberuehrt(
     # die von Hand hergeleiteten Stundenpaare geprüft statt gegen einen vorher
     # gezogenen Schnappschuss: Der wäre dasselbe (unveränderliche) Objekt und
     # der Vergleich damit tautologisch.
-    assert [(s.hour, e.hour) for s, e, _ in data._cheap_blocks(DAY, 9.0)] == [
+    assert [(s.hour, e.hour) for s, e, _ in data._cheap_blocks(DAY, 9.0, exact_hours=False)] == [
         (0, 6),
         (9, 17),
         (22, 0),

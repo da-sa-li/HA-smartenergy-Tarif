@@ -129,10 +129,17 @@ async def test_diagnostics_omits_user_chosen_names(
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
 
     # Typ und Schaltparameter sind für den Support nötig und bleiben enthalten.
+    # "exact_hours" steht mit dabei, obwohl der Untereintrag oben ohne diesen
+    # Schlüssel angelegt wurde: Die Migration auf Schema-Version 2 schreibt
+    # Bestandseinträgen den bisherigen Wert (aus) ausdrücklich hinein.
     assert diagnostics["subentries"] == [
         {
             "subentry_type": "cheap_hour",
-            "data": {"cheap_hours": 4.0, "cheap_mode": "individual"},
+            "data": {
+                "cheap_hours": 4.0,
+                "cheap_mode": "individual",
+                "exact_hours": False,
+            },
         }
     ]
     # Der Name darf an keiner Stelle des Schnappschusses auftauchen. Der Umlaut

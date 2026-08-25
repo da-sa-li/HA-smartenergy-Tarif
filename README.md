@@ -16,8 +16,10 @@ günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
 - ⚡ **Tarifwahl smartTIMES oder smartCONTROL** – bei smartCONTROL wird die
   **Abwicklungsgebühr** (1,2 ct/kWh netto / 1,44 ct/kWh brutto) auf den
   Börsenpreis aufgeschlagen
-- 🔌 **Arbeitspreis** der laufenden Tarifzone (ct/kWh)
+- 🔌 **Arbeitspreis** der laufenden Tarifzone (EUR/kWh)
 - 💶 **Gesamtpreis** in EUR/kWh inkl. aller variablen Nebenkosten – fürs Energie-Dashboard
+- 📐 **Einheitlich EUR/kWh** für alle Preissensoren – direkt vergleichbar,
+  ohne Template-Sensor
 - 🧾 **Variable Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe,
   Erneuerbaren-Förderbeitrag und netzgebietsabhängige **Netzentgelte** inkl.
   **Sommer-Nieder-Arbeitspreis (SNAP)** für Netzebene 7
@@ -122,18 +124,28 @@ Löschen bleiben keine Konfigurationsreste zurück.
 
 | Sensor                                   | Beschreibung                                        |
 |-------------------------------------------|------------------------------------------------------|
-| `…_arbeitspreis`                          | Arbeitspreis der aktuellen Tarifzone (ct/kWh)        |
-| `…_gesamtpreis_eur_kwh`                   | Gesamtpreis inkl. Nebenkosten (EUR/kWh) – fürs Energie-Dashboard |
+| `…_arbeitspreis`                          | Arbeitspreis der aktuellen Tarifzone (EUR/kWh)       |
+| `…_gesamtpreis`                           | Gesamtpreis inkl. Nebenkosten (EUR/kWh) – fürs Energie-Dashboard |
 | `binary_sensor.<name>_gunstige_stunde`    | Günstige Stunden; ein Sensor je Untereintrag         |
-| `…_durchschnittlicher_gesamtpreis_heute`  | Ø-Gesamtpreis heute (ct/kWh)                         |
-| `…_niedrigster_gesamtpreis_heute`         | Niedrigster Gesamtpreis heute (ct/kWh)               |
-| `…_hochster_gesamtpreis_heute`            | Höchster Gesamtpreis heute (ct/kWh)                  |
-| `…_grundgebuhr`                           | Grundgebühr (EUR/Monat)                              |
+| `…_durchschnittlicher_gesamtpreis_heute`  | Ø-Gesamtpreis heute (EUR/kWh)                        |
+| `…_niedrigster_gesamtpreis_heute`         | Niedrigster Gesamtpreis heute (EUR/kWh)              |
+| `…_hochster_gesamtpreis_heute`            | Höchster Gesamtpreis heute (EUR/kWh)                 |
+| `…_grundgebuhr`                           | Grundgebühr (EUR/month)                              |
 
-Der **Gesamtpreis**-Sensor (EUR/kWh) enthält alle Nebenkosten (Steuern,
-Abgaben, Netzentgelte inkl. SNAP) und ist die richtige Wahl fürs
-Energie-Dashboard und zum Schalten; Tageskennzahlen und der
-Günstige-Stunde-Sensor beziehen sich ebenfalls darauf. Details zu den
+Der **Gesamtpreis**-Sensor enthält alle Nebenkosten (Steuern, Abgaben,
+Netzentgelte inkl. SNAP) und ist die richtige Wahl fürs Energie-Dashboard und
+zum Schalten; Tageskennzahlen und der Günstige-Stunde-Sensor beziehen sich
+ebenfalls darauf.
+
+> [!NOTE]
+> Alle Preissensoren liefern **EUR/kWh**. Die API rechnet in ct/kWh; umgerechnet
+> wird erst beim Sensor. Der Einheiten-String der API steht im Attribut
+> `source_unit`.
+>
+> Beim Update von einer Version vor 4.0 wird der Gesamtpreis-Sensor von
+> `…_gesamtpreis_eur_kwh` auf `…_gesamtpreis` umbenannt, damit alle
+> Installationen dieselbe Entity-ID tragen. **Automatisierungen, Vorlagen und
+> Dashboards, die die alte ID verwenden, müssen angepasst werden.** Details zu den
 Nebenkosten und die vollständige Attribut-Referenz stehen im
 **[Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)**.
 

@@ -19,7 +19,8 @@
       "cannot_connect": "Verbindung zur smartENERGY-API fehlgeschlagen."
     },
     "abort": {
-      "already_configured": "smartENERGY ist bereits eingerichtet."
+      "already_configured": "smartENERGY ist bereits eingerichtet.",
+      "single_instance_allowed": "smartENERGY ist bereits eingerichtet. Die API liefert für alle Nutzer dieselben Preise – eine zweite Instanz ist deshalb nicht möglich. Tarif, USt. und Netzgebiet lassen sich über „Konfigurieren“ am bestehenden Eintrag ändern."
     }
   },
   "options": {
@@ -127,8 +128,8 @@
       "working_price": {
         "name": "Arbeitspreis"
       },
-      "current_price_eur": {
-        "name": "Gesamtpreis (EUR/kWh)"
+      "total_price": {
+        "name": "Gesamtpreis"
       },
       "average_today": {
         "name": "Durchschnittlicher Gesamtpreis heute"

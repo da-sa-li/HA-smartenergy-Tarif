@@ -13,7 +13,13 @@ from typing import Final
 import aiohttp
 from homeassistant.util import dt as dt_util
 
-from .const import API_TIMEOUT, API_URL, USER_AGENT_PRODUCT, VAT_RATE
+from .const import (
+    API_TIMEOUT,
+    API_URL,
+    UNIT_CT_PER_KWH,
+    USER_AGENT_PRODUCT,
+    VAT_RATE,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -227,7 +233,7 @@ class SmartTimesApiClient:
             energy = payload
 
         tariff = payload.get("tariff") or energy.get("tariff") or "smartTIMES"
-        unit = energy.get("unit", "ct/kWh")
+        unit = energy.get("unit", UNIT_CT_PER_KWH)
         try:
             interval_minutes = int(energy.get("interval", 15))
         except (TypeError, ValueError):

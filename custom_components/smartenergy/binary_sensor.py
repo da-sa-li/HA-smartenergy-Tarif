@@ -28,8 +28,9 @@ from .const import (
     DOMAIN,
     JITTER_SPAN_SECONDS,
     SUBENTRY_TYPE_CHEAP_HOUR,
-    UNIT_CT_PER_KWH,
+    UNIT_EUR_PER_KWH,
     documentation_url,
+    to_eur,
 )
 from .coordinator import SmartTimesCoordinator
 from .jitter import cheap_phase
@@ -62,6 +63,12 @@ class CheapHourBinarySensor(
 
     _attr_has_entity_name = True
     _attr_translation_key = "cheap_hour"
+    # Günstig-Intervalle und Schaltfenster sind minütlich neu berechnete, rein
+    # zukunftsgerichtete Listen - Recorder-History bringt hier keinen Mehrwert.
+    # Ohne den Ausschluss schreibt jeder Untereintrags-Sensor sie bei jedem
+    # Attributwechsel mit in die Datenbank, und current_price_eur_kwh wechselt
+    # mit jedem Preisintervall (bei smartCONTROL viertelstündlich).
+    _unrecorded_attributes = frozenset({"cheap_intervals", "cheap_windows"})
 
     def __init__(
         self,
@@ -76,9 +83,10 @@ class CheapHourBinarySensor(
         # Option fallen auf den Standard (Einzelstunden) zurück.
         self._cheap_mode: str = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
         # Die eingestellte Stundenzahl exakt einhalten, statt bei
-        # Preisgleichstand darüber hinaus zu erweitern? Ältere Untereinträge
-        # kennen die Option nicht und behalten mit dem Standard (aus) ihr
-        # bisheriges Verhalten.
+        # Preisgleichstand darüber hinaus zu erweitern? Untereinträge, die die
+        # Option noch nicht kannten, haben ihren bisherigen Wert bei der
+        # Migration auf Schema-Version 2 ausdrücklich eingetragen (siehe
+        # __init__.py); der Rückfall auf die Vorgabe ist nur noch ein Netz.
         self._exact_hours: bool = subentry.data.get(
             CONF_EXACT_HOURS, DEFAULT_EXACT_HOURS
         )
@@ -140,7 +148,7 @@ class CheapHourBinarySensor(
         )
 
         def current_price() -> StateType:
-            return data.all_in_value(price) if price else None
+            return to_eur(data.all_in_value(price)) if price else None
 
         return {
             "cheap_hours": self._cheap_hours,
@@ -148,11 +156,13 @@ class CheapHourBinarySensor(
             # Ob die Stundenzahl exakt gilt, statt bei Preisgleichstand darüber
             # hinaus zu erweitern (nur im Einzelstunden-Modus wirksam).
             "exact_hours": self._exact_hours,
-            "threshold_ct_kwh": data.cheap_cutoff(
-                today, self._cheap_hours, self._cheap_mode, self._exact_hours
+            "threshold_eur_kwh": to_eur(
+                data.cheap_cutoff(
+                    today, self._cheap_hours, self._cheap_mode, self._exact_hours
+                )
             ),
-            "current_price_ct_kwh": current_price(),
-            "unit_ct": UNIT_CT_PER_KWH,
+            "current_price_eur_kwh": current_price(),
+            "unit": UNIT_EUR_PER_KWH,
             "vat_included": data.include_vat,
             # Last-Glättung: konstanter Einschalt-Versatz dieses Sensors in
             # Sekunden (deterministisch, vom Nutzer nicht änderbar).
@@ -164,7 +174,7 @@ class CheapHourBinarySensor(
                 {
                     "start": p.start.isoformat(),
                     "end": p.end.isoformat(),
-                    "price": data.all_in_value(p),
+                    "price": to_eur(data.all_in_value(p)),
                 }
                 for p in cheap
             ],
