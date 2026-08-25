@@ -129,7 +129,7 @@
         "name": "Arbeitspreis"
       },
       "current_price_eur": {
-        "name": "Gesamtpreis (EUR/kWh)"
+        "name": "Gesamtpreis"
       },
       "average_today": {
         "name": "Durchschnittlicher Gesamtpreis heute"

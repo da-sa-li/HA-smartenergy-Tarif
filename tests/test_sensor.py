@@ -183,7 +183,7 @@ async def test_arbeitspreis_und_gesamtpreis_sind_verschiedene_groessen(
         "sensor.smarttimes_strompreishelfer_energy_price"
     ).attributes
     gesamtpreis = hass.states.get(
-        "sensor.smarttimes_strompreishelfer_total_price_eur_kwh"
+        "sensor.smarttimes_strompreishelfer_total_price"
     ).attributes
 
     # Der Gesamtpreis-Sensor behält seine Namen – sie decken sich mit den
@@ -233,7 +233,7 @@ async def test_keine_ct_attribute_mehr(
 
     for entity_id in (
         "sensor.smarttimes_strompreishelfer_energy_price",
-        "sensor.smarttimes_strompreishelfer_total_price_eur_kwh",
+        "sensor.smarttimes_strompreishelfer_total_price",
     ):
         attribute = hass.states.get(entity_id).attributes
         uebrig = [

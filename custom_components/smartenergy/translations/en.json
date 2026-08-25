@@ -129,7 +129,7 @@
         "name": "Energy price"
       },
       "current_price_eur": {
-        "name": "Total price (EUR/kWh)"
+        "name": "Total price"
       },
       "average_today": {
         "name": "Average total price today"
