@@ -80,14 +80,19 @@ CI läuft bei jedem Push auf `main`, bei jedem PR und manuell (`validate.yml`); 
 Live-Tests laufen getrennt davon nächtlich und manuell (`live-api.yml`). Schlägt ein
 Live-Lauf fehl, legt der Workflow ein Issue mit dem Label `live-api-fehler` an bzw.
 kommentiert das bereits offene – die E-Mail-Benachrichtigung von GitHub ist bei geplanten
-Läufen zu unzuverlässig. Das Issue bleibt offen, bis es jemand von Hand schließt.
+Läufen zu unzuverlässig. Das Issue bleibt offen, bis es jemand von Hand schließt. Ein dritter
+Workflow (`wiki-push.yml`) veröffentlicht das Wiki und prüft nichts; er läuft nur bei Pushes
+auf `main`, die `wiki/` berühren (siehe „Dokumentation").
 
-**Action-Referenzen in den Workflows:** `actions/checkout` und `actions/setup-python` sind auf
-einen **Commit-SHA** gepinnt, mit der genauen Version als Kommentar dahinter (`# v7.0.1`) –
-daran verankert Dependabot den Ist-Stand und schreibt beim Update SHA *und* Kommentar um.
-`home-assistant/actions/hassfest` und `hacs/action` bleiben dagegen bewusst auf `master`/`main`:
-Beide werden nicht mehr getaggt, und ein Pin würde ausgerechnet die Validatoren einfrieren, die
-die jeweils aktuellen Hassfest-/HACS-Regeln prüfen sollen. Diese Aufteilung beibehalten.
+**Action-Referenzen in den Workflows:** `actions/checkout`, `actions/setup-python` und
+`Andrew-Chen-Wang/github-wiki-action` sind auf einen **Commit-SHA** gepinnt, mit der genauen
+Version als Kommentar dahinter (`# v7.0.1`) – daran verankert Dependabot den Ist-Stand und
+schreibt beim Update SHA *und* Kommentar um. Bei der Wiki-Action kommt hinzu, dass sie als
+einzige Schreibrecht auf das Repository bekommt. `home-assistant/actions/hassfest` und
+`hacs/action` bleiben dagegen bewusst auf `master`/`main`: Beide werden nicht mehr getaggt, und
+ein Pin würde ausgerechnet die Validatoren einfrieren, die die jeweils aktuellen
+Hassfest-/HACS-Regeln prüfen sollen. Diese Aufteilung beibehalten – gepinnt wird alles, was
+regulär getaggt ist.
 
 ## Architektur – das große Bild
 
@@ -156,14 +161,19 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   einer pro Verbraucher, mit eigener Stundenzahl (`cheap_hours`) und Auswahllogik (`cheap_mode`):
   - `individual`: günstigste **Einzel**-Intervalle (dürfen über den Tag verteilt sein).
   - `consecutive`: ein **zusammenhängender Block** „am Stück".
-  Bei **Gleichstand** am Schwellwert wird die Auswahl in `individual` erweitert (alle gleich
-  teuren Intervalle mitmarkiert); betroffene Blöcke sind als `exceeds_cheap_hours` markiert. Das
-  verteuert die kWh nie, verlängert aber die Einschaltdauer – und weil smartTIMES als Zeittarif
-  nur **drei** Preisstufen kennt, liefert dort jede Stundenzahl zwischen 0,25 h und 8 h dieselben
-  8 Stunden. Wer eine echte Laufzeit-Vorgabe braucht, aktiviert `exact_hours` („Stundenzahl exakt
-  einhalten", Vorgabe **aus**, damit Bestandssensoren unverändert bleiben). In `consecutive` wird
-  **nie** erweitert und `exact_hours` ist wirkungslos: Eine feste Fensterlänge ist dort der Zweck
-  der Betriebsart (Waschmaschine, Geschirrspüler).
+  `exact_hours` („Stundenzahl exakt einhalten", `DEFAULT_EXACT_HOURS`) entscheidet, was bei
+  **Gleichstand** am Schwellwert passiert. **Vorgabe ist ein** – der Sensor liefert dann exakt
+  die eingestellte Stundenzahl. Ausgeschaltet wird die Auswahl in `individual` erweitert (alle
+  gleich teuren Intervalle mitmarkiert); betroffene Blöcke sind als `exceeds_cheap_hours`
+  markiert. Das verteuert die kWh nie, verlängert aber die Einschaltdauer – und weil smartTIMES
+  als Zeittarif nur **drei** Preisstufen kennt, liefert dort jede Stundenzahl zwischen 0,25 h
+  und 8 h dieselben 8 Stunden. Genau deshalb wurde die Vorgabe umgedreht: „4 Stunden" soll
+  4 Stunden bedeuten. Ausschalten lohnt für selbstbegrenzende Verbraucher (Boiler mit
+  Thermostat, Wallbox mit Ziel-Ladestand), die eine Gelegenheit zum selben Preis mitnehmen
+  können. Dass Bestandssensoren ihr Verhalten behalten, sichert **nicht** die Vorgabe, sondern
+  `_migriere_exact_hours` (siehe „Schema-Migration"): Es trägt ihnen den alten Wert `False`
+  ausdrücklich ein. In `consecutive` wird **nie** erweitert und `exact_hours` ist wirkungslos:
+  Eine feste Fensterlänge ist dort der Zweck der Betriebsart (Waschmaschine, Geschirrspüler).
 
 - **`jitter.py`** – **Last-Glättung**: jeder Günstig-Stunde-Sensor verschiebt seine Schaltflanken
   um einen **deterministischen, aus der Subentry-ID (SHA-256) abgeleiteten** Versatz, damit nicht
@@ -188,10 +198,18 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   älteren Eintrag auf, bevor `async_setup_entry` läuft. Zwei Muster stehen dort schon:
   **Vorgabewechsel** (`_migriere_exact_hours` schreibt Bestands-Untereinträgen den alten Wert
   ausdrücklich hinein, damit sie eine geänderte Vorgabe nicht erben) und **Umbenennung einer
-  Entität** (`_migriere_gesamtpreis_entitaet` schreibt die `unique_id` über die Entity-Registry
-  *an Ort und Stelle* um – die Historie bleibt so erhalten, statt dass HA die Entität neu
-  anlegt und die alte verwaist zurückbleibt). Beides sind die Wege, mit denen sich ein Bruch
-  vermeiden lässt; nur eine geänderte **Entity-ID** ist für Nutzer unvermeidlich spürbar.
+  Entität** – Letztere in zwei Schritten: `_migriere_gesamtpreis_entitaet` schreibt die
+  `unique_id` über die Entity-Registry *an Ort und Stelle* um (die Historie bleibt so erhalten,
+  statt dass HA die Entität neu anlegt und die alte verwaist zurückbleibt), und
+  `_migriere_gesamtpreis_entity_id` streicht anschließend den Einheitenzusatz aus der
+  **Entity-ID** selbst, damit Bestands- und Neuinstallationen dieselbe ID führen und Doku und
+  Wiki eine einheitliche nennen können. Kollidiert die Ziel-ID mit einer fremden Entität, bleibt
+  die alte stehen – eine fremde zu verschieben wäre das größere Übel.
+
+  Damit lässt sich fast jeder Bruch vermeiden. Was bleibt, ist die Referenz **beim Nutzer**: Wer
+  die alte Entity-ID in Automatisierungen, Vorlagen oder Dashboards stehen hat, muss sie
+  anpassen. Eine umbenannte Entity-ID gehört deshalb in die Release-Notes, ins README **und ins
+  Wiki** – `wiki/` wird von keiner CI geprüft (siehe „Dokumentation").
 
 ## Wichtige Hinweise
 
@@ -210,8 +228,34 @@ Nutzer-Doku ist zweigeteilt:
 
 - **`README.md`** – kurz und HACS-tauglich: Feature-Pitch, Installation, Einrichtung, knappe
   Sensor-Übersicht. Zielgruppe ist, wer in HACS nach Integrationen sucht.
-- **[Github-Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)** – vertiefende Inhalte (Datenschutz, Netzentgelte-und-Nebenkosten,
-  Sensoren-und-Attribute, Automatisierungsbeispiele, Fehlerbehebung).
+- **[Github-Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)** – vertiefende
+  Inhalte: `Home`, `Datenschutz`, `Netzentgelte-und-Nebenkosten`, `Sensoren-und-Attribute`,
+  `Automatisierungsbeispiele`, `Fehlerbehebung`, `API-EVU` (technische Angaben für smartENERGY
+  als API-Betreiber; der produktive User-Agent verweist auf diese Seite, siehe `const.py`).
+
+**Das Wiki wird aus dem Repo erzeugt, nicht auf github.com gepflegt.** Die Quelle liegt unter
+`wiki/`, `.github/workflows/wiki-push.yml` spiegelt sie bei jedem Push auf `main` (und auf
+Zuruf per `workflow_dispatch`) ins GitHub-Wiki. Daraus folgt:
+
+- **Eine Datei = eine Wiki-Seite**, der Dateiname *ist* der Seitenname:
+  `wiki/Netzentgelte-und-Nebenkosten.md` → Seite `Netzentgelte-und-Nebenkosten`. Interne Links
+  sind deshalb bare Wiki-Links (`[Datenschutz](Datenschutz)`), **keine** `.md`-Pfade.
+  `_Sidebar.md` und `_Footer.md` sind die GitHub-Sonderseiten, die auf *jeder* Seite
+  eingeblendet werden.
+- **Nie direkt im Wiki auf github.com editieren.** Die Action *synchronisiert* das Verzeichnis:
+  Sie überschreibt geänderte Seiten und löscht Seiten, deren Datei entfallen ist. Eine Änderung
+  am Wiki, die nicht in `wiki/` steht, ist beim nächsten Push auf `main` weg. Wiki-Änderungen
+  laufen wie Code über einen PR – und werden dort auch gegen den Code geprüft, was bei einer
+  extern gepflegten Wiki-Seite niemand tut.
+- Die Action **normalisiert das Markdown** beim Veröffentlichen (`preprocess`, Vorgabe an):
+  Aufzählungen `-` → `*`, `> [!NOTE]` → `> \[!NOTE]`, eingezäunte Codeblöcke werden eingerückt.
+  Die veröffentlichte Seite ist deshalb **nie byte-identisch** mit `wiki/`. Das ist kosmetisch –
+  die Alerts rendern weiterhin –, also nicht dagegen anschreiben und nicht als Fehler
+  hinterherjagen.
+- Es gibt **keine CI-Prüfung** für das Wiki: keinen Link-Check, keinen Abgleich der dort
+  genannten Entity-IDs und Attributnamen mit dem Code. Wer Entity-IDs, Attributnamen oder
+  Einheiten ändert, muss `wiki/` von Hand mitziehen – genau das ist bei der 4.0-Umbenennung des
+  Gesamtpreis-Sensors unterblieben.
 
 ## Release-Prozess
 
