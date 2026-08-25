@@ -130,6 +130,17 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   Konvention: Sie fließt netto in `_surcharges_net` und erscheint als eigene Breakdown-Position
   `handling_fee` (USt. einmal am Ende → 1,44 ct/kWh brutto).
 
+- **Einheiten – ct/kWh innen, EUR/kWh außen**: `api.py` und `coordinator.py` rechnen
+  durchgehend in **ct/kWh**, der Einheit, in der die API liefert; daran hängt die gesamte
+  handgerechnete Preis-Mathematik in den Tests. Die **Entitäts-Ebene** (`sensor.py`,
+  `binary_sensor.py`) gibt dagegen ausschließlich **EUR/kWh** aus – die Einheit, die das
+  Energie-Dashboard erwartet und die alle Preissensoren vergleichbar macht. Umgerechnet wird
+  nur über `const.to_eur()` (Rundung auf `EUR_DECIMALS` = 6 Stellen, weil der Coordinator auf
+  4 Stellen in ct rundet). Diese Trennung beibehalten: Rechnet man im Coordinator in EUR,
+  müssten sämtliche Sollwerte der Mathematik-Tests umgeschrieben werden, ohne dass etwas
+  gewonnen wäre. Das Attribut `source_unit` weist den Einheiten-String der API aus
+  (smartTIMES meldet `cent/kWh`).
+
 - **`surcharges.py`** – bundeseinheitliche Steuern/Abgaben (Elektrizitätsabgabe,
   Erneuerbaren-Förderbeitrag) als **deklarative, datierte Tabelle** (`DatedRate` mit
   `since`/`until`). Es gilt der erste passende Satz nach Kalendertag → künftige Satzänderungen
