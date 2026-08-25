@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
 
@@ -99,6 +100,7 @@ async def async_migrate_entry(
 
     if entry.version == 1:
         _migriere_exact_hours(hass, entry)
+        _migriere_gesamtpreis_entitaet(hass, entry)
         hass.config_entries.async_update_entry(entry, version=CONFIG_ENTRY_VERSION)
 
     return True
@@ -125,6 +127,34 @@ def _migriere_exact_hours(
             subentry,
             data={**subentry.data, CONF_EXACT_HOURS: False},
         )
+
+
+def _migriere_gesamtpreis_entitaet(
+    hass: HomeAssistant, entry: SmartTimesConfigEntry
+) -> None:
+    """Zieht die Gesamtpreis-Entität auf ihren neuen Schlüssel um.
+
+    Der Beschreibungs-Schlüssel hieß ``current_price_eur``, solange sich der
+    Sensor von den ct-Geschwistern abheben musste. Seit alle Preissensoren
+    EUR/kWh liefern, heißt er ``total_price``.
+
+    Die ``unique_id`` wird dabei **an Ort und Stelle** umgeschrieben. Die
+    Entität behält so ihren Registry-Eintrag samt Historie; ohne diesen Schritt
+    legte Home Assistant sie unter der neuen ``unique_id`` neu an und ließe die
+    alte als verwaisten Eintrag zurück.
+    """
+    registry = er.async_get(hass)
+    alte_unique_id = f"{entry.entry_id}_current_price_eur"
+    entity_id = registry.async_get_entity_id(
+        Platform.SENSOR, DOMAIN, alte_unique_id
+    )
+    if entity_id is None:
+        # Nichts umzuziehen – etwa, weil der Nutzer die Entität gelöscht hat.
+        return
+
+    registry.async_update_entity(
+        entity_id, new_unique_id=f"{entry.entry_id}_total_price"
+    )
 
 
 async def async_unload_entry(

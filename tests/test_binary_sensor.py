@@ -90,5 +90,5 @@ def test_sensor_plattform_schliesst_ihre_listen_ebenfalls_aus():
     # Die Beschreibungen mit Attributen sind genau die beiden Preis-Sensoren.
     assert {beschreibung.key for beschreibung in SENSORS} >= {
         "working_price",
-        "current_price_eur",
+        "total_price",
     }

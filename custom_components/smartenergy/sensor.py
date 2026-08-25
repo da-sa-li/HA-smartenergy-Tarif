@@ -77,7 +77,7 @@ def _current_value(data: SmartTimesData) -> StateType:
     return to_eur(data.value(price)) if price else None
 
 
-def _current_value_eur(data: SmartTimesData) -> StateType:
+def _current_total_value(data: SmartTimesData) -> StateType:
     """Gesamtpreis (Arbeitspreis + Nebenkosten) in EUR/kWh."""
     price = data.current()
     return to_eur(data.all_in_value(price)) if price else None
@@ -112,12 +112,12 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
         value_fn=_current_value,
     ),
     SmartTimesSensorDescription(
-        key="current_price_eur",
-        translation_key="current_price_eur",
+        key="total_price",
+        translation_key="total_price",
         unit=UNIT_EUR_PER_KWH,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=5,
-        value_fn=_current_value_eur,
+        value_fn=_current_total_value,
     ),
     SmartTimesSensorDescription(
         key="average_today",
@@ -235,7 +235,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
     @property
     def extra_state_attributes(self) -> dict | None:
         """Zusätzliche Attribute für ausgewählte Sensoren."""
-        if self.entity_description.key == "current_price_eur":
+        if self.entity_description.key == "total_price":
             return self._all_in_attributes()
         if self.entity_description.key == "working_price":
             return self._working_price_attributes()

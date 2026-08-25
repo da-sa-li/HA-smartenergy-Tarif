@@ -84,7 +84,7 @@ async def test_smartcontrol_hat_keinen_grundgebuehr_sensor(
     # Alle übrigen Sensoren sind unverändert vorhanden.
     assert schluessel == {
         "working_price",
-        "current_price_eur",
+        "total_price",
         "average_today",
         "lowest_today",
         "highest_today",

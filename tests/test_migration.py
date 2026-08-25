@@ -113,3 +113,51 @@ async def test_neuere_version_wird_abgelehnt(
     assert not await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.MIGRATION_ERROR
+
+
+async def test_gesamtpreis_entitaet_behaelt_ihren_registry_eintrag(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Der Schlüsselwechsel schreibt die unique_id um, statt neu anzulegen.
+
+    Läge hier eine Neuanlage vor, verlöre der Sensor seine Historie und die
+    alte Entität bliebe als verwaister Registry-Eintrag zurück.
+    """
+    from homeassistant.helpers import entity_registry as er
+
+    entry = _eintrag(1, {"cheap_hours": 4.0, "cheap_mode": "individual"})
+    entry.add_to_hass(hass)
+
+    # Zustand vor der Migration nachstellen: die Entität, wie sie Version 1
+    # angelegt hat – alte unique_id, alte entity_id.
+    registry = er.async_get(hass)
+    alt = registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_current_price_eur",
+        config_entry=entry,
+        suggested_object_id="smarttimes_strompreishelfer_total_price_eur_kwh",
+    )
+    assert alt.entity_id == "sensor.smarttimes_strompreishelfer_total_price_eur_kwh"
+
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    # Derselbe Registry-Eintrag (gleiche interne id) trägt jetzt die neue
+    # unique_id – kein zweiter Eintrag, kein Verlust.
+    neu = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_total_price"
+    )
+    assert neu is not None
+    assert registry.async_get(neu).id == alt.id
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{entry.entry_id}_current_price_eur"
+        )
+        is None
+    )

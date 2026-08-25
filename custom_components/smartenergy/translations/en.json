@@ -128,7 +128,7 @@
       "working_price": {
         "name": "Energy price"
       },
-      "current_price_eur": {
+      "total_price": {
         "name": "Total price"
       },
       "average_today": {

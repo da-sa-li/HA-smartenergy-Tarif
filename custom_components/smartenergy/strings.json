@@ -128,7 +128,7 @@
       "working_price": {
         "name": "Arbeitspreis"
       },
-      "current_price_eur": {
+      "total_price": {
         "name": "Gesamtpreis"
       },
       "average_today": {
