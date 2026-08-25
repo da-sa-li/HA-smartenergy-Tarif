@@ -11,6 +11,7 @@
         },
         "data_description": {
           "tariff": "smartTIMES: time-based tariff. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top.",
+          "include_vat": "Affects all sensors of the integration, not just one. \"On\" (gross, as delivered by the API) is the right choice for the Energy Dashboard and for comparing against your electricity bill.",
           "grid_zone": "Determines the grid fees (grid level 7, quarter-hourly metering) in the total price. \"No grid area\" leaves them out."
         }
       }
@@ -34,6 +35,7 @@
         },
         "data_description": {
           "tariff": "smartTIMES: time-based tariff. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top.",
+          "include_vat": "Affects all sensors of the integration, not just one. \"On\" (gross, as delivered by the API) is the right choice for the Energy Dashboard and for comparing against your electricity bill.",
           "grid_zone": "Determines the grid fees (grid level 7, quarter-hourly metering) in the total price. \"No grid area\" leaves them out."
         }
       }
@@ -52,12 +54,14 @@
             "exact_hours": "Keep the number of hours exact"
           },
           "data_description": {
+            "cheap_hours": "With smartTIMES this has no effect: as a time-based tariff it only has three price tiers of 8 hours each, so any setting between 0.25 h and 8 h yields the same 8 hours. With smartCONTROL the number of hours matters directly, since prices there change almost every quarter-hour. At a tie, the actual on-time can exceed the configured number of hours unless \"Keep the number of hours exact\" is enabled — in \"Consecutive block\" mode it is always exact.",
             "cheap_mode": "\"Cheapest individual hours\": the cheapest quarter-hours of the day — they may be spread across the day (e.g. boiler, wallbox). \"Consecutive block\": a single cheapest window in one piece — for appliances with a fixed run time that must not be interrupted (washing machine, dishwasher).",
             "exact_hours": "By default, further times that cost exactly as much as the most expensive selected one are also marked cheap — the sensor is then on longer than configured, but never at a higher price. When enabled, it delivers exactly the configured number of hours. Only affects \"Cheapest individual hours\"."
           }
         },
         "reconfigure": {
           "title": "Edit cheap-hour sensor",
+          "description": "Edit the settings of this cheap-hour sensor. It is on while the current hour is among the cheapest of the day.",
           "data": {
             "name": "Name (e.g. boiler, wallbox)",
             "cheap_hours": "Cheap hours per day",
@@ -65,6 +69,7 @@
             "exact_hours": "Keep the number of hours exact"
           },
           "data_description": {
+            "cheap_hours": "With smartTIMES this has no effect: as a time-based tariff it only has three price tiers of 8 hours each, so any setting between 0.25 h and 8 h yields the same 8 hours. With smartCONTROL the number of hours matters directly, since prices there change almost every quarter-hour. At a tie, the actual on-time can exceed the configured number of hours unless \"Keep the number of hours exact\" is enabled — in \"Consecutive block\" mode it is always exact.",
             "cheap_mode": "\"Cheapest individual hours\": the cheapest quarter-hours of the day — they may be spread across the day (e.g. boiler, wallbox). \"Consecutive block\": a single cheapest window in one piece — for appliances with a fixed run time that must not be interrupted (washing machine, dishwasher).",
             "exact_hours": "By default, further times that cost exactly as much as the most expensive selected one are also marked cheap — the sensor is then on longer than configured, but never at a higher price. When enabled, it delivers exactly the configured number of hours. Only affects \"Cheapest individual hours\"."
           }

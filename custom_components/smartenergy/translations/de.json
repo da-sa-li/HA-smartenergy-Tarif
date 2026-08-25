@@ -11,6 +11,7 @@
         },
         "data_description": {
           "tariff": "smartTIMES: zeitabhängiger Tarif. smartCONTROL: an den EPEX-Spot-Börsenpreis gekoppelt; darauf wird eine Abwicklungsgebühr von 1,2 ct/kWh netto (1,44 ct/kWh brutto) aufgeschlagen.",
+          "include_vat": "Wirkt auf sämtliche Sensoren der Integration, nicht nur auf einen. „Ein“ (brutto, wie die API liefert) ist die richtige Wahl fürs Energie-Dashboard und zum Vergleich mit der Stromrechnung.",
           "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
       }
@@ -34,6 +35,7 @@
         },
         "data_description": {
           "tariff": "smartTIMES: zeitabhängiger Tarif. smartCONTROL: an den EPEX-Spot-Börsenpreis gekoppelt; darauf wird eine Abwicklungsgebühr von 1,2 ct/kWh netto (1,44 ct/kWh brutto) aufgeschlagen.",
+          "include_vat": "Wirkt auf sämtliche Sensoren der Integration, nicht nur auf einen. „Ein“ (brutto, wie die API liefert) ist die richtige Wahl fürs Energie-Dashboard und zum Vergleich mit der Stromrechnung.",
           "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
       }
@@ -52,12 +54,14 @@
             "exact_hours": "Stundenzahl exakt einhalten"
           },
           "data_description": {
+            "cheap_hours": "Bei smartTIMES als Zeittarif wirkungslos: Er kennt nur drei Preisstufen zu je 8 Stunden, jede Einstellung zwischen 0,25 h und 8 h liefert dieselben 8 Stunden. Bei smartCONTROL wirkt die Stundenzahl dagegen unmittelbar, da sich der Preis dort fast viertelstündlich ändert. Bei Preisgleichstand kann die tatsächliche Einschaltdauer die eingestellte Stundenzahl überschreiten, sofern „Stundenzahl exakt einhalten“ aus ist – im Modus „Zusammenhängender Block“ ist sie dagegen immer exakt.",
             "cheap_mode": "„Günstigste Einzelstunden“: die billigsten Viertelstunden des Tages – sie dürfen über den Tag verteilt sein (z. B. Boiler, Wallbox). „Zusammenhängender Block“: ein günstigstes Zeitfenster am Stück – für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen (Waschmaschine, Geschirrspüler).",
             "exact_hours": "Normalerweise werden weitere Zeiten, die genau so viel kosten wie die teuerste ausgewählte, ebenfalls als günstig markiert – der Sensor ist dann länger an als eingestellt, aber nie zu einem höheren Preis. Eingeschaltet liefert er exakt die eingestellte Stundenzahl. Betrifft nur „Günstigste Einzelstunden“."
           }
         },
         "reconfigure": {
           "title": "Günstige-Stunde-Sensor bearbeiten",
+          "description": "Einstellungen dieses Günstige-Stunde-Sensors bearbeiten. Er ist aktiv, solange die laufende Stunde zu den günstigsten des Tages zählt.",
           "data": {
             "name": "Name (z. B. Boiler, Wallbox)",
             "cheap_hours": "Günstige Stunden pro Tag",
@@ -65,6 +69,7 @@
             "exact_hours": "Stundenzahl exakt einhalten"
           },
           "data_description": {
+            "cheap_hours": "Bei smartTIMES als Zeittarif wirkungslos: Er kennt nur drei Preisstufen zu je 8 Stunden, jede Einstellung zwischen 0,25 h und 8 h liefert dieselben 8 Stunden. Bei smartCONTROL wirkt die Stundenzahl dagegen unmittelbar, da sich der Preis dort fast viertelstündlich ändert. Bei Preisgleichstand kann die tatsächliche Einschaltdauer die eingestellte Stundenzahl überschreiten, sofern „Stundenzahl exakt einhalten“ aus ist – im Modus „Zusammenhängender Block“ ist sie dagegen immer exakt.",
             "cheap_mode": "„Günstigste Einzelstunden“: die billigsten Viertelstunden des Tages – sie dürfen über den Tag verteilt sein (z. B. Boiler, Wallbox). „Zusammenhängender Block“: ein günstigstes Zeitfenster am Stück – für Geräte mit fester Laufzeit, die nicht unterbrochen werden dürfen (Waschmaschine, Geschirrspüler).",
             "exact_hours": "Normalerweise werden weitere Zeiten, die genau so viel kosten wie die teuerste ausgewählte, ebenfalls als günstig markiert – der Sensor ist dann länger an als eingestellt, aber nie zu einem höheren Preis. Eingeschaltet liefert er exakt die eingestellte Stundenzahl. Betrifft nur „Günstigste Einzelstunden“."
           }
