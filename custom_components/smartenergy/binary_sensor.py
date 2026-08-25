@@ -28,8 +28,9 @@ from .const import (
     DOMAIN,
     JITTER_SPAN_SECONDS,
     SUBENTRY_TYPE_CHEAP_HOUR,
-    UNIT_CT_PER_KWH,
+    UNIT_EUR_PER_KWH,
     documentation_url,
+    to_eur,
 )
 from .coordinator import SmartTimesCoordinator
 from .jitter import cheap_phase
@@ -65,7 +66,7 @@ class CheapHourBinarySensor(
     # Günstig-Intervalle und Schaltfenster sind minütlich neu berechnete, rein
     # zukunftsgerichtete Listen - Recorder-History bringt hier keinen Mehrwert.
     # Ohne den Ausschluss schreibt jeder Untereintrags-Sensor sie bei jedem
-    # Attributwechsel mit in die Datenbank, und current_price_ct_kwh wechselt
+    # Attributwechsel mit in die Datenbank, und current_price_eur_kwh wechselt
     # mit jedem Preisintervall (bei smartCONTROL viertelstündlich).
     _unrecorded_attributes = frozenset({"cheap_intervals", "cheap_windows"})
 
@@ -146,7 +147,7 @@ class CheapHourBinarySensor(
         )
 
         def current_price() -> StateType:
-            return data.all_in_value(price) if price else None
+            return to_eur(data.all_in_value(price)) if price else None
 
         return {
             "cheap_hours": self._cheap_hours,
@@ -154,11 +155,13 @@ class CheapHourBinarySensor(
             # Ob die Stundenzahl exakt gilt, statt bei Preisgleichstand darüber
             # hinaus zu erweitern (nur im Einzelstunden-Modus wirksam).
             "exact_hours": self._exact_hours,
-            "threshold_ct_kwh": data.cheap_cutoff(
-                today, self._cheap_hours, self._cheap_mode, self._exact_hours
+            "threshold_eur_kwh": to_eur(
+                data.cheap_cutoff(
+                    today, self._cheap_hours, self._cheap_mode, self._exact_hours
+                )
             ),
-            "current_price_ct_kwh": current_price(),
-            "unit_ct": UNIT_CT_PER_KWH,
+            "current_price_eur_kwh": current_price(),
+            "unit": UNIT_EUR_PER_KWH,
             "vat_included": data.include_vat,
             # Last-Glättung: konstanter Einschalt-Versatz dieses Sensors in
             # Sekunden (deterministisch, vom Nutzer nicht änderbar).
@@ -170,7 +173,7 @@ class CheapHourBinarySensor(
                 {
                     "start": p.start.isoformat(),
                     "end": p.end.isoformat(),
-                    "price": data.all_in_value(p),
+                    "price": to_eur(data.all_in_value(p)),
                 }
                 for p in cheap
             ],

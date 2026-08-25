@@ -22,11 +22,11 @@ from homeassistant.util import dt as dt_util
 from . import SmartTimesConfigEntry
 from .const import (
     DOMAIN,
-    UNIT_CT_PER_KWH,
     UNIT_EUR_PER_KWH,
     UNIT_EUR_PER_MONTH,
     VAT_RATE,
     documentation_url,
+    to_eur,
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
 from .grid_fees import is_snap
@@ -49,7 +49,7 @@ class SmartTimesSensorDescription(SensorEntityDescription):
     """Beschreibung eines smartTIMES-Sensors."""
 
     value_fn: Callable[[SmartTimesData], StateType]
-    unit: str | None = UNIT_CT_PER_KWH
+    unit: str | None = UNIT_EUR_PER_KWH
 
 
 def _stats(values: list[float]) -> tuple[StateType, StateType, StateType]:
@@ -72,30 +72,30 @@ def _today_energy_values(data: SmartTimesData) -> list[float]:
 
 
 def _current_value(data: SmartTimesData) -> StateType:
-    """Reiner Arbeitspreis des aktuellen Intervalls."""
+    """Reiner Arbeitspreis des aktuellen Intervalls (EUR/kWh)."""
     price = data.current()
-    return data.value(price) if price else None
+    return to_eur(data.value(price)) if price else None
 
 
 def _current_value_eur(data: SmartTimesData) -> StateType:
     """Gesamtpreis (Arbeitspreis + Nebenkosten) in EUR/kWh."""
     price = data.current()
-    return round(data.all_in_value(price) / 100.0, 5) if price else None
+    return to_eur(data.all_in_value(price)) if price else None
 
 
 def _average_today(data: SmartTimesData) -> StateType:
-    """Durchschnittlicher Gesamtpreis (ct/kWh) heute."""
-    return _stats(_today_allin_values(data))[0]
+    """Durchschnittlicher Gesamtpreis (EUR/kWh) heute."""
+    return to_eur(_stats(_today_allin_values(data))[0])
 
 
 def _lowest_today(data: SmartTimesData) -> StateType:
-    """Niedrigster Gesamtpreis (ct/kWh) heute."""
-    return _stats(_today_allin_values(data))[1]
+    """Niedrigster Gesamtpreis (EUR/kWh) heute."""
+    return to_eur(_stats(_today_allin_values(data))[1])
 
 
 def _highest_today(data: SmartTimesData) -> StateType:
-    """Höchster Gesamtpreis (ct/kWh) heute."""
-    return _stats(_today_allin_values(data))[2]
+    """Höchster Gesamtpreis (EUR/kWh) heute."""
+    return to_eur(_stats(_today_allin_values(data))[2])
 
 
 def _basic_fee(data: SmartTimesData) -> StateType:
@@ -108,7 +108,7 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
         key="working_price",
         translation_key="working_price",
         state_class=SensorStateClass.MEASUREMENT,
-        suggested_display_precision=3,
+        suggested_display_precision=5,
         value_fn=_current_value,
     ),
     SmartTimesSensorDescription(
@@ -122,19 +122,19 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
     SmartTimesSensorDescription(
         key="average_today",
         translation_key="average_today",
-        suggested_display_precision=3,
+        suggested_display_precision=5,
         value_fn=_average_today,
     ),
     SmartTimesSensorDescription(
         key="lowest_today",
         translation_key="lowest_today",
-        suggested_display_precision=3,
+        suggested_display_precision=5,
         value_fn=_lowest_today,
     ),
     SmartTimesSensorDescription(
         key="highest_today",
         translation_key="highest_today",
-        suggested_display_precision=3,
+        suggested_display_precision=5,
         value_fn=_highest_today,
     ),
     SmartTimesSensorDescription(
@@ -253,7 +253,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
                 {
                     "start": p.start.isoformat(),
                     "end": p.end.isoformat(),
-                    "price": data.value(p),
+                    "price": to_eur(data.value(p)),
                 }
                 for p in prices
             ]
@@ -271,18 +271,23 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         # sie hier "working_price" im Namen.
         return {
             "tariff": data.tariff,
-            "unit": data.unit,
+            "unit": UNIT_EUR_PER_KWH,
+            # Einheit, in der die API liefert und in der der Coordinator rechnet.
+            # Die Entitäten geben EUR/kWh aus (siehe const.to_eur).
+            "source_unit": data.unit,
             "interval_minutes": data.interval_minutes,
             "vat_included": data.include_vat,
             "current_start": current.start.isoformat() if current else None,
             "current_end": current.end.isoformat() if current else None,
-            "next_working_price": data.value(next_price) if next_price else None,
+            "next_working_price": (
+                to_eur(data.value(next_price)) if next_price else None
+            ),
             "next_working_price_start": (
                 next_price.start.isoformat() if next_price else None
             ),
-            "average_working_price_today": avg,
-            "lowest_working_price_today": low,
-            "highest_working_price_today": high,
+            "average_working_price_today": to_eur(avg),
+            "lowest_working_price_today": to_eur(low),
+            "highest_working_price_today": to_eur(high),
             "basic_fee": data.basic_fee(),
             "basic_fee_unit": data.basic_fee_unit,
             "prices_today": serialise(data.for_day(today)),
@@ -313,7 +318,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
                 {
                     "start": p.start.isoformat(),
                     "end": p.end.isoformat(),
-                    "price": data.all_in_value(p),
+                    "price": to_eur(data.all_in_value(p)),
                 }
                 for p in prices
             ]
@@ -325,21 +330,28 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         return {
             "vat_included": data.include_vat,
             "vat_rate": VAT_RATE,
-            "unit_ct": UNIT_CT_PER_KWH,
-            "working_price_ct_kwh": working_price,
-            "surcharges_ct_kwh": data.surcharge_breakdown(moment),
-            "surcharges_total_ct_kwh": surcharges_total,
-            "total_ct_kwh": (
-                round(working_price + surcharges_total, 4)
+            "unit": UNIT_EUR_PER_KWH,
+            # Einheit der API bzw. des Coordinators – siehe Arbeitspreis-Sensor.
+            "source_unit": data.unit,
+            "working_price_eur_kwh": to_eur(working_price),
+            "surcharges_eur_kwh": {
+                key: to_eur(wert)
+                for key, wert in data.surcharge_breakdown(moment).items()
+            },
+            "surcharges_total_eur_kwh": to_eur(surcharges_total),
+            "total_eur_kwh": (
+                to_eur(round(working_price + surcharges_total, 4))
                 if working_price is not None
                 else None
             ),
             "grid_zone": zone.name if zone else None,
             "snap_active": is_snap(moment) if zone else False,
-            "average_today": avg,
-            "lowest_today": low,
-            "highest_today": high,
-            "next_price": data.all_in_value(next_price) if next_price else None,
+            "average_today": to_eur(avg),
+            "lowest_today": to_eur(low),
+            "highest_today": to_eur(high),
+            "next_price": (
+                to_eur(data.all_in_value(next_price)) if next_price else None
+            ),
             "next_price_start": (
                 next_price.start.isoformat() if next_price else None
             ),

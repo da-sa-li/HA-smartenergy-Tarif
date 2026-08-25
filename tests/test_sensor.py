@@ -115,19 +115,22 @@ async def test_warnung_bei_abweichender_grundgebuehr_einheit(
 # Viertelstunden (Arbeitspreis, brutto ct/kWh):
 #     11,316 | 13,020 | 15,852
 # Arbeitspreis-Kennzahlen (jede Stufe gleich oft, also einfaches Mittel):
-#     Ø   = (11,316 + 13,020 + 15,852) / 3 = 40,188 / 3 = 13,396
-#     min = 11,316      max = 15,852
+#     Ø   = (11,316 + 13,020 + 15,852) / 3 = 40,188 / 3 = 13,396 ct
+#     min = 11,316 ct      max = 15,852 ct
 #
 # Gesamtpreis ohne Netzgebiet: Nebenkosten netto = Elektrizitätsabgabe 0,10
 # + Erneuerbaren-Förderbeitrag 0,62 = 0,72 ct/kWh (surcharges.py, Stand 2026).
 # Konvention: netto summieren, USt. einmal am Ende  ->  (brutto/1,2 + 0,72) * 1,2
-#     11,316 -> ( 9,43 + 0,72) * 1,2 = 12,180
-#     13,020 -> (10,85 + 0,72) * 1,2 = 13,884
-#     15,852 -> (13,21 + 0,72) * 1,2 = 16,716
-#     Ø   = (12,180 + 13,884 + 16,716) / 3 = 42,780 / 3 = 14,260
-#     min = 12,180      max = 16,716
-ARBEITSPREIS = {"avg": 13.396, "min": 11.316, "max": 15.852}
-GESAMTPREIS = {"avg": 14.26, "min": 12.18, "max": 16.716}
+#     11,316 -> ( 9,43 + 0,72) * 1,2 = 12,180 ct
+#     13,020 -> (10,85 + 0,72) * 1,2 = 13,884 ct
+#     15,852 -> (13,21 + 0,72) * 1,2 = 16,716 ct
+#     Ø   = (12,180 + 13,884 + 16,716) / 3 = 42,780 / 3 = 14,260 ct
+#     min = 12,180 ct      max = 16,716 ct
+#
+# Die Sensoren geben EUR/kWh aus, also jeweils geteilt durch 100. Der
+# Coordinator rechnet weiterhin in ct – umgerechnet wird erst in den Entitäten.
+ARBEITSPREIS = {"avg": 0.13396, "min": 0.11316, "max": 0.15852}
+GESAMTPREIS = {"avg": 0.1426, "min": 0.1218, "max": 0.16716}
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")
@@ -193,3 +196,55 @@ async def test_arbeitspreis_und_gesamtpreis_sind_verschiedene_groessen(
     assert gesamtpreis["average_today"] != pytest.approx(
         arbeitspreis["average_working_price_today"]
     )
+
+
+def test_alle_preissensoren_melden_eur_pro_kwh():
+    """Kein Preissensor fällt auf ct/kWh zurück.
+
+    Als Invariante über SENSORS formuliert: Ein künftig ergänzter Sensor, der
+    die Einheit vergisst oder ct setzt, fällt damit auf.
+    """
+    from custom_components.smartenergy.const import (
+        UNIT_EUR_PER_KWH,
+        UNIT_EUR_PER_MONTH,
+    )
+    from custom_components.smartenergy.sensor import SENSORS
+
+    for beschreibung in SENSORS:
+        if beschreibung.key == "basic_fee":
+            # Begründete Ausnahme: eine monatliche Pauschale, kein Arbeitspreis.
+            assert beschreibung.unit == UNIT_EUR_PER_MONTH
+            continue
+        assert beschreibung.unit == UNIT_EUR_PER_KWH, (
+            f"{beschreibung.key} meldet {beschreibung.unit!r} statt EUR/kWh"
+        )
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")
+async def test_keine_ct_attribute_mehr(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Kein Attribut trägt noch ct im Namen – über beide Plattformen.
+
+    Ausgenommen ist ``source_unit``: Es benennt bewusst die Einheit, in der die
+    API liefert und der Coordinator rechnet.
+    """
+    await _richte_ein(hass, smarttimes_payload, "smarttimes")
+
+    for entity_id in (
+        "sensor.smarttimes_strompreishelfer_energy_price",
+        "sensor.smarttimes_strompreishelfer_total_price_eur_kwh",
+    ):
+        attribute = hass.states.get(entity_id).attributes
+        uebrig = [
+            name
+            for name in attribute
+            if ("_ct" in name or name.endswith("_ct_kwh") or name == "unit_ct")
+        ]
+        assert not uebrig, f"{entity_id} hat noch ct-Attribute: {uebrig}"
+
+        # Die Einheit wird ausgewiesen, und zwar als EUR/kWh. source_unit gibt
+        # den Einheiten-String der API wieder – die smartTIMES-Fixture meldet
+        # "cent/kWh", gleichbedeutend mit ct/kWh.
+        assert attribute["unit"] == "EUR/kWh"
+        assert attribute["source_unit"] == "cent/kWh"
