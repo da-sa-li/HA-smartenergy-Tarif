@@ -182,6 +182,17 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   `single_config_entry: true` → nur **eine** Instanz. Schemas müssen frontend-serialisierbar
   bleiben (keine Lambdas/`vol.All` mit Callable; Validierung stattdessen im Flow-Schritt).
 
+- **Schema-Migration** – `CONFIG_ENTRY_VERSION` in `const.py` ist die einzige Quelle für
+  `ConfigFlow.VERSION`. Wird sie angehoben, muss `async_migrate_entry` in `__init__.py` den
+  Schritt von der Vorgängerversion beschreiben; Home Assistant ruft die Funktion für jeden
+  älteren Eintrag auf, bevor `async_setup_entry` läuft. Zwei Muster stehen dort schon:
+  **Vorgabewechsel** (`_migriere_exact_hours` schreibt Bestands-Untereinträgen den alten Wert
+  ausdrücklich hinein, damit sie eine geänderte Vorgabe nicht erben) und **Umbenennung einer
+  Entität** (`_migriere_gesamtpreis_entitaet` schreibt die `unique_id` über die Entity-Registry
+  *an Ort und Stelle* um – die Historie bleibt so erhalten, statt dass HA die Entität neu
+  anlegt und die alte verwaist zurückbleibt). Beides sind die Wege, mit denen sich ein Bruch
+  vermeiden lässt; nur eine geänderte **Entity-ID** ist für Nutzer unvermeidlich spürbar.
+
 ## Wichtige Hinweise
 
 - **Zeitzone**: HA sollte auf `Europe/Vienna` stehen. smartTIMES liefert **lokale** Zeitstempel
@@ -205,7 +216,10 @@ Nutzer-Doku ist zweigeteilt:
 ## Release-Prozess
 
 1. Version in **`custom_components/smartenergy/manifest.json`** anheben (SemVer; Minor = neue
-   abwärtskompatible Features, Major = Breaking Change wie ein Domain-Wechsel).
+   abwärtskompatible Features, Major = Breaking Change wie ein Domain-Wechsel). **Vorher prüfen,
+   ob sich der Bruch per Migration vermeiden lässt** (siehe „Schema-Migration" oben) – geänderte
+   Attributnamen, Einheiten und Entity-IDs sind für Nutzer spürbar, eine umgeschriebene
+   `unique_id` oder ein nachgetragener Vorgabewert nicht.
 2. Mergen nach `main`.
 3. Veröffentlichen als **Git-Tag `vX.Y.Z` + GitHub-Release** (HACS zieht Releases darüber). Der
    `version`-Wert im Manifest muss mit dem Release-Tag übereinstimmen.
