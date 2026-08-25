@@ -14,8 +14,8 @@
 Viele unabhängige Home-Assistant-Instanzen folgen demselben öffentlichen Preissignal. Um eine synchronisierte Lastspitze zu vermeiden, wirkt die Integration clientseitig entgegen (`custom_components/smartenergy/jitter.py`):
 
 - Jeder „Günstige Stunde“-Sensor verschiebt seine Schaltflanken um einen **deterministischen, aus der (nutzerseitig nicht editierbaren) Subentry-ID abgeleiteten Versatz** (SHA-256-Hash, Funktion `cheap_phase`). Der Versatz wirkt pseudozufällig, ist aber stabil – kein Flackern bei der minütlichen Neuberechnung – und über viele Sensoren hinweg gleichverteilt.
-- **Einschalten**: gleichverteilte Verzögerung von 0–10 Minuten (Konstante `JITTER_ON_MAX_SECONDS`) nach Beginn des günstigen Zeitfensters, nie davor.
-- **Ausschalten**: symmetrischer Versatz von ±5 Minuten (Konstante `JITTER_OFF_SPAN_SECONDS`) um das Fensterende, berechnet in `jittered_window`. Bei einem gleichstandsbedingt verlängerten Fenster (Gleichstand am Schwellwert, Parameter `soft_end`) schaltet die Last stattdessen immer **vor oder auf** der Fenstergrenze ab, um nicht zusätzlich in die nächste, teurere Preiszone hineinzulaufen.
+- **Beide Schaltflanken wandern nach innen**, um denselben Betrag aus *einer* Breite (Konstante `JITTER_SPAN_SECONDS` = 10 Minuten), berechnet in `jittered_window`: eingeschaltet wird 0–10 Minuten **nach** Beginn des günstigen Zeitfensters, ausgeschaltet ebenso 0–10 Minuten **vor** dessen Ende. Das Schaltfenster liegt damit immer vollständig innerhalb des günstigen Blocks – die Last läuft nie in die angrenzende, teurere Preiszone hinein, weder vor dem Beginn noch nach dem Ende.
+- Weil beide Flanken denselben Versatz teilen, verschiebt sich das Fenster als Ganzes und ist für jeden Sensor gleich lang (Blocklänge minus 10 Minuten). Der Preis dafür ist ein fester Laufzeitverlust von 10 Minuten je Block – bewusst in Kauf genommen, um nie zum teureren Preis zu laufen.
 - Dadurch rampt die aggregierte Nachfrage vieler Haushalte über ein rund zehnminütiges Fenster statt als Sprungfunktion zur vollen Stunde bzw. Fenstergrenze – jeder einzelne Sensor bleibt für sich genommen deterministisch und reproduzierbar.
 
 Die Glättung passiert vollständig lokal in Home Assistant: Weder smartENERGY noch der Maintainer dieser Integration erhalten eine Rückmeldung, welche Haushalte wann tatsächlich schalten (siehe [Datenschutz](Datenschutz)).
@@ -38,7 +38,7 @@ Jede Anfrage trägt einen aussagekräftigen `User-Agent`-Header nach dem Schema 
 HomeAssistant-Strompreishelfer/<Version> (+<Link auf diese Seite>)
 ```
 
-Beispiel: `HomeAssistant-Strompreishelfer/2.1.2 (+https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/API-EVU)`
+Beispiel: `HomeAssistant-Strompreishelfer/4.0.0 (+https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/API-EVU)`
 
 Damit lässt sich der Traffic dieser Integration in den Server-Logs eindeutig von anderem Traffic unterscheiden.
 

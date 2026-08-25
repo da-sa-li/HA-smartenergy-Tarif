@@ -83,6 +83,14 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 Diese Einstellungen sind über **Konfigurieren** jederzeit änderbar.
 
+> [!TIP]
+> Die Preise werden bewusst nur etwa **einmal täglich** abgerufen und minütlich
+> aus dem Cache neu berechnet. Wer einen sofortigen Abruf braucht, wählt beim
+> Eintrag im **Drei-Punkte-Menü → Neu laden**: Das baut die Integration neu auf
+> und holt die Preise unmittelbar. Einen Dienst dafür gibt es absichtlich nicht –
+> er müsste genau die Drosselung umgehen, die die kostenlos bereitgestellte API
+> schont.
+
 ### „Günstige Stunde“-Sensoren anlegen
 
 Die Binary-Sensoren „Günstige Stunde“ werden als **Untereinträge** angelegt – so
@@ -99,9 +107,31 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
    - **Zusammenhängender Block**: ein einziges günstigstes Zeitfenster „am
      Stück". Wichtig für Geräte mit fester, ununterbrochener Laufzeit
      (Waschmaschine, Geschirrspüler).
-4. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
+4. **Stundenzahl exakt einhalten** (Vorgabe: **ein**) entscheidet, was bei
+   Preisgleichstand passiert. Eingeschaltet liefert der Sensor exakt die
+   eingestellte Stundenzahl. Ausgeschaltet werden alle Zeiten mitmarkiert, die
+   genau so viel kosten wie die teuerste ausgewählte – der Sensor ist dann
+   **länger an als eingestellt**, aber nie zu einem höheren Preis. Ausschalten
+   lohnt für selbstbegrenzende Verbraucher (Boiler mit Thermostat, Wallbox mit
+   Ziel-Ladestand), die eine Gelegenheit zum selben Preis mitnehmen können.
+   Bei **smartTIMES** ist der Unterschied groß: Der Tarif kennt nur drei
+   Preisstufen zu je 8 Stunden, ausgeschaltet liefert dort jede Einstellung
+   zwischen 0,25 h und 8 h dieselben 8 Stunden. Die Option wirkt nur bei
+   „Günstigste Einzelstunden“; beim zusammenhängenden Block gilt die
+   eingestellte Länge ohnehin immer exakt.
+5. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
 
 Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeiten oder entfernen.
+
+> [!NOTE]
+> **Der Sensor schaltet absichtlich nicht auf die Sekunde genau.** Damit nicht
+> alle Haushalte gleichzeitig eine große Last zuschalten, verschiebt jeder
+> Sensor seine Schaltflanken um bis zu 10 Minuten – **nach innen**: eingeschaltet
+> wird etwas später, ausgeschaltet entsprechend früher. Der Versatz ist aus der
+> ID des Untereintrags abgeleitet, also je Sensor konstant, und steht im Attribut
+> `jitter_offset_seconds`. Das Fenster verlässt den günstigen Block dadurch nie –
+> der Verbraucher läuft nie zum teureren Preis. Preis dafür sind 10 Minuten
+> Laufzeit je Block.
 
 ## Entfernen
 
@@ -145,8 +175,9 @@ ebenfalls darauf.
 > Beim Update von einer Version vor 4.0 wird der Gesamtpreis-Sensor von
 > `…_gesamtpreis_eur_kwh` auf `…_gesamtpreis` umbenannt, damit alle
 > Installationen dieselbe Entity-ID tragen. **Automatisierungen, Vorlagen und
-> Dashboards, die die alte ID verwenden, müssen angepasst werden.** Details zu den
-Nebenkosten und die vollständige Attribut-Referenz stehen im
+> Dashboards, die die alte ID verwenden, müssen angepasst werden.**
+
+Details zu den Nebenkosten und die vollständige Attribut-Referenz stehen im
 **[Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)**.
 
 ## Lizenz

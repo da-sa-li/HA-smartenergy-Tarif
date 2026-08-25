@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Dokumentation im Wiki
+    url: https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki
+    about: Datenschutz, Netzentgelte, Sensor-Referenz, Automatisierungsbeispiele und Fehlerbehebung.

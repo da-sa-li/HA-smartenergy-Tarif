@@ -1,18 +1,50 @@
 name: Publish wiki
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - wiki/**
-      - .github/workflows/publish-wiki.yml
+      - .github/workflows/wiki-push.yml
+  workflow_dispatch:
+
+# Der Lauf schreibt in das .wiki.git-Repository – dafür braucht der
+# GITHUB_TOKEN Schreibrecht. Es bleibt auf diesen einen Job beschränkt.
+permissions:
+  contents: write
+
+# Bei mehreren Pushes kurz hintereinander soll nur der jeweils letzte Stand
+# veröffentlicht werden; ältere Läufe werden abgebrochen.
 concurrency:
   group: publish-wiki
   cancel-in-progress: true
-permissions:
-  contents: write
+
 jobs:
   publish-wiki:
+    name: Publish wiki
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: Andrew-Chen-Wang/github-wiki-action@v5
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Die Action authentifiziert sich selbst über ihren token-Input; das
+          # schreibberechtigte Token muss deshalb nicht in .git/config liegen
+          # bleiben.
+          persist-credentials: false
+
+      # Anders als hassfest und hacs/action ist diese Action regulär getaggt
+      # und kein Validator, der bewusst aktuell bleiben soll – sie wird
+      # deshalb wie actions/checkout auf einen Commit-SHA gepinnt, zumal sie
+      # Schreibrecht auf das Repository bekommt. Dependabot zieht SHA und
+      # Kommentar beim Update nach.
+      #
+      # Die Vorgaben der Action passen: path=wiki, repository=dieses Repo,
+      # token=GITHUB_TOKEN. Sie spiegelt das Verzeichnis (Synchronisation),
+      # löscht also auch Seiten, deren Datei entfallen ist.
+      - name: Publish wiki/ to the GitHub wiki
+        uses: Andrew-Chen-Wang/github-wiki-action@1bbb4280446f9630e8e21a18012cbacf3b0f992e # v5.0.6
+        with:
+          # Ohne das legt jeder Lauf einen Wiki-Commit an, auch wenn sich am
+          # veröffentlichten Stand nichts ändert.
+          disable-empty-commits: "true"
