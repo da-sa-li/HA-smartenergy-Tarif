@@ -209,3 +209,23 @@ def documentation_url(tariff_display_name: str) -> str:
     if tariff_display_name == TARIFF_DISPLAY_NAMES[TARIFF_SMARTTIMES]:
         return SMARTTIMES_DOC_URL
     return SMARTENERGY_DOC_URL
+
+
+# Nachkommastellen der EUR-Umrechnung. `coordinator.py` rundet die Preise auf
+# 4 Stellen in ct/kWh – das entspricht genau 6 Stellen in EUR/kWh. Weniger zu
+# runden verschenkte Genauigkeit (aus 19,7161 ct würde 0,19716 statt
+# 0,197161 EUR). Wie viele Stellen *angezeigt* werden, regelt davon unabhängig
+# `suggested_display_precision` in `sensor.py`.
+EUR_DECIMALS: Final = 6
+
+
+def to_eur(ct_value: float | None) -> float | None:
+    """Rechnet einen Preis von ct/kWh in EUR/kWh um.
+
+    Die API liefert in ct/kWh, und der Coordinator rechnet durchgehend darin.
+    Erst die Entitäten geben EUR/kWh aus – die Einheit, die auch das
+    Energie-Dashboard von Home Assistant erwartet.
+    """
+    if ct_value is None:
+        return None
+    return round(ct_value / 100.0, EUR_DECIMALS)
