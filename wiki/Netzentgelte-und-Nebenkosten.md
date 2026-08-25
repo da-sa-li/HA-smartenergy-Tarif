@@ -1,4 +1,4 @@
-Der **Gesamtpreis**-Sensor (`…_gesamtpreis_eur_kwh`) addiert zum reinen Arbeitspreis alle in Österreich anfallenden variablen Nebenkosten. Diese Seite erklärt, woraus sich der Gesamtpreis zusammensetzt.
+Der **Gesamtpreis**-Sensor (`…_gesamtpreis`) addiert zum reinen Arbeitspreis alle in Österreich anfallenden variablen Nebenkosten. Diese Seite erklärt, woraus sich der Gesamtpreis zusammensetzt.
 
 > Alle Nebenkosten werden **netto** verrechnet; die **USt. (20 %)** wird einmal am Ende auf die **Summe** angewendet – nicht auf jede Position einzeln.
 
@@ -32,7 +32,7 @@ Bei **smartCONTROL** kommt zusätzlich die **Abwicklungsgebühr** (1,2 ct/kWh ne
 
 # Aufschlüsselung als Sensor-Attribute
 
-Der Gesamtpreis-Sensor liefert die Zusammensetzung zusätzlich als Attribute (`working_price_ct_kwh`, `surcharges_ct_kwh`, `surcharges_total_ct_kwh`, …) – die vollständige Referenz steht unter [Sensoren und Attribute](Sensoren-und-Attribute#gesamtpreis-sensor).
+Der Gesamtpreis-Sensor liefert die Zusammensetzung zusätzlich als Attribute (`working_price_eur_kwh`, `surcharges_eur_kwh`, `surcharges_total_eur_kwh`, `total_eur_kwh`, …) – die vollständige Referenz steht unter [Sensoren und Attribute](Sensoren-und-Attribute#gesamtpreis-sensor). Alle Attribute sind in **EUR/kWh** angegeben; die ct/kWh dieser Seite sind die Einheit, in der die Tarifblätter und die API rechnen.
 
 # Jährliche Aktualisierung
 

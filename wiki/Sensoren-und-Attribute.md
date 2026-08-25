@@ -1,5 +1,5 @@
 > [!NOTE]
-> Die Entitäts-IDs beginnen mit dem gewählten Tarif – `smarttimes_…` bzw. `smartcontrol_…`. Die Beispiele unten zeigen den smartTIMES-Fall.
+> Die Entitäts-IDs der **Preissensoren** beginnen mit dem gewählten Tarif – `smarttimes_…` bzw. `smartcontrol_…`; die Beispiele unten zeigen den smartTIMES-Fall. Die **„Günstige Stunde“-Sensoren** hängen dagegen am Gerät ihres Untereintrags und beginnen deshalb mit dem dort selbst vergebenen Namen.
 
 # Übersicht
 
@@ -11,7 +11,7 @@
 | `sensor.smarttimes_strompreishelfer_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_niedrigster_gesamtpreis_heute` | Günstigster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute` | Teuerster **Gesamtpreis** heute (EUR/kWh) |
-| `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – **nur bei smartTIMES**, siehe unten |
+| `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**) |
 
 Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis. Der **Gesamtpreis**-Sensor addiert Steuern, Abgaben und Netzentgelte (siehe [Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)) und ist die richtige Wahl fürs Energie-Dashboard und zum Schalten. Tageskennzahlen und der Günstige-Stunde-Sensor beziehen sich auf den **Gesamtpreis**.
 
@@ -26,12 +26,12 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 | `surcharges_total_eur_kwh` | Summe aller Nebenkosten (EUR/kWh) |
 | `total_eur_kwh` | Gesamtpreis (EUR/kWh) – entspricht dem Sensorwert |
 | `grid_zone` | Gewähltes Netzgebiet (oder `null`) |
-| `snap_active` | `true`, wenn gerade der SNAP gilt |
+| `snap_active` | `true`, wenn für das **aktuelle Intervall** der SNAP gilt. Ohne gewähltes Netzgebiet immer `false` |
 | `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen (Gesamtpreis, EUR/kWh) |
 | `next_price` / `next_price_start` | Gesamtpreis und Beginn des nächsten Intervalls |
 | `prices_today` / `prices_tomorrow` | Vollständige **Gesamtpreis**-Vorschau für heute und morgen (`start`, `end`, `price`) |
 | `unit` | Einheit der Preisangaben in diesen Attributen (`EUR/kWh`) |
-| `source_unit` | Einheit, in der die API liefert (`cent/kWh`) |
+| `source_unit` | Einheit, in der die API liefert – smartTIMES meldet `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz |
 
 > [!NOTE]
@@ -75,7 +75,7 @@ Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist gen
 | `threshold_eur_kwh` | Höchster Gesamtpreis unter den günstigen Intervallen (EUR/kWh) |
 | `current_price_eur_kwh` | Aktueller Gesamtpreis (EUR/kWh) |
 | `unit` | Einheit der Preisangaben in diesen Attributen (`EUR/kWh`) |
-| `jitter_offset_seconds` | Konstanter Versatz dieses Sensors (Sekunden) |
+| `jitter_offset_seconds` | Konstanter **Einschalt**-Versatz dieses Sensors (Sekunden). Ausgeschaltet wird um `600 − jitter_offset_seconds` Sekunden **vor** dem Blockende – beide Flanken wandern nach innen |
 | `next_cheap_start` | Nächster (gejitterter) Einschaltzeitpunkt |
 | `cheap_intervals` | Liste der heutigen günstigen Intervalle (`start`, `end`, `price` in EUR/kWh) |
 | `cheap_windows` | Tatsächliche, gejitterte Schaltfenster (`on`, `off`, `exceeds_cheap_hours`) |
@@ -89,11 +89,11 @@ Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist gen
 |---|---|
 | `tariff` | Gewählter Tarif (`smartTIMES` bzw. `smartCONTROL`) |
 | `unit` | Einheit der Preise (`EUR/kWh`) |
-| `source_unit` | Einheit, in der die API liefert (`cent/kWh`) |
+| `source_unit` | Einheit, in der die API liefert – smartTIMES meldet `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
 | `interval_minutes` | Länge eines Preisintervalls in Minuten |
 | `vat_included` | `true`, wenn die Preise brutto (inkl. USt.) sind |
 | `current_start` / `current_end` | Beginn/Ende des aktuellen Preisintervalls |
 | `next_working_price` / `next_working_price_start` | Arbeitspreis und Beginn des nächsten Intervalls |
 | `average_working_price_today` / `lowest_working_price_today` / `highest_working_price_today` | Tageskennzahlen des **Arbeitspreises** |
-| `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit (`EUR/month`) |
+| `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit, direkt aus der API (üblicherweise `EUR/month`). Liefert der Tarif keine Grundgebühr – etwa smartCONTROL –, sind beide `null` |
 | `prices_today` / `prices_tomorrow` | **Arbeitspreis**-Vorschau für heute und morgen (`start`, `end`, `price`) |
