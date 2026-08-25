@@ -62,6 +62,12 @@ class CheapHourBinarySensor(
 
     _attr_has_entity_name = True
     _attr_translation_key = "cheap_hour"
+    # Günstig-Intervalle und Schaltfenster sind minütlich neu berechnete, rein
+    # zukunftsgerichtete Listen - Recorder-History bringt hier keinen Mehrwert.
+    # Ohne den Ausschluss schreibt jeder Untereintrags-Sensor sie bei jedem
+    # Attributwechsel mit in die Datenbank, und current_price_ct_kwh wechselt
+    # mit jedem Preisintervall (bei smartCONTROL viertelstündlich).
+    _unrecorded_attributes = frozenset({"cheap_intervals", "cheap_windows"})
 
     def __init__(
         self,
