@@ -107,3 +107,89 @@ async def test_warnung_bei_abweichender_grundgebuehr_einheit(
 
     assert "EUR/year" in caplog.text
     assert "EUR/Monat" in caplog.text
+
+
+# Sollwerte von Hand aus tests/fixtures/smarttimes.json abgeleitet.
+#
+# Der 05.06.2026 hat als Zeittarif genau drei Preisstufen zu je 32
+# Viertelstunden (Arbeitspreis, brutto ct/kWh):
+#     11,316 | 13,020 | 15,852
+# Arbeitspreis-Kennzahlen (jede Stufe gleich oft, also einfaches Mittel):
+#     Ø   = (11,316 + 13,020 + 15,852) / 3 = 40,188 / 3 = 13,396
+#     min = 11,316      max = 15,852
+#
+# Gesamtpreis ohne Netzgebiet: Nebenkosten netto = Elektrizitätsabgabe 0,10
+# + Erneuerbaren-Förderbeitrag 0,62 = 0,72 ct/kWh (surcharges.py, Stand 2026).
+# Konvention: netto summieren, USt. einmal am Ende  ->  (brutto/1,2 + 0,72) * 1,2
+#     11,316 -> ( 9,43 + 0,72) * 1,2 = 12,180
+#     13,020 -> (10,85 + 0,72) * 1,2 = 13,884
+#     15,852 -> (13,21 + 0,72) * 1,2 = 16,716
+#     Ø   = (12,180 + 13,884 + 16,716) / 3 = 42,780 / 3 = 14,260
+#     min = 12,180      max = 16,716
+ARBEITSPREIS = {"avg": 13.396, "min": 11.316, "max": 15.852}
+GESAMTPREIS = {"avg": 14.26, "min": 12.18, "max": 16.716}
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")
+async def test_arbeitspreis_kennzahlen_heissen_eindeutig(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Die Kennzahlen des Arbeitspreis-Sensors tragen "working_price" im Namen.
+
+    Sie meinen den reinen Arbeitspreis, die gleichnamigen Sensoren dagegen den
+    Gesamtpreis. Vorher hießen beide gleich, was sich am Wert nicht erkennen
+    ließ.
+    """
+    await _richte_ein(hass, smarttimes_payload, "smarttimes")
+
+    attribute = hass.states.get(
+        "sensor.smarttimes_strompreishelfer_energy_price"
+    ).attributes
+
+    assert attribute["average_working_price_today"] == pytest.approx(ARBEITSPREIS["avg"])
+    assert attribute["lowest_working_price_today"] == pytest.approx(ARBEITSPREIS["min"])
+    assert attribute["highest_working_price_today"] == pytest.approx(ARBEITSPREIS["max"])
+
+    # Auch der nächste Preis ist eindeutig benannt und weiterhin vorhanden.
+    assert "next_working_price" in attribute
+    assert "next_working_price_start" in attribute
+
+    # Die alten, mehrdeutigen Namen sind fort (BREAKING).
+    for alt in (
+        "average_today",
+        "lowest_today",
+        "highest_today",
+        "next_price",
+        "next_price_start",
+    ):
+        assert alt not in attribute, f"{alt} sollte umbenannt sein"
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")
+async def test_arbeitspreis_und_gesamtpreis_sind_verschiedene_groessen(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Beide Kennzahlsätze existieren nebeneinander und unterscheiden sich.
+
+    Das ist der eigentliche Grund für die Umbenennung: Wer den falschen Satz
+    liest, rechnet still mit dem Arbeitspreis statt mit den Gesamtkosten.
+    """
+    await _richte_ein(hass, smarttimes_payload, "smarttimes")
+
+    arbeitspreis = hass.states.get(
+        "sensor.smarttimes_strompreishelfer_energy_price"
+    ).attributes
+    gesamtpreis = hass.states.get(
+        "sensor.smarttimes_strompreishelfer_total_price_eur_kwh"
+    ).attributes
+
+    # Der Gesamtpreis-Sensor behält seine Namen – sie decken sich mit den
+    # gleichnamigen Sensor-Entitäten.
+    assert gesamtpreis["average_today"] == pytest.approx(GESAMTPREIS["avg"])
+    assert gesamtpreis["lowest_today"] == pytest.approx(GESAMTPREIS["min"])
+    assert gesamtpreis["highest_today"] == pytest.approx(GESAMTPREIS["max"])
+
+    # Und sie sind tatsächlich andere Zahlen als die Arbeitspreis-Kennzahlen.
+    assert gesamtpreis["average_today"] != pytest.approx(
+        arbeitspreis["average_working_price_today"]
+    )

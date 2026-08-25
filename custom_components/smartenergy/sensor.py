@@ -263,6 +263,12 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         next_price = future[0] if future else None
         avg, low, high = _stats(_today_energy_values(data))
 
+        # Achtung, bewusste Namensgebung: Sämtliche Kennzahlen dieses Sensors
+        # beziehen sich auf den reinen ARBEITSPREIS. Die gleichnamigen Sensoren
+        # (average_today & Co.) und die Attribute des Gesamtpreis-Sensors meinen
+        # dagegen den GESAMTPREIS inklusive Nebenkosten. Früher trugen beide
+        # dieselben Namen, was sich am Wert nicht erkennen ließ – deshalb führen
+        # sie hier "working_price" im Namen.
         return {
             "tariff": data.tariff,
             "unit": data.unit,
@@ -270,13 +276,13 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "vat_included": data.include_vat,
             "current_start": current.start.isoformat() if current else None,
             "current_end": current.end.isoformat() if current else None,
-            "next_price": data.value(next_price) if next_price else None,
-            "next_price_start": (
+            "next_working_price": data.value(next_price) if next_price else None,
+            "next_working_price_start": (
                 next_price.start.isoformat() if next_price else None
             ),
-            "average_today": avg,
-            "lowest_today": low,
-            "highest_today": high,
+            "average_working_price_today": avg,
+            "lowest_working_price_today": low,
+            "highest_working_price_today": high,
             "basic_fee": data.basic_fee(),
             "basic_fee_unit": data.basic_fee_unit,
             "prices_today": serialise(data.for_day(today)),
