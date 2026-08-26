@@ -139,11 +139,6 @@ class SmartTimesData:
             self._day_price_cache[day] = prices
         return prices
 
-    def upcoming(self, moment: datetime | None = None) -> list[MarketPrice]:
-        """Alle Preis-Einträge ab ``moment`` (Standard: jetzt)."""
-        moment = moment or dt_util.now()
-        return [price for price in self.prices if price.end > moment]
-
     def value(self, price: MarketPrice) -> float:
         """Arbeitspreis eines Eintrags gemäß Brutto-/Netto-Einstellung."""
         return price.price(self.include_vat)
