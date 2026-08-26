@@ -34,7 +34,6 @@ async def test_diagnostics_snapshot(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Der Schnappschuss spiegelt Konfiguration, Cache und Stichproben wider."""
-    await hass.config.async_set_time_zone("Europe/Vienna")
     parsed = SmartTimesApiClient._parse(smarttimes_payload)
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -96,12 +95,11 @@ async def test_diagnostics_omits_user_chosen_names(
     """Frei gewählte Sensor-Namen tauchen im Schnappschuss nicht auf.
 
     Diagnose-Dateien landen häufig unverändert in öffentlichen Issues. Der Name
-    eines „Günstige Stunde"-Sensors ist frei wählbar und benennt in der Praxis
+    eines „Günstige Stunde“-Sensors ist frei wählbar und benennt in der Praxis
     Räume oder Personen; er steht im Titel des Untereintrags. Aufgenommen werden
     nur Typ und Schaltparameter – geprüft wird das über den vollständigen,
     serialisierten Schnappschuss, nicht nur über das Untereintrags-Feld.
     """
-    await hass.config.async_set_time_zone("Europe/Vienna")
     parsed = SmartTimesApiClient._parse(smarttimes_payload)
     entry = MockConfigEntry(
         domain=DOMAIN,

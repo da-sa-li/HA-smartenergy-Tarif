@@ -201,7 +201,7 @@ def test_consecutive_block_skips_a_gap():
     09:30 und 09:45 sind mit 1,0 die günstigsten Intervalle des Tages, direkt
     danach fehlen 10:00 und 10:15. Jedes 4er-Fenster, das die beiden mitnehmen
     wollte, müsste über die Lücke greifen und ist damit ungültig – ein Block
-    „am Stück" wäre es ja nicht. Das günstigste lückenlose Fenster ist deshalb
+    „am Stück“ wäre es ja nicht. Das günstigste lückenlose Fenster ist deshalb
     13:00-14:00 (4 x 2,0 = 8,0); alle übrigen Intervalle kosten 50,0.
     """
     data = _synthetic(

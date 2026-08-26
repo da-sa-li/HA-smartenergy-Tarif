@@ -7,7 +7,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
 
@@ -30,6 +30,7 @@ from .const import (
     TARIFF_SMARTCONTROL,
 )
 from .coordinator import SmartTimesCoordinator
+from .entity import hub_device_info
 from .grid_fees import get_zone
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,6 +85,18 @@ async def async_setup_entry(
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
+
+    # Das Hub-Gerät ausdrücklich anlegen, bevor die Plattformen laufen. Sensor-
+    # und Binary-Sensor-Plattform werden nebenläufig eingerichtet, und die
+    # Geräte der „Günstige Stunde“-Untereinträge verweisen per `via_device_id`
+    # auf dieses Gerät. Entstünde es weiterhin nur als Nebenprodukt des ersten
+    # Preissensors, verlöre der Verweis dieses Rennen – und die Geräte-Registry
+    # weist eine unbekannte ID zurück, statt sie still zu verwerfen.
+    dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        **hub_device_info(entry, coordinator.data.tariff),
+    )
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
@@ -168,7 +181,7 @@ def _migriere_gesamtpreis_entity_id(
 ) -> None:
     """Streicht das ``_eur_kwh`` aus der Entity-ID der Gesamtpreis-Entität.
 
-    Der Sensor hieß „Gesamtpreis (EUR/kWh)"; aus dem Zusatz wurde bei der
+    Der Sensor hieß „Gesamtpreis (EUR/kWh)“; aus dem Zusatz wurde bei der
     erstmaligen Anlage die Entity-ID abgeleitet. Ohne diesen Schritt behielten
     Bestandsinstallationen dauerhaft eine andere Entity-ID als
     Neuinstallationen, und Doku und Wiki könnten keine einheitliche nennen.

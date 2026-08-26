@@ -77,6 +77,28 @@ def _vienna_default_tz():
     dt_util.set_default_time_zone(original)
 
 
+@pytest.fixture
+async def hass(hass):  # noqa: F811 – Absicht: überschreibt die Plugin-Fixture
+    """HA-Instanz auf ``Europe/Vienna`` statt auf der Vorgabe des Harness.
+
+    ``pytest-homeassistant-custom-component`` setzt beim Hochfahren fest
+    ``US/Pacific`` (``common.py``) und überschreibt damit ``_vienna_default_tz``
+    oben, das nur für Tests **ohne** HA-Instanz greift.
+
+    Für eine Integration, die es nur in Österreich gibt, ist das die falsche
+    Grundlage: SNAP-Fenster (10–16 Uhr), Tagesgrenzen und „morgen“ verrutschen
+    um neun Stunden. Sollwerte, die von Hand aus der Spezifikation abgeleitet
+    sind, treffen dann bestenfalls zufällig zu – aus einem anderen Grund als
+    dem im Kommentar dokumentierten.
+
+    Bewusst hier zentral und nicht je Test: Vorher stand derselbe Aufruf
+    fünfmal von Hand in einzelnen Testkörpern, und wer ihn vergaß, bekam still
+    US/Pacific.
+    """
+    await hass.config.async_set_time_zone("Europe/Vienna")
+    return hass
+
+
 def _load(name: str) -> dict:
     """Lädt eine JSON-Fixture aus ``tests/fixtures``."""
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))

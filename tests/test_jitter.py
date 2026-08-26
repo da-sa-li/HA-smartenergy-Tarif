@@ -109,7 +109,7 @@ def test_short_block_never_yields_empty_window(length, phase):
 
     Die feste Verkürzung beträgt SPAN. Ist der Block nicht länger als das,
     fiele das Fenster auf einen Punkt zusammen: ``on <= moment < off`` träfe
-    nie zu und der Sensor bliebe dauerhaft „aus". Die Längen sind an SPAN
+    nie zu und der Sensor bliebe dauerhaft „aus“. Die Längen sind an SPAN
     geknüpft; alle bis einschließlich SPAN greifen auf das Sicherheitsnetz
     zurück, die Viertelstunde (das Raster der API und damit die kleinste real
     vorkommende Blocklänge) nicht.

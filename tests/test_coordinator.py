@@ -48,7 +48,6 @@ async def _coordinator(
     entry_id: str | None = None,
 ) -> tuple[SmartTimesCoordinator, MagicMock]:
     """Baut einen Koordinator mit optional vorbefülltem Cache (Europe/Vienna)."""
-    await hass.config.async_set_time_zone("Europe/Vienna")
     entry = MockConfigEntry(domain=DOMAIN, unique_id=entry_id or DOMAIN, entry_id=entry_id)
     entry.add_to_hass(hass)
     client = MagicMock()
@@ -256,7 +255,7 @@ async def test_min_interval_blocks_refetch_despite_demand(
 ):
     """Die Bremse verhindert den Abruf auch dann, wenn fachlich Bedarf bestünde.
 
-    ``_needs_fetch`` wird hier auf „immer wahr" gesetzt – genau der Zustand, den
+    ``_needs_fetch`` wird hier auf „immer wahr“ gesetzt – genau der Zustand, den
     ein künftiger Umbau versehentlich herstellen könnte. Die API darf trotzdem
     nicht angefragt werden, und die gecachten Preise bleiben erhalten.
     """
@@ -348,7 +347,7 @@ async def test_fetch_jitter_spreads_across_entries(hass: HomeAssistant):
 
     Bei Gleichverteilung über 20 Minuten sind aus 40 IDs rund 17 verschiedene
     Werte zu erwarten. Geprüft wird nur die deutlich lockerere Schranke „mindestens
-    die Hälfte der Minuten belegt", damit der Test die Streuung nachweist, ohne
+    die Hälfte der Minuten belegt“, damit der Test die Streuung nachweist, ohne
     an einem konkreten Hash-Verfahren zu kleben.
     """
     values = {
@@ -389,7 +388,6 @@ async def test_persistent_fetch_failure_reports_and_clears_repair_issue(
     hass: HomeAssistant, smarttimes_payload, freezer
 ):
     """Ein dauerhafter Abruf-Fehler meldet ein Issue, das bei Erfolg wieder schließt."""
-    await hass.config.async_set_time_zone("Europe/Vienna")
     coordinator, client = await _coordinator(hass, smarttimes_payload)
     coordinator._needs_fetch = lambda _: True  # Abruf-Versuch erzwingen
     # Letzter Erfolg liegt länger als FETCH_FAILURE_REPAIR_HOURS zurück.
@@ -426,7 +424,6 @@ async def test_outdated_tariff_data_year_reports_repair_issue(
     Netzentgelte").
     """
     assert TARIFF_DATA_YEAR == 2026
-    await hass.config.async_set_time_zone("Europe/Vienna")
     coordinator, client = await _coordinator(hass)  # kein Cache -> erster Abruf
     parsed = SmartTimesApiClient._parse(smarttimes_payload)
     client.async_get_prices = AsyncMock(return_value=parsed)

@@ -57,7 +57,7 @@ class SmartTimesData:
     ausgenommen (``compare=False``/``repr=False``).
 
     Der Cache ist nötig, weil der Koordinator **minütlich** neu rechnet und
-    jeder „Günstige Stunde"-Sensor seine Auswahl in den *synchronen* Properties
+    jeder „Günstige Stunde“-Sensor seine Auswahl in den *synchronen* Properties
     ``is_on``/``extra_state_attributes`` zieht – die Rechenzeit fällt also im
     Event-Loop von Home Assistant an. Ohne Cache wurde dieselbe Tagesauswahl je
     Auswertung vielfach neu gebildet: ``is_cheap_now`` wertet zwei Tage aus,
@@ -139,10 +139,16 @@ class SmartTimesData:
             self._day_price_cache[day] = prices
         return prices
 
-    def upcoming(self, moment: datetime | None = None) -> list[MarketPrice]:
-        """Alle Preis-Einträge ab ``moment`` (Standard: jetzt)."""
-        moment = moment or dt_util.now()
-        return [price for price in self.prices if price.end > moment]
+    def has_prices_for(self, day) -> bool:
+        """Ob für diesen lokalen Kalendertag überhaupt Preise vorliegen.
+
+        Nutzt den Tages-Cache aus :meth:`for_day`, kostet also nichts über den
+        ohnehin nötigen Durchlauf hinaus.
+
+        Das Gegenstück im Koordinator (``_has_tomorrow_prices``) bleibt bewusst
+        eigenständig: Es läuft, bevor diese Datenklasse überhaupt gebaut ist.
+        """
+        return bool(self.for_day(day))
 
     def value(self, price: MarketPrice) -> float:
         """Arbeitspreis eines Eintrags gemäß Brutto-/Netto-Einstellung."""
@@ -232,7 +238,7 @@ class SmartTimesData:
             return 1
         per_hour = 60 / self.interval_minutes
         # Aufrunden, damit bei krummen Werten (z. B. 1,25 h bei 30-Minuten-
-        # Intervallen) die zugesagte „mindestens so viele Intervalle"-Semantik
+        # Intervallen) die zugesagte „mindestens so viele Intervalle“-Semantik
         # eingehalten wird, statt zu wenige Intervalle zu markieren.
         return max(1, math.ceil(cheap_hours * per_hour))
 
@@ -252,11 +258,11 @@ class SmartTimesData:
           sein. ``strikte`` enthält **genau** so viele Intervalle, wie
           ``cheap_hours`` ergibt (Gleichstand nach Startzeit aufgelöst).
           ``alle`` enthält zusätzlich die bei Gleichstand am Schwellwert
-          mitmarkierten „Überschuss"-Intervalle; mit ``exact_hours`` unterbleibt
+          mitmarkierten „Überschuss“-Intervalle; mit ``exact_hours`` unterbleibt
           diese Erweiterung und ``alle == strikte`` (siehe
           ``CONF_EXACT_HOURS``).
         * ``CHEAP_MODE_CONSECUTIVE``: ein einziger **zusammenhängender** Block
-          „am Stück" – das günstigste lückenlose Zeitfenster aus ``cheap_hours``
+          „am Stück“ – das günstigste lückenlose Zeitfenster aus ``cheap_hours``
           (siehe :meth:`_consecutive_selection`). Hier wird **nie** erweitert,
           die Stundenzahl gilt also immer exakt; ``exact_hours`` ist ohne
           Wirkung.
@@ -303,7 +309,7 @@ class SmartTimesData:
 
         ``strikte`` sind die ``count`` günstigsten Intervalle (Gleichstand nach
         Startzeit aufgelöst). Standardmäßig ergänzt ``alle`` die am Schwellwert
-        gleich teuren „Überschuss"-Intervalle, sodass keine gleich günstige
+        gleich teuren „Überschuss“-Intervalle, sodass keine gleich günstige
         Stunde fehlt. Mit ``exact_hours`` unterbleibt das: Es bleibt bei genau
         ``count`` Intervallen, die eingestellte Stundenzahl wird also exakt
         eingehalten.
@@ -342,7 +348,7 @@ class SmartTimesData:
 
         Sollten die Tagesdaten eine Lücke aufweisen und kein lückenloses Fenster
         der geforderten Länge existieren, wird auf die günstigsten
-        Einzelintervalle ausgewichen, damit der Sensor nie dauerhaft „aus"
+        Einzelintervalle ausgewichen, damit der Sensor nie dauerhaft „aus“
         bleibt. Auch dort wird **nicht** erweitert, damit die Zusage einer
         festen Länge in jedem Pfad dieser Betriebsart gilt.
 
@@ -359,7 +365,7 @@ class SmartTimesData:
             prefix[i + 1] = prefix[i] + value
         # ``run_start[j]`` ist der Beginn des lückenlosen Laufs, der bei ``j``
         # endet. Ein Fenster ab ``i`` hängt damit genau dann zusammen (keine
-        # Lücke, ist also wirklich „am Stück"), wenn der Lauf seines letzten
+        # Lücke, ist also wirklich „am Stück“), wenn der Lauf seines letzten
         # Intervalls spätestens bei ``i`` beginnt.
         run_start = [0] * n
         for j in range(1, n):
@@ -436,7 +442,7 @@ class SmartTimesData:
         einziger zusammenhängender Block.
 
         ``exceeds_cheap_hours`` ist ``True``, wenn der Block **mindestens ein**
-        „Überschuss"-Intervall enthält: eines, das nur durch die
+        „Überschuss“-Intervall enthält: eines, das nur durch die
         Gleichstands-Mechanik am Schwellwert dazukam und damit über die
         konfigurierte Stundenzahl hinausgeht. Das kann folglich nur im
         Einzelstunden-Modus **ohne** ``exact_hours`` vorkommen; sonst ist die
@@ -585,7 +591,7 @@ class SmartTimesData:
 
         ``phase`` ist der sensoreigene, deterministische Versatz-Wert (siehe
         :func:`.jitter.cheap_phase`). Wirkt ausschließlich für den „Günstige
-        Stunde"-Sensor.
+        Stunde“-Sensor.
 
         ``exceeds_cheap_hours`` ist rein informativ: Es zeigt an, dass der Block
         durch die Gleichstands-Mechanik über die konfigurierte Stundenzahl
@@ -721,7 +727,15 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         return self._last_fetch
 
     def _has_tomorrow_prices(self, now: datetime) -> bool:
-        """Ob der Cache bereits Preise für den morgigen Kalendertag enthält."""
+        """Ob der Cache bereits Preise für den morgigen Kalendertag enthält.
+
+        Prüft bewusst das rohe Abruf-Ergebnis und nicht ``self.data``: Die
+        Methode steuert den Abruf und läuft damit, bevor die
+        ``SmartTimesData``-Instanz dieses Durchlaufs existiert – beim ersten
+        Lauf ist ``self.data`` sogar ``None``. Die Entitäts-Ebene benutzt
+        stattdessen :meth:`SmartTimesData.has_prices_for`; dass beide Sichten
+        übereinstimmen, sichert ein Test ab.
+        """
         if self._last_result is None:
             return False
         tomorrow = dt_util.as_local(now).date() + timedelta(days=1)
@@ -749,20 +763,29 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         day = dt_util.as_local(now).date().isoformat()
         return int(cheap_phase(f"{self._entry_id}:{day}") * FETCH_JITTER_MINUTES)
 
-    def _next_day_prices_due(self, now: datetime) -> bool:
-        """Ob die Morgen-Preise laut API-Zeitplan bereits vorliegen sollten.
+    def next_day_prices_expected_after(self, now: datetime) -> datetime:
+        """Zeitpunkt, ab dem die Morgen-Preise vorliegen sollten (Ortszeit).
 
-        Maßgeblich ist ``NEXT_DAY_PRICES_HOUR`` (Ortszeit) zuzüglich des
-        Tages-Jitters dieser Instanz.
+        ``NEXT_DAY_PRICES_HOUR`` zuzüglich des Tages-Jitters dieser Instanz.
+        Vor diesem Zeitpunkt ist ein leerer Morgen-Tag planmäßig, danach ein
+        Hinweis auf eine Störung beim Anbieter.
+
+        Öffentlich, weil der Diagnose-Sensor „Preise für morgen verfügbar“ den
+        Wert als Attribut ausweist. Er darf **nicht** eigenständig aus
+        ``NEXT_DAY_PRICES_HOUR`` gebildet werden: Der Jitter verschiebt die
+        Schwelle um bis zu ``FETCH_JITTER_MINUTES``, und in dieser Spanne wäre
+        ein leerer Morgen-Tag sonst fälschlich als überfällig ausgewiesen.
         """
-        local_now = dt_util.as_local(now)
-        threshold = local_now.replace(
+        return dt_util.as_local(now).replace(
             hour=NEXT_DAY_PRICES_HOUR,
             minute=self._jitter_minutes(now),
             second=0,
             microsecond=0,
         )
-        return local_now >= threshold
+
+    def _next_day_prices_due(self, now: datetime) -> bool:
+        """Ob die Morgen-Preise laut API-Zeitplan bereits vorliegen sollten."""
+        return dt_util.as_local(now) >= self.next_day_prices_expected_after(now)
 
     def _retry_delay(self) -> timedelta:
         """Wartezeit, die zwischen zwei Abruf-Versuchen liegen muss.

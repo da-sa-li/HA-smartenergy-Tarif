@@ -84,7 +84,9 @@ async def test_only_single_instance_allowed(
     )
     assert result["type"] is FlowResultType.ABORT
     # Wegen "single_config_entry": true im Manifest bricht Home Assistant schon
-    # VOR async_step_user ab – mit diesem Grund, nicht mit "already_configured".
+    # VOR async_step_user ab. Das ist der einzige Abbruchgrund dieses Flows –
+    # ein eigener Aufruf von _abort_if_unique_id_configured() käme nie zum Zug
+    # und wurde deshalb entfernt.
     # Der Grund wird mitgeprüft, weil sonst ein fehlender Übersetzungstext
     # unbemerkt bliebe (die Oberfläche zeigte dann den rohen Schlüssel).
     assert result["reason"] == "single_instance_allowed"
@@ -239,7 +241,7 @@ async def test_validate_tariff_connection_maps_error_types(
 
 
 async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
-    """Der Untereintrags-Flow legt einen „Günstige Stunde"-Sensor an."""
+    """Der Untereintrags-Flow legt einen „Günstige Stunde“-Sensor an."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
@@ -273,7 +275,7 @@ async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
 async def test_subentry_create_with_exact_hours(
     hass: HomeAssistant, enable_custom_integrations
 ):
-    """Die Option „Stundenzahl exakt einhalten" wird im Untereintrag gespeichert."""
+    """Die Option „Stundenzahl exakt einhalten“ wird im Untereintrag gespeichert."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,

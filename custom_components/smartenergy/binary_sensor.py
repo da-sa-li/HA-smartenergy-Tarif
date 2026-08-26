@@ -1,67 +1,74 @@
-"""Binary-Sensoren „Günstige Stunde" für die smartTIMES Integration.
+"""Binary-Sensoren „Günstige Stunde“ für die smartTIMES Integration.
 
 Jeder Sensor markiert, ob das aktuelle Intervall zu den günstigsten Stunden des
 Tages zählt – gemessen an den **gesamten variablen Kosten** (Arbeitspreis +
 Abgaben + Netzentgelte inkl. SNAP). Die Anzahl günstiger Stunden wird je
 Untereintrag (Config Subentry) festgelegt, sodass pro Verbraucher ein eigener
 Sensor mit eigener Stundenzahl möglich ist (z. B. Boiler 4 h, Wallbox 8 h).
+
+Dazu kommt ein Diagnose-Sensor am Hub-Gerät, der meldet, ob die Preise für
+den Folgetag bereits vorliegen.
 """
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigSubentry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
 from .const import (
-    CONF_CHEAP_HOURS,
-    CONF_CHEAP_MODE,
-    CONF_EXACT_HOURS,
-    DEFAULT_CHEAP_MODE,
-    DEFAULT_EXACT_HOURS,
-    DOMAIN,
     JITTER_SPAN_SECONDS,
     SUBENTRY_TYPE_CHEAP_HOUR,
     UNIT_EUR_PER_KWH,
-    documentation_url,
     to_eur,
 )
 from .coordinator import SmartTimesCoordinator
-from .jitter import cheap_phase
+from .entity import CheapHourEntity, hub_device_id, hub_device_info
 
 # Reine Koordinator-Lesesensoren ohne eigene API-Aufrufe oder Aktionen – eine
 # Drosselung paralleler Updates ist daher nicht nötig.
 PARALLEL_UPDATES = 0
 
 
+def _morgen():
+    """Der morgige lokale Kalendertag."""
+    return dt_util.now().date() + timedelta(days=1)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: SmartTimesConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Richtet je Untereintrag einen „Günstige Stunde"-Binary-Sensor ein."""
+    """Richtet den Diagnose-Sensor und je Untereintrag einen Günstig-Sensor ein."""
     coordinator = entry.runtime_data
+    async_add_entities([TomorrowPricesBinarySensor(coordinator, entry)])
+
+    # Gerät, an dem die Untereintrags-Geräte als „verbunden über“ hängen.
+    # `__init__.async_setup_entry` hat es vor dem Weiterreichen angelegt.
+    hub_id = hub_device_id(hass, entry)
     for subentry in entry.subentries.values():
         if subentry.subentry_type != SUBENTRY_TYPE_CHEAP_HOUR:
             continue
+        # Ein Aufruf je Untereintrag: `config_subentry_id` gilt für die ganze
+        # Charge und bindet Gerät wie Entität an genau diesen Untereintrag.
         async_add_entities(
-            [CheapHourBinarySensor(coordinator, subentry)],
+            [CheapHourBinarySensor(coordinator, subentry, hub_id)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class CheapHourBinarySensor(
-    CoordinatorEntity[SmartTimesCoordinator], BinarySensorEntity
-):
+class CheapHourBinarySensor(CheapHourEntity, BinarySensorEntity):
     """`on`, wenn die laufende Viertelstunde zu den günstigsten des Tages zählt."""
 
-    _attr_has_entity_name = True
     _attr_translation_key = "cheap_hour"
     # Günstig-Intervalle und Schaltfenster sind minütlich neu berechnete, rein
     # zukunftsgerichtete Listen - Recorder-History bringt hier keinen Mehrwert.
@@ -74,44 +81,18 @@ class CheapHourBinarySensor(
         self,
         coordinator: SmartTimesCoordinator,
         subentry: ConfigSubentry,
+        hub_id: str | None = None,
     ) -> None:
         """Initialisiert den Sensor aus dem Untereintrag (Stundenzahl, Logik, Jitter)."""
-        super().__init__(coordinator)
-        self._cheap_hours: float = subentry.data[CONF_CHEAP_HOURS]
-        # Auswahllogik: günstigste Einzelstunden (dürfen zerteilt sein) oder ein
-        # zusammenhängender Block „am Stück". Ältere Untereinträge ohne diese
-        # Option fallen auf den Standard (Einzelstunden) zurück.
-        self._cheap_mode: str = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
-        # Die eingestellte Stundenzahl exakt einhalten, statt bei
-        # Preisgleichstand darüber hinaus zu erweitern? Untereinträge, die die
-        # Option noch nicht kannten, haben ihren bisherigen Wert bei der
-        # Migration auf Schema-Version 2 ausdrücklich eingetragen (siehe
-        # __init__.py); der Rückfall auf die Vorgabe ist nur noch ein Netz.
-        self._exact_hours: bool = subentry.data.get(
-            CONF_EXACT_HOURS, DEFAULT_EXACT_HOURS
-        )
-        # Deterministischer, vom Nutzer nicht editierbarer Last-Glättungs-Versatz.
-        # Aus der Subentry-ID abgeleitet, damit er stabil und je Sensor
-        # gleichverteilt ist (siehe jitter.py).
-        self._jitter_phase: float = cheap_phase(subentry.subentry_id)
+        super().__init__(coordinator, subentry, hub_id)
         self._attr_unique_id = f"{subentry.subentry_id}_cheap_hour"
-        # Anzeige-Tarif aus den Koordinatordaten (Modell/Doku-Link je Tarif).
-        tariff_name = coordinator.data.tariff
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, subentry.subentry_id)},
-            name=subentry.title,
-            manufacturer="smartENERGY",
-            model=f"{tariff_name} Günstige Stunde",
-            entry_type=DeviceEntryType.SERVICE,
-            configuration_url=documentation_url(tariff_name),
-        )
 
     @property
     def is_on(self) -> bool | None:
         """Ob der aktuelle Zeitpunkt im (gejitterten) günstigen Fenster liegt."""
         data = self.coordinator.data
         now = dt_util.now()
-        # Ohne Preisabdeckung für „jetzt" ist der Zustand unbekannt.
+        # Ohne Preisabdeckung für „jetzt“ ist der Zustand unbekannt.
         if data.current(now) is None:
             return None
         return data.is_cheap_now(
@@ -190,4 +171,56 @@ class CheapHourBinarySensor(
                 }
                 for on_time, off_time, exceeds in windows
             ],
+        }
+
+
+class TomorrowPricesBinarySensor(
+    CoordinatorEntity[SmartTimesCoordinator], BinarySensorEntity
+):
+    """`on`, sobald die Preise für den Folgetag vorliegen.
+
+    Ohne diesen Sensor lässt sich „noch nicht veröffentlicht“ nicht von „leer“
+    unterscheiden: Das Attribut ``prices_tomorrow`` ist in beiden Fällen eine
+    leere Liste. Er ist damit der natürliche Auslöser für „Tagesplan neu
+    rechnen, sobald die Morgenpreise da sind“ – per Vorlage war das nur mit
+    Abfragen im Sekundentakt nachzubauen.
+
+    Bewusst **ohne** ``device_class``: ``PROBLEM`` kehrte die Bedeutung um und
+    wiese den planmäßigen Zustand vor der Veröffentlichungszeit als Störung
+    aus. Die Einordnung als Diagnose blendet ihn lediglich aus der Gerätekarte
+    aus; als Auslöser einer Automatisierung bleibt er uneingeschränkt nutzbar.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "tomorrow_prices"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self, coordinator: SmartTimesCoordinator, entry: SmartTimesConfigEntry
+    ) -> None:
+        """Initialisiert den Diagnose-Sensor am Hub-Gerät."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_tomorrow_prices"
+        self._attr_device_info = hub_device_info(entry, coordinator.data.tariff)
+
+    @property
+    def is_on(self) -> bool:
+        """Ob für morgen bereits Preise im Cache liegen."""
+        return self.coordinator.data.has_prices_for(_morgen())
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Anzahl der Intervalle und die zugesagte Veröffentlichungszeit.
+
+        Erst zusammen sind „planmäßig noch nicht da“ und „überfällig“
+        auseinanderzuhalten: Vor ``expected_after`` ist ``off`` der
+        Normalzustand, danach ein Hinweis auf eine Störung beim Anbieter.
+        """
+        return {
+            "price_count": len(self.coordinator.data.for_day(_morgen())),
+            # Über den Koordinator, nicht selbst gebildet: Der Abruf-Jitter
+            # verschiebt die Schwelle um bis zu FETCH_JITTER_MINUTES nach hinten.
+            "expected_after": self.coordinator.next_day_prices_expected_after(
+                dt_util.now()
+            ).isoformat(),
         }

@@ -23,7 +23,6 @@
       "invalid_response": "Die smartENERGY-API hat eine unerwartete Antwort geliefert. Das deutet auf eine Formatänderung der API hin – bitte dazu ein Issue im GitHub-Repository der Integration melden."
     },
     "abort": {
-      "already_configured": "smartENERGY ist bereits eingerichtet.",
       "single_instance_allowed": "smartENERGY ist bereits eingerichtet. Die API liefert für alle Nutzer dieselben Preise – eine zweite Instanz ist deshalb nicht möglich. Tarif, USt. und Netzgebiet lassen sich über „Konfigurieren“ am bestehenden Eintrag ändern."
     }
   },
@@ -156,11 +155,17 @@
       },
       "basic_fee": {
         "name": "Grundgebühr"
+      },
+      "next_cheap_start": {
+        "name": "Nächster günstiger Start"
       }
     },
     "binary_sensor": {
       "cheap_hour": {
         "name": "Günstige Stunde"
+      },
+      "tomorrow_prices": {
+        "name": "Preise für morgen verfügbar"
       }
     }
   }

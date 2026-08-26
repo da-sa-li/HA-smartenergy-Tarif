@@ -23,7 +23,6 @@
       "invalid_response": "The smartENERGY API returned an unexpected response. This suggests the API's format has changed – please file an issue in the integration's GitHub repository."
     },
     "abort": {
-      "already_configured": "smartENERGY is already configured.",
       "single_instance_allowed": "smartENERGY is already configured. The API returns the same prices for everyone, so a second instance is not possible. You can change tariff, VAT and grid zone via “Configure” on the existing entry."
     }
   },
@@ -156,11 +155,17 @@
       },
       "basic_fee": {
         "name": "Basic fee"
+      },
+      "next_cheap_start": {
+        "name": "Next cheap start"
       }
     },
     "binary_sensor": {
       "cheap_hour": {
         "name": "Cheap hour"
+      },
+      "tomorrow_prices": {
+        "name": "Prices for tomorrow available"
       }
     }
   }

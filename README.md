@@ -26,7 +26,7 @@ günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
 - 🟢 **Günstige Stunde** als Binary-Sensor – `on` in den günstigsten Stunden des
   Tages (nach **Gesamtkosten**), ideal zum Schalten von Boiler & Co. Wahlweise
   als **günstigste Einzelstunden** (dürfen über den Tag verteilt sein) oder als
-  **zusammenhängender Block „am Stück"** für Geräte mit fester Laufzeit
+  **zusammenhängender Block „am Stück“** für Geräte mit fester Laufzeit
   (Waschmaschine, Geschirrspüler)
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchst-**Gesamtpreis** von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
@@ -55,6 +55,11 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 > Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant auf `Europe/Vienna` eingestellt sein.
 
 ## Installation
+
+> [!IMPORTANT]
+> Ab Version 4.1.0 wird **Home Assistant 2026.8** oder neuer vorausgesetzt. Wer
+> eine ältere Reihe fährt, bekommt die neue Fassung über HACS nicht angeboten;
+> die installierte läuft unverändert weiter.
 
 ### Über HACS (empfohlen)
 
@@ -105,7 +110,7 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
      Tages – sie dürfen über den Tag verteilt (zerteilt) sein. Ideal für
      Verbraucher ohne feste Laufzeit (Boiler, Wallbox).
    - **Zusammenhängender Block**: ein einziges günstigstes Zeitfenster „am
-     Stück". Wichtig für Geräte mit fester, ununterbrochener Laufzeit
+     Stück“. Wichtig für Geräte mit fester, ununterbrochener Laufzeit
      (Waschmaschine, Geschirrspüler).
 4. **Stundenzahl exakt einhalten** (Vorgabe: **ein**) entscheidet, was bei
    Preisgleichstand passiert. Eingeschaltet liefert der Sensor exakt die
@@ -157,10 +162,12 @@ Löschen bleiben keine Konfigurationsreste zurück.
 | `…_arbeitspreis`                          | Arbeitspreis der aktuellen Tarifzone (EUR/kWh)       |
 | `…_gesamtpreis`                           | Gesamtpreis inkl. Nebenkosten (EUR/kWh) – fürs Energie-Dashboard |
 | `binary_sensor.<name>_gunstige_stunde`    | Günstige Stunden; ein Sensor je Untereintrag         |
+| `sensor.<name>_nachster_gunstiger_start`  | Beginn des nächsten günstigen Fensters; ein Sensor je Untereintrag |
 | `…_durchschnittlicher_gesamtpreis_heute`  | Ø-Gesamtpreis heute (EUR/kWh)                        |
 | `…_niedrigster_gesamtpreis_heute`         | Niedrigster Gesamtpreis heute (EUR/kWh)              |
 | `…_hochster_gesamtpreis_heute`            | Höchster Gesamtpreis heute (EUR/kWh)                 |
 | `…_grundgebuhr`                           | Grundgebühr (EUR/month)                              |
+| `binary_sensor.…_preise_fur_morgen_verfugbar` | Ob die Preise für den Folgetag vorliegen (Diagnose) |
 
 Der **Gesamtpreis**-Sensor enthält alle Nebenkosten (Steuern, Abgaben,
 Netzentgelte inkl. SNAP) und ist die richtige Wahl fürs Energie-Dashboard und
@@ -176,6 +183,15 @@ ebenfalls darauf.
 > `…_gesamtpreis_eur_kwh` auf `…_gesamtpreis` umbenannt, damit alle
 > Installationen dieselbe Entity-ID tragen. **Automatisierungen, Vorlagen und
 > Dashboards, die die alte ID verwenden, müssen angepasst werden.**
+
+> [!TIP]
+> **Nächster günstiger Start** ist ein Zeitstempel-Sensor und lässt sich damit
+> direkt als `at:` eines `time`-Triggers verwenden – auch mit Vorlauf, etwa
+> „30 Minuten vorher vorheizen“. Als Attribut allein ginge das nicht.
+> **Preise für morgen verfügbar** schaltet auf `on`, sobald die Preise des
+> Folgetags eingetroffen sind, und ist der passende Auslöser, um den Tagesplan
+> neu zu rechnen. Beispiele stehen im Wiki unter
+> [Automatisierungsbeispiele](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Automatisierungsbeispiele).
 
 Details zu den Nebenkosten und die vollständige Attribut-Referenz stehen im
 **[Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki)**.

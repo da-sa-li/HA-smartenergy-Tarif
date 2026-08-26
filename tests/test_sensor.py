@@ -7,15 +7,20 @@ smartTIMES liefert den ``basicFee``-Block der API, smartCONTROL nicht.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient
+from custom_components.smartenergy.const import JITTER_SPAN_SECONDS
+
+from tests.conftest import VIENNA
 
 DOMAIN = "smartenergy"
 
@@ -75,7 +80,7 @@ async def test_smartcontrol_hat_keinen_grundgebuehr_sensor(
 ):
     """smartCONTROL liefert keinen basicFee-Block – der Sensor entfällt.
 
-    Vorher wurde er trotzdem angelegt und stand dauerhaft auf „unbekannt".
+    Vorher wurde er trotzdem angelegt und stand dauerhaft auf „unbekannt“.
     """
     entry = await _richte_ein(hass, smartcontrol_payload, "smartcontrol")
 
@@ -97,7 +102,7 @@ async def test_warnung_bei_abweichender_grundgebuehr_einheit(
     """Meldet die API eine andere Einheit, wird gewarnt.
 
     Die Anzeige-Einheit ist fest hinterlegt. Wechselte die API auf z. B.
-    „EUR/year", zeigte der Sensor sonst stillschweigend eine falsche an.
+    „EUR/year“, zeigte der Sensor sonst stillschweigend eine falsche an.
     """
     payload = dict(smarttimes_payload)
     payload["basicFee"] = dict(payload["basicFee"], unit="EUR/year")
@@ -268,3 +273,254 @@ def test_preissensoren_fuehren_langzeitstatistik():
         assert beschreibung.state_class == SensorStateClass.MEASUREMENT, (
             f"{beschreibung.key} ohne state_class"
         )
+
+
+# --- Zeitstempel-Sensor „Nächster günstiger Start“ --------------------------- #
+#
+# Sollwerte von Hand aus der smartTIMES-Fixture und den hinterlegten Sätzen
+# abgeleitet (Netzgebiet Wien, brutto, cheap_hours = 4,0, exact_hours = ein):
+#
+# Preisstufen je Tag (brutto ct/kWh Arbeitspreis, an beiden Tagen gleich):
+#   11,316 -> Stunden 02,03,10-15
+#   13,020 -> Stunden 00,01,04,05,09,16,22,23
+#   15,852 -> Stunden 06-08,17-21
+#
+# Gesamtpreis = (Arbeitspreis netto + Abgaben netto + Netz netto) * 1,2
+#   Abgaben netto  = 0,10 (Elektrizitätsabgabe) + 0,62 (Förderbeitrag) = 0,72
+#   Wien NE 7 netto = 6,98 Netznutzung + 0,700 Netzverlust
+#   SNAP (Apr-Sep, 10-16 Uhr) senkt die Netznutzung um 20 % -> 5,584
+#
+# Damit für die günstigste Stufe (netto 11,316 / 1,2 = 9,43):
+#   Stunden 10-15 (SNAP):   (9,43 + 0,72 + 5,584 + 0,700) * 1,2 = 19,7208
+#   Stunden 02-03 (regulär):(9,43 + 0,72 + 6,980 + 0,700) * 1,2 = 21,3960
+#
+# Günstigste Intervalle sind also die 24 Viertelstunden 10:00-15:45. Bei
+# cheap_hours = 4,0 werden ceil(4 * 60 / 15) = 16 gewählt; sortiert nach
+# (Wert, Startzeit) sind das die 16 frühesten -> ein zusammenhängender Block
+# 10:00-14:00 Ortszeit, an beiden Fixture-Tagen.
+BLOCKBEGINN_5 = datetime(2026, 6, 5, 10, 0, tzinfo=VIENNA)
+BLOCKBEGINN_6 = datetime(2026, 6, 6, 10, 0, tzinfo=VIENNA)
+
+
+async def _richte_ein_wien(hass: HomeAssistant, payload: dict) -> MockConfigEntry:
+    """Richtet einen smartTIMES-Eintrag ohne Untereintrag ein (Netzgebiet Wien)."""
+    parsed = SmartTimesApiClient._parse(payload)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    return entry
+
+
+async def _richte_mit_untereintrag_ein(
+    hass: HomeAssistant, payload: dict
+) -> tuple[MockConfigEntry, str]:
+    """Richtet einen smartTIMES-Eintrag mit einem Günstig-Stunde-Untereintrag ein."""
+    parsed = SmartTimesApiClient._parse(payload)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+        subentries_data=[
+            ConfigSubentryData(
+                data={
+                    "cheap_hours": 4.0,
+                    "cheap_mode": "individual",
+                    "exact_hours": True,
+                },
+                subentry_type="cheap_hour",
+                title="Boiler",
+                unique_id=None,
+            )
+        ],
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    return entry, next(iter(entry.subentries))
+
+
+@pytest.fixture
+def ohne_jitter():
+    """Setzt die Last-Glättung auf 0, damit Sollzeiten exakt prüfbar sind.
+
+    Die Jitter-Phase leitet sich aus der Subentry-ID ab, die je Testlauf neu
+    vergeben wird – ohne diesen Eingriff wäre nur ein Intervall prüfbar.
+    Gepatcht wird die Bindung in ``entity``, nicht die in ``jitter``: Sonst
+    verstellte der Test zugleich den Abruf-Jitter des Koordinators.
+    """
+    with patch(
+        "custom_components.smartenergy.entity.cheap_phase", return_value=0.0
+    ):
+        yield
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_zeitstempel_sensor_je_untereintrag(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Jeder Untereintrag bringt einen Zeitstempel-Sensor mit.
+
+    ``device_class: timestamp`` ist der Zweck der Entität: Nur damit nimmt der
+    ``time``-Trigger sie unter ``at:`` an. Einheit und ``state_class`` müssen
+    fehlen – Home Assistant weist beides für Zeitstempel zurück.
+    """
+    entry, subentry_id = await _richte_mit_untereintrag_ein(
+        hass, smarttimes_payload
+    )
+
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{subentry_id}_next_cheap_start"
+    )
+    assert entity_id is not None
+    # Entity-ID nach der englischen Übersetzung, die das Test-Harness verwendet;
+    # unter der deutschen lautet sie sensor.boiler_nachster_gunstiger_start.
+    assert entity_id == "sensor.boiler_next_cheap_start"
+
+    # Der Sensor hängt am Gerät des Untereintrags, nicht am Hub.
+    eintrag = registry.async_get(entity_id)
+    assert eintrag.config_subentry_id == subentry_id
+
+    zustand = hass.states.get(entity_id)
+    assert zustand.attributes["device_class"] == SensorDeviceClass.TIMESTAMP
+    assert "state_class" not in zustand.attributes
+    assert "unit_of_measurement" not in zustand.attributes
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit, im Block
+async def test_naechster_start_ist_der_folgetags_block(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
+):
+    """Mitten im heutigen Block zeigt der Sensor auf den Block von morgen.
+
+    Um 12:00 Ortszeit läuft der Block 10:00-14:00 bereits; der nächste
+    Einschaltzeitpunkt ist damit der 06.06. um 10:00 Ortszeit. Der Zustand wird
+    in UTC und auf Sekunden gekürzt ausgegeben.
+    """
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
+
+    zustand = hass.states.get("sensor.boiler_next_cheap_start")
+    assert zustand.state == "2026-06-06T08:00:00+00:00"
+
+
+@pytest.mark.freeze_time("2026-06-05 06:00:00")  # 08:00 Ortszeit, vor dem Block
+async def test_naechster_start_ist_der_heutige_block(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
+):
+    """Vor dem Block zeigt der Sensor auf den heutigen Beginn."""
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
+
+    zustand = hass.states.get("sensor.boiler_next_cheap_start")
+    assert zustand.state == "2026-06-05T08:00:00+00:00"
+
+
+@pytest.mark.freeze_time("2026-06-06 14:00:00")  # 16:00 Ortszeit am letzten Tag
+async def test_ohne_folgetag_ist_der_sensor_unbekannt(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
+):
+    """Ohne bekanntes nächstes Fenster meldet der Sensor ``unknown``.
+
+    Die Fixture endet mit dem 06.06.; der heutige Block ist um 16:00 vorbei und
+    für den 07.06. liegen keine Preise vor. In der Praxis ist das der Zustand
+    spät abends, bevor die Preise für den Folgetag veröffentlicht sind – ein
+    ``time``-Trigger feuert dann schlicht nicht.
+    """
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
+
+    zustand = hass.states.get("sensor.boiler_next_cheap_start")
+    assert zustand.state == "unknown"
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_naechster_start_liegt_im_jitter_fenster(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Ohne Eingriff liegt der Wert im zugesagten Versatz-Bereich.
+
+    Der Jitter verzögert die Einschaltflanke um 0 bis JITTER_SPAN_SECONDS und
+    verschiebt sie nie davor (siehe jitter.py). Diese Zusage gilt für jede
+    Phase, der Test braucht die konkrete Subentry-ID also nicht zu kennen.
+    """
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
+
+    zustand = hass.states.get("sensor.boiler_next_cheap_start")
+    wert = datetime.fromisoformat(zustand.state)
+    assert BLOCKBEGINN_6 <= wert <= BLOCKBEGINN_6 + timedelta(
+        seconds=JITTER_SPAN_SECONDS
+    )
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_sensor_und_binary_sensor_nennen_denselben_start(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Sensorwert und Attribut des Binary-Sensors stimmen überein.
+
+    Zwei unabhängige Codepfade auf dieselbe Zusage – der Sensor enthält den
+    Jitter also bereits. Der Zustand ist auf Sekunden gekürzt, das Attribut
+    trägt die volle Auflösung; verglichen wird deshalb sekundengenau.
+    """
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
+
+    sensor = hass.states.get("sensor.boiler_next_cheap_start")
+    binary = hass.states.get("binary_sensor.boiler_cheap_hour")
+    attribut = datetime.fromisoformat(binary.attributes["next_cheap_start"])
+
+    assert datetime.fromisoformat(sensor.state) == attribut.replace(microsecond=0)
+
+
+@pytest.mark.parametrize(
+    ("zeitpunkt", "erwartet"),
+    [
+        # Die Fixture deckt den 05. und 06.06.2026 ab: Vom 05.06. aus ist der
+        # morgige Tag vollständig da, vom 06.06. aus gar nicht.
+        ("2026-06-05 10:00:00", True),
+        ("2026-06-06 10:00:00", False),
+    ],
+)
+@pytest.mark.parametrize(
+    "entitaet",
+    [
+        "sensor.smarttimes_strompreishelfer_total_price",
+        "sensor.smarttimes_strompreishelfer_energy_price",
+    ],
+)
+async def test_prices_tomorrow_valid_an_beiden_preissensoren(
+    hass: HomeAssistant,
+    enable_custom_integrations,
+    smarttimes_payload,
+    freezer,
+    zeitpunkt,
+    erwartet,
+    entitaet,
+):
+    """Beide Preissensoren weisen aus, ob die Morgen-Preise vorliegen.
+
+    Das Attribut steht direkt neben ``prices_tomorrow`` und löst dessen
+    Mehrdeutigkeit auf: Eine leere Liste heißt sonst gleichermaßen "noch nicht
+    veröffentlicht" und "keine Preise".
+    """
+    freezer.move_to(zeitpunkt)
+    await _richte_ein_wien(hass, smarttimes_payload)
+
+    attribute = hass.states.get(entitaet).attributes
+    assert attribute["prices_tomorrow_valid"] is erwartet
+    # Gegenprobe: Der Wert deckt sich mit der Liste, die er beschreibt.
+    assert attribute["prices_tomorrow_valid"] is bool(attribute["prices_tomorrow"])
