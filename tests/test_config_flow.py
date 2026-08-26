@@ -74,7 +74,9 @@ async def test_only_single_instance_allowed(
     )
     assert result["type"] is FlowResultType.ABORT
     # Wegen "single_config_entry": true im Manifest bricht Home Assistant schon
-    # VOR async_step_user ab – mit diesem Grund, nicht mit "already_configured".
+    # VOR async_step_user ab. Das ist der einzige Abbruchgrund dieses Flows –
+    # ein eigener Aufruf von _abort_if_unique_id_configured() käme nie zum Zug
+    # und wurde deshalb entfernt.
     # Der Grund wird mitgeprüft, weil sonst ein fehlender Übersetzungstext
     # unbemerkt bliebe (die Oberfläche zeigte dann den rohen Schlüssel).
     assert result["reason"] == "single_instance_allowed"

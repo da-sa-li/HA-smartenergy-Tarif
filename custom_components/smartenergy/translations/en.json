@@ -20,7 +20,6 @@
       "cannot_connect": "Failed to connect to the smartENERGY API."
     },
     "abort": {
-      "already_configured": "smartENERGY is already configured.",
       "single_instance_allowed": "smartENERGY is already configured. The API returns the same prices for everyone, so a second instance is not possible. You can change tariff, VAT and grid zone via “Configure” on the existing entry."
     }
   },

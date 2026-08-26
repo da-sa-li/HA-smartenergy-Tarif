@@ -160,8 +160,10 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Erster (und einziger) Einrichtungsschritt."""
         # Die API liefert für alle Nutzer dieselben Daten – nur eine Instanz.
+        # Den Abbruch übernimmt Home Assistant selbst: `single_config_entry` im
+        # Manifest greift schon vor diesem Schritt (Grund: single_instance_allowed).
+        # Die unique_id wird trotzdem gesetzt, sie identifiziert den Eintrag.
         await self.async_set_unique_id(DOMAIN)
-        self._abort_if_unique_id_configured()
 
         errors: dict[str, str] = {}
         if user_input is not None:
