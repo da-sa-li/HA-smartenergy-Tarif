@@ -18,6 +18,9 @@
       },
       "basic_fee": {
         "default": "mdi:cash"
+      },
+      "next_cheap_start": {
+        "default": "mdi:clock-start"
       }
     },
     "binary_sensor": {

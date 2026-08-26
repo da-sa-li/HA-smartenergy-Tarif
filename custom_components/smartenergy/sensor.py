@@ -5,13 +5,15 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
 )
+from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -20,13 +22,14 @@ from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
 from .const import (
+    SUBENTRY_TYPE_CHEAP_HOUR,
     UNIT_EUR_PER_KWH,
     UNIT_EUR_PER_MONTH,
     VAT_RATE,
     to_eur,
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
-from .entity import hub_device_info
+from .entity import CheapHourEntity, hub_device_info, hub_device_id
 from .grid_fees import is_snap
 
 _LOGGER = logging.getLogger(__name__)
@@ -187,6 +190,67 @@ async def async_setup_entry(
         for description in SENSORS
         if _is_available(description, data)
     )
+
+    # Gerät, an dem die Untereintrags-Geräte als „verbunden über" hängen.
+    # `__init__.async_setup_entry` hat es vor dem Weiterreichen angelegt.
+    hub_id = hub_device_id(hass, entry)
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_TYPE_CHEAP_HOUR:
+            continue
+        # Ein Aufruf je Untereintrag: `config_subentry_id` gilt für die ganze
+        # Charge und bindet Gerät wie Entität an genau diesen Untereintrag.
+        async_add_entities(
+            [NextCheapStartSensor(coordinator, subentry, hub_id)],
+            config_subentry_id=subentry.subentry_id,
+        )
+
+
+class NextCheapStartSensor(CheapHourEntity, SensorEntity):
+    """Nächster (gejitterter) Einschaltzeitpunkt des Untereintrags.
+
+    Bewusst eine eigene Entität und nicht nur das Attribut ``next_cheap_start``
+    am Binary-Sensor: Der ``time``-Trigger von Home Assistant nimmt unter ``at:``
+    ausschließlich Entitäten mit ``device_class: timestamp``. Ein Attribut lässt
+    sich dort nicht referenzieren, weshalb „30 Minuten vor dem günstigen Fenster
+    vorheizen" bisher einen Template-Sensor brauchte.
+
+    Der Wert ist ``unknown``, solange kein nächstes Fenster bekannt ist – etwa
+    spät abends, bevor die Preise für den Folgetag veröffentlicht sind. Ein
+    ``time``-Trigger feuert dann schlicht nicht.
+    """
+
+    _attr_translation_key = "next_cheap_start"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    # Weder `state_class` noch Einheit: Für Zeitstempel gibt es keine
+    # Langzeitstatistik, und eine Einheit weist Home Assistant zurück. Deshalb
+    # steht dieser Sensor auch nicht in SENSORS – die dortigen Beschreibungen
+    # sind durchweg Preissensoren in EUR/kWh.
+
+    def __init__(
+        self,
+        coordinator: SmartTimesCoordinator,
+        subentry: ConfigSubentry,
+        hub_id: str | None = None,
+    ) -> None:
+        """Setzt die eindeutige ID; alles Weitere kommt aus der Basisklasse."""
+        super().__init__(coordinator, subentry, hub_id)
+        self._attr_unique_id = f"{subentry.subentry_id}_next_cheap_start"
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Nächster Einschaltzeitpunkt (zeitzonenbewusst) oder ``None``.
+
+        Der Wert enthält den Last-Glättungs-Versatz dieses Untereintrags bereits,
+        stimmt also sekundengenau mit dem Schaltzeitpunkt des zugehörigen
+        „Günstige Stunde"-Binary-Sensors überein.
+        """
+        return self.coordinator.data.next_cheap_on(
+            dt_util.now(),
+            self._cheap_hours,
+            self._jitter_phase,
+            self._cheap_mode,
+            self._exact_hours,
+        )
 
 
 class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):

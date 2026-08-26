@@ -146,6 +146,9 @@
       },
       "basic_fee": {
         "name": "Grundgebühr"
+      },
+      "next_cheap_start": {
+        "name": "Nächster günstiger Start"
       }
     },
     "binary_sensor": {

@@ -77,6 +77,23 @@ def _vienna_default_tz():
     dt_util.set_default_time_zone(original)
 
 
+@pytest.fixture
+async def hass_wien(hass):
+    """HA-Instanz auf ``Europe/Vienna`` – die Zeitzone, für die gebaut wurde.
+
+    Die Fixture ``_vienna_default_tz`` oben greift nur für Tests **ohne**
+    HA-Instanz: Das Test-Harness setzt beim Hochfahren von ``hass``
+    ``US/Pacific`` und überschreibt die Vorgabe damit wieder.
+
+    Für alles, was von der Ortszeit abhängt, ist das die falsche Grundlage –
+    SNAP-Fenster (10–16 Uhr), Tagesgrenzen und „morgen" verrutschen um neun
+    Stunden. Sollwerte, die aus der Spezifikation abgeleitet sind, gelten dann
+    nicht mehr aus dem angegebenen Grund, auch wenn sie zufällig zutreffen.
+    """
+    await hass.config.async_set_time_zone("Europe/Vienna")
+    return hass
+
+
 def _load(name: str) -> dict:
     """Lädt eine JSON-Fixture aus ``tests/fixtures``."""
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
