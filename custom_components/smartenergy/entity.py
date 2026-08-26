@@ -17,8 +17,10 @@ Plattformen hinweg auseinander.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
+# Die Typ-Hinweise nutzen `ConfigEntry` und nicht den Alias
+# `SmartTimesConfigEntry` aus `__init__.py`: Jenes Modul importiert von hier
+# (`hub_device_info`), ein Rückimport wäre zur Laufzeit ein Zyklus.
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -36,13 +38,6 @@ from .const import (
 )
 from .coordinator import SmartTimesCoordinator
 from .jitter import cheap_phase
-
-if TYPE_CHECKING:
-    # Nur für die Typprüfung: Zur Laufzeit wäre das ein Import-Zyklus, weil
-    # __init__.py seinerseits `hub_device_info` von hier bezieht und den Alias
-    # erst nach seinen eigenen Imports definiert. Dank
-    # `from __future__ import annotations` bleiben die Annotationen Strings.
-    from . import SmartTimesConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 

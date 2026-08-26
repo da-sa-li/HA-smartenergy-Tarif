@@ -212,8 +212,8 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   eingerichtet, ein Entstehen als Nebenprodukt des ersten Sensors wäre ein Rennen.
   `CheapHourEntity` liest Stundenzahl, Auswahllogik, `exact_hours` und Jitter-Phase aus dem
   Untereintrag; `CheapHourBinarySensor` und `NextCheapStartSensor` erben davon.
-  `SmartTimesConfigEntry` wird dort nur unter `TYPE_CHECKING` importiert – `__init__.py` bezieht
-  `hub_device_info` von hier, zur Laufzeit wäre das ein Zyklus.
+  Typ-Hinweise nutzen dort `ConfigEntry` statt des Alias `SmartTimesConfigEntry` – `__init__.py`
+  bezieht `hub_device_info` von hier, ein Rückimport wäre zur Laufzeit ein Zyklus.
 
 - **`config_flow.py`** – UI-Einrichtung (kein YAML): Haupteintrag (Tarif, USt., Netzgebiet) +
   Options-Flow + Subentry-Flow für die Günstige-Stunde-Sensoren. Der **Tarif** (`CONF_TARIFF`:

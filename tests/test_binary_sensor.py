@@ -15,11 +15,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.config_entries import (
-    ConfigEntryState,
-    ConfigSubentry,
-    ConfigSubentryData,
-)
+from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -28,10 +24,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient
 from custom_components.smartenergy.binary_sensor import CheapHourBinarySensor
-from custom_components.smartenergy.const import (
-    NEXT_DAY_PRICES_HOUR,
-    SUBENTRY_TYPE_CHEAP_HOUR,
-)
+from custom_components.smartenergy.const import SUBENTRY_TYPE_CHEAP_HOUR
 from custom_components.smartenergy.sensor import SENSORS, SmartTimesSensor
 
 # Die Fixture deckt den 05.06.2026 ab; 10:00 UTC = 12:00 Ortszeit liegt darin.
