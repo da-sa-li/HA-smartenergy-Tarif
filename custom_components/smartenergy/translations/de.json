@@ -17,7 +17,10 @@
       }
     },
     "error": {
-      "cannot_connect": "Verbindung zur smartENERGY-API fehlgeschlagen."
+      "cannot_connect": "Verbindung zur smartENERGY-API fehlgeschlagen.",
+      "timeout": "Zeitüberschreitung beim Abruf der smartENERGY-API. Das deutet meist auf ein vorübergehendes Netzwerk- oder Lastproblem hin – bitte später erneut versuchen.",
+      "api_rejected": "Die smartENERGY-API hat die Anfrage abgelehnt. Der gewählte Tarif ist damit aktuell nicht abrufbar – bitte später erneut versuchen.",
+      "invalid_response": "Die smartENERGY-API hat eine unerwartete Antwort geliefert. Das deutet auf eine Formatänderung der API hin – bitte dazu ein Issue im GitHub-Repository der Integration melden."
     },
     "abort": {
       "single_instance_allowed": "smartENERGY ist bereits eingerichtet. Die API liefert für alle Nutzer dieselben Preise – eine zweite Instanz ist deshalb nicht möglich. Tarif, USt. und Netzgebiet lassen sich über „Konfigurieren“ am bestehenden Eintrag ändern."
@@ -38,6 +41,12 @@
           "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur smartENERGY-API fehlgeschlagen.",
+      "timeout": "Zeitüberschreitung beim Abruf der smartENERGY-API. Das deutet meist auf ein vorübergehendes Netzwerk- oder Lastproblem hin – bitte später erneut versuchen.",
+      "api_rejected": "Die smartENERGY-API hat die Anfrage abgelehnt. Der gewählte Tarif ist damit aktuell nicht abrufbar – bitte später erneut versuchen.",
+      "invalid_response": "Die smartENERGY-API hat eine unerwartete Antwort geliefert. Das deutet auf eine Formatänderung der API hin – bitte dazu ein Issue im GitHub-Repository der Integration melden."
     }
   },
   "config_subentries": {

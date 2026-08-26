@@ -15,11 +15,17 @@ from homeassistant.config_entries import (
     SubentryFlowResult,
 )
 from homeassistant.const import CONF_NAME
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import selector
 
-from .api import SmartTimesApiClient, SmartTimesApiError
+from .api import (
+    SmartTimesApiClient,
+    SmartTimesApiError,
+    SmartTimesApiPayloadError,
+    SmartTimesApiPermanentError,
+    SmartTimesApiTimeoutError,
+)
 from .const import (
     CONFIG_ENTRY_VERSION,
     CHEAP_MODE_CONSECUTIVE,
@@ -118,6 +124,36 @@ def _schema(tariff: str, include_vat: bool, grid_zone: str) -> vol.Schema:
     )
 
 
+async def _async_validate_tariff_connection(
+    hass: HomeAssistant, tariff: str
+) -> str | None:
+    """Prüft die Erreichbarkeit der zum Tarif passenden API.
+
+    Wird von Einrichtungs- und Options-Flow gemeinsam genutzt. Liefert bei
+    Erfolg ``None``, sonst den passenden Fehlerschlüssel für ``errors["base"]``.
+    """
+    session = async_get_clientsession(hass)
+    client = SmartTimesApiClient(
+        session,
+        TARIFF_API_URLS.get(tariff, TARIFF_API_URLS[DEFAULT_TARIFF]),
+    )
+    try:
+        await client.async_get_prices()
+    except SmartTimesApiTimeoutError:
+        _LOGGER.exception("Verbindungsprüfung zur smartENERGY-API fehlgeschlagen")
+        return "timeout"
+    except SmartTimesApiPermanentError:
+        _LOGGER.exception("Verbindungsprüfung zur smartENERGY-API fehlgeschlagen")
+        return "api_rejected"
+    except SmartTimesApiPayloadError:
+        _LOGGER.exception("Verbindungsprüfung zur smartENERGY-API fehlgeschlagen")
+        return "invalid_response"
+    except SmartTimesApiError:
+        _LOGGER.exception("Verbindungsprüfung zur smartENERGY-API fehlgeschlagen")
+        return "cannot_connect"
+    return None
+
+
 def _cheap_hour_schema(
     name: str | None = None,
     cheap_hours: float = DEFAULT_CHEAP_HOURS,
@@ -168,18 +204,10 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             tariff = user_input.get(CONF_TARIFF, DEFAULT_TARIFF)
-            session = async_get_clientsession(self.hass)
             # Verbindung gegen die zum gewählten Tarif passende API testen.
-            client = SmartTimesApiClient(
-                session,
-                TARIFF_API_URLS.get(tariff, TARIFF_API_URLS[DEFAULT_TARIFF]),
-            )
-            try:
-                await client.async_get_prices()
-            except SmartTimesApiError:
-                # Genaue Ursache inkl. Stacktrace ins Log schreiben (diagnostizierbar).
-                _LOGGER.exception("Einrichtung fehlgeschlagen")
-                errors["base"] = "cannot_connect"
+            error_key = await _async_validate_tariff_connection(self.hass, tariff)
+            if error_key is not None:
+                errors["base"] = error_key
             else:
                 return self.async_create_entry(
                     title=_title(tariff),
@@ -232,25 +260,46 @@ class SmartTimesOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Verwaltet die Optionen."""
-        if user_input is not None:
-            # Titel an den gewählten Tarif anpassen (nur bei Änderung), damit er
-            # nach einem Tarifwechsel nicht veraltet; der Update-Listener lädt
-            # die Integration anschließend ohnehin neu.
-            new_title = _title(user_input.get(CONF_TARIFF, DEFAULT_TARIFF))
-            if new_title != self.config_entry.title:
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, title=new_title
-                )
-            return self.async_create_entry(data=user_input)
-
+        errors: dict[str, str] = {}
         options = self.config_entry.options
+        if user_input is not None:
+            tariff = user_input.get(CONF_TARIFF, DEFAULT_TARIFF)
+            old_tariff = options.get(CONF_TARIFF, DEFAULT_TARIFF)
+            # Verbindung nur bei einem tatsächlichen Tarifwechsel prüfen – sonst
+            # verhindert eine gestörte smartENERGY-API auch das bloße Ändern von
+            # Netzgebiet oder USt.-Anzeige, die mit dem API-Endpunkt nichts zu
+            # tun haben.
+            if tariff != old_tariff:
+                error_key = await _async_validate_tariff_connection(
+                    self.hass, tariff
+                )
+                if error_key is not None:
+                    errors["base"] = error_key
+
+            if not errors:
+                # Titel und Optionen in einem Rutsch aktualisieren, damit der
+                # Update-Listener nur einmal neu lädt: async_create_entry
+                # aktualisiert die Optionen intern ohnehin noch einmal, das
+                # bleibt hier aber wirkungslos, weil sie schon auf demselben
+                # Stand stehen (async_update_entry löst den Listener nur bei
+                # einer tatsächlichen Änderung aus).
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, title=_title(tariff), options=user_input
+                )
+                return self.async_create_entry(data=user_input)
+
+        # Bei einem Verbindungsfehler die bereits getroffene Auswahl erhalten,
+        # statt auf die gespeicherten Optionen zurückzufallen (analog zum
+        # Einrichtungs-Flow).
+        current = user_input or options
         return self.async_show_form(
             step_id="init",
             data_schema=_schema(
-                options.get(CONF_TARIFF, DEFAULT_TARIFF),
-                options.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
-                options.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE),
+                current.get(CONF_TARIFF, DEFAULT_TARIFF),
+                current.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
+                current.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE),
             ),
+            errors=errors,
         )
 
 
