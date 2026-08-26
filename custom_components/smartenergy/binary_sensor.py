@@ -24,7 +24,7 @@ from .const import (
     to_eur,
 )
 from .coordinator import SmartTimesCoordinator
-from .entity import CheapHourEntity
+from .entity import CheapHourEntity, hub_device_id
 
 # Reine Koordinator-Lesesensoren ohne eigene API-Aufrufe oder Aktionen – eine
 # Drosselung paralleler Updates ist daher nicht nötig.
@@ -38,11 +38,16 @@ async def async_setup_entry(
 ) -> None:
     """Richtet je Untereintrag einen „Günstige Stunde"-Binary-Sensor ein."""
     coordinator = entry.runtime_data
+    # Gerät, an dem die Untereintrags-Geräte als „verbunden über" hängen.
+    # `__init__.async_setup_entry` hat es vor dem Weiterreichen angelegt.
+    hub_id = hub_device_id(hass, entry)
     for subentry in entry.subentries.values():
         if subentry.subentry_type != SUBENTRY_TYPE_CHEAP_HOUR:
             continue
+        # Ein Aufruf je Untereintrag: `config_subentry_id` gilt für die ganze
+        # Charge und bindet Gerät wie Entität an genau diesen Untereintrag.
         async_add_entities(
-            [CheapHourBinarySensor(coordinator, subentry)],
+            [CheapHourBinarySensor(coordinator, subentry, hub_id)],
             config_subentry_id=subentry.subentry_id,
         )
 

@@ -27,12 +27,21 @@ Konvention beibehalten.
   attribute 'ByteString'`. Die Entfernung wurde für den finalen 3.14.0-Release zurückgenommen
   (jetzt für 3.17 vorgesehen), betrifft finale 3.14.x-Releases also nicht (siehe Issue #41).
 - **Mindestversion für HACS**: `hacs.json` führt `"homeassistant"` – die Version, ab der HACS
-  die Integration überhaupt anbietet. Sie folgt der oben genannten Zielruntime (**2026.3.0**,
-  die erste Home-Assistant-Reihe auf Python 3.14) und **nicht** der Version, die
+  die Integration überhaupt anbietet. Sie folgt **nicht** der Version, die
   `pytest-homeassistant-custom-component` gerade nachzieht: Letztere ist die jeweils
   *neueste* getestete Version, nicht die *niedrigste* lauffähige – als Mindestangabe
-  eingetragen schlösse sie alle Nutzer aus, die nicht sofort aktualisieren. Beim Anheben der
-  Zielruntime diesen Wert mitziehen.
+  eingetragen schlösse sie alle Nutzer aus, die nicht sofort aktualisieren.
+
+  Maßgeblich ist stattdessen die **niedrigste Version, auf der der Code tatsächlich läuft**.
+  Das ist zunächst die oben genannte Zielruntime (2026.3.0, die erste Home-Assistant-Reihe
+  auf Python 3.14); beim Anheben der Zielruntime den Wert mitziehen. Nutzt der Code eine
+  API, die es erst später gibt, zählt diese – und der Grund gehört hierher, damit der Wert
+  nicht später als unbegründet zurückgedreht wird. Aktuell gilt **2026.8.0** wegen
+  `DeviceInfo["via_device_id"]`: Der Schlüssel existiert erst ab Home Assistant 2026.8, und
+  sein Vorgänger `via_device` wird ab 2026.9 als veraltet gemeldet (Entfernung 2027.8) –
+  eine Log-Warnung bei jedem Nutzer, die die Integration namentlich nennt. Für Nutzer auf
+  älteren Reihen bricht dadurch nichts: HACS bietet ihnen die neue Fassung schlicht nicht
+  an, die installierte läuft weiter.
 
 ## Befehle
 
