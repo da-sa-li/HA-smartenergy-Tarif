@@ -26,7 +26,8 @@ Stimmt der Gesamtpreis nicht mit der Abrechnung überein, ist meist das **Netzge
 
 Der Diagnose-Sensor **Preise für morgen verfügbar** zeigt, ob die Preise des
 Folgetags schon eingetroffen sind. Sein Attribut `expected_after` nennt den
-Zeitpunkt, ab dem die API sie zusagt (17 Uhr Ortszeit).
+Zeitpunkt, ab dem die Integration sie erwartet – 17 Uhr Ortszeit zuzüglich eines
+kleinen, je Installation verschiedenen Abruf-Versatzes von bis zu 20 Minuten.
 
 * **Vor dieser Zeit ist `off` der Normalzustand** – die Preise sind schlicht
   noch nicht veröffentlicht, es ist nichts zu tun.

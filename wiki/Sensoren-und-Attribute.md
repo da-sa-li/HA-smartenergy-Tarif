@@ -32,28 +32,28 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 | `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen (Gesamtpreis, EUR/kWh) |
 | `next_price` / `next_price_start` | Gesamtpreis und Beginn des nächsten Intervalls |
 | `prices_today` / `prices_tomorrow` | Vollständige **Gesamtpreis**-Vorschau für heute und morgen (`start`, `end`, `price`) |
-| `prices_tomorrow_valid` | `true`, sobald die Preise für morgen vorliegen. Trennt „noch nicht veröffentlicht" von „keine Preise" – `prices_tomorrow` ist in beiden Fällen leer |
+| `prices_tomorrow_valid` | `true`, sobald die Preise für morgen vorliegen. Trennt „noch nicht veröffentlicht“ von „keine Preise“ – `prices_tomorrow` ist in beiden Fällen leer |
 | `unit` | Einheit der Preisangaben in diesen Attributen (`EUR/kWh`) |
 | `source_unit` | Einheit, in der die API liefert – smartTIMES meldet `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz |
 
 > [!NOTE]
-> `prices_tomorrow` ist leer, solange die Preise für den nächsten Tag noch nicht veröffentlicht sind – laut API-Zusage ab 17 Uhr. Eine leere Liste bedeutet also nicht zwingend „keine Preise", sondern meist „noch nicht verfügbar".
+> `prices_tomorrow` ist leer, solange die Preise für den nächsten Tag noch nicht veröffentlicht sind – laut API-Zusage ab 17 Uhr. Eine leere Liste bedeutet also nicht zwingend „keine Preise“, sondern meist „noch nicht verfügbar“.
 >
 > Wer das in einer Automatisierung unterscheiden muss, nimmt das Attribut `prices_tomorrow_valid` oder den Binary-Sensor [Preise für morgen verfügbar](#binary-sensor-preise-für-morgen-verfügbar).
 
-# Binary-Sensor „Günstige Stunde"
+# Binary-Sensor „Günstige Stunde“
 
 Dieser Sensor ist `on` während der **günstigsten Stunden des Tages nach Gesamtkosten** (inkl. Netzentgelte und SNAP). Die Stundenanzahl wird je Untereintrag über `cheap_hours` konfiguriert.
 
 Die **Auswahllogik** (`cheap_mode`) legt fest, *wie* die günstigen Stunden bestimmt werden:
 
 - **Günstigste Einzelstunden** (`individual`, Standard): die billigsten Intervalle des Tages – sie dürfen über den Tag verteilt (zerteilt) sein. Geeignet für Verbraucher ohne feste Laufzeit (Boiler, Wallbox).
-- **Zusammenhängender Block** (`consecutive`): das günstigste *lückenlose* Zeitfenster aus `cheap_hours` „am Stück" – für Geräte, deren Laufzeit nicht unterbrochen werden darf (Waschmaschine, Geschirrspüler). Der Block wird bei Preisgleichstand **nie** verlängert: Die eingestellte Länge gilt hier immer exakt, denn genau dafür gibt es diese Betriebsart.
+- **Zusammenhängender Block** (`consecutive`): das günstigste *lückenlose* Zeitfenster aus `cheap_hours` „am Stück“ – für Geräte, deren Laufzeit nicht unterbrochen werden darf (Waschmaschine, Geschirrspüler). Der Block wird bei Preisgleichstand **nie** verlängert: Die eingestellte Länge gilt hier immer exakt, denn genau dafür gibt es diese Betriebsart.
 
 ## Stundenzahl exakt einhalten (`exact_hours`)
 
-Kosten mehrere Intervalle genau so viel wie das teuerste noch ausgewählte, ist die Auswahl unter ihnen willkürlich. Diese Option legt fest, wie damit umgegangen wird – sie wirkt **nur** bei „Günstigste Einzelstunden".
+Kosten mehrere Intervalle genau so viel wie das teuerste noch ausgewählte, ist die Auswahl unter ihnen willkürlich. Diese Option legt fest, wie damit umgegangen wird – sie wirkt **nur** bei „Günstigste Einzelstunden“.
 
 - **Eingeschaltet (Vorgabe seit 4.0.0):** Der Sensor liefert exakt die eingestellte Stundenzahl.
 - **Ausgeschaltet:** Alle preisgleichen Intervalle werden mitmarkiert. Der Sensor ist dann **länger an als eingestellt**, aber nie zu einem höheren Preis – alle zusätzlichen Intervalle liegen exakt auf dem Grenzpreis. Sinnvoll für selbstbegrenzende Verbraucher (Boiler mit Thermostat, Wallbox mit Ziel-Ladestand), die eine zusätzliche Gelegenheit zum selben Preis mitnehmen können.
@@ -88,9 +88,9 @@ Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist gen
 
 `exceeds_cheap_hours` in `cheap_windows` ist `true`, wenn der Block wegen eines Preis-Gleichstands über die eingestellte Stundenzahl hinausreicht. Die Angabe ist rein informativ – auf das Schaltverhalten wirkt sie sich nicht aus. Bei eingeschaltetem `exact_hours` und im Blockmodus ist sie immer `false`.
 
-# Sensor „Nächster günstiger Start"
+# Sensor „Nächster günstiger Start“
 
-Je Untereintrag entsteht neben dem Binary-Sensor ein **Zeitstempel-Sensor** mit dem Beginn des nächsten günstigen Fensters. Er trägt `device_class: timestamp`, und genau darum geht es: Der `time`-Trigger von Home Assistant nimmt unter `at:` nur Entitäten mit dieser Geräteklasse. Ein Attribut – auch `next_cheap_start` am Binary-Sensor – lässt sich dort nicht referenzieren, weshalb „30 Minuten vor dem günstigen Fenster vorheizen" bislang einen Template-Sensor brauchte. Ein Beispiel steht unter [Automatisierungsbeispiele](Automatisierungsbeispiele).
+Je Untereintrag entsteht neben dem Binary-Sensor ein **Zeitstempel-Sensor** mit dem Beginn des nächsten günstigen Fensters. Er trägt `device_class: timestamp`, und genau darum geht es: Der `time`-Trigger von Home Assistant nimmt unter `at:` nur Entitäten mit dieser Geräteklasse. Ein Attribut – auch `next_cheap_start` am Binary-Sensor – lässt sich dort nicht referenzieren, weshalb „30 Minuten vor dem günstigen Fenster vorheizen“ bislang einen Template-Sensor brauchte. Ein Beispiel steht unter [Automatisierungsbeispiele](Automatisierungsbeispiele).
 
 Der Wert **enthält die Last-Glättung bereits** und stimmt damit sekundengenau mit dem Zeitpunkt überein, zu dem der zugehörige Binary-Sensor auf `on` geht.
 
@@ -99,19 +99,22 @@ Der Wert **enthält die Last-Glättung bereits** und stimmt damit sekundengenau 
 
 Der Sensor führt keine Einheit und keine Langzeitstatistik; beides gibt es für Zeitstempel nicht.
 
-# Binary-Sensor „Preise für morgen verfügbar"
+# Binary-Sensor „Preise für morgen verfügbar“
 
 Ein Diagnose-Sensor am Gerät des Strompreishelfers. Er ist `on`, sobald die Preise für den Folgetag im Zwischenspeicher liegen.
 
-Ohne ihn lässt sich „noch nicht veröffentlicht" nicht von „keine Preise" unterscheiden: `prices_tomorrow` ist in beiden Fällen eine leere Liste. Er ist damit der natürliche Auslöser für „Tagesplan neu rechnen, sobald die Morgenpreise da sind".
+Ohne ihn lässt sich „noch nicht veröffentlicht“ nicht von „keine Preise“ unterscheiden: `prices_tomorrow` ist in beiden Fällen eine leere Liste. Er ist damit der natürliche Auslöser für „Tagesplan neu rechnen, sobald die Morgenpreise da sind“.
 
 | Attribut | Beschreibung |
 |---|---|
 | `price_count` | Anzahl der bereits vorliegenden Intervalle für morgen (ein voller Tag sind 96 Viertelstunden) |
-| `expected_after` | Zeitpunkt, ab dem die API die Preise zusagt (17 Uhr Ortszeit). Vor dieser Zeit ist `off` der Normalzustand, danach ein Hinweis auf eine Störung beim Anbieter |
+| `expected_after` | Zeitpunkt, ab dem die Integration die Preise erwartet: 17 Uhr Ortszeit zuzüglich des Abruf-Versatzes dieser Installation (bis zu 20 Minuten, siehe unten). Vor dieser Zeit ist `off` der Normalzustand, danach ein Hinweis auf eine Störung beim Anbieter |
 
 > [!NOTE]
-> Die Einordnung als **Diagnose** blendet den Sensor lediglich aus der Gerätekarte aus (er steht dort unter „Diagnose"). Als Auslöser einer Automatisierung, in Vorlagen und in der Historie ist er uneingeschränkt nutzbar.
+> Die 17 Uhr sind die Zusage der API; die Integration ruft absichtlich erst ein paar Minuten später ab, damit nicht alle Installationen zur selben Sekunde anfragen. Dieser Versatz ist je Installation und Tag verschieden und in `expected_after` bereits eingerechnet.
+
+> [!NOTE]
+> Die Einordnung als **Diagnose** blendet den Sensor lediglich aus der Gerätekarte aus (er steht dort unter „Diagnose“). Als Auslöser einer Automatisierung, in Vorlagen und in der Historie ist er uneingeschränkt nutzbar.
 >
 > Er trägt bewusst **keine** `device_class`: `problem` kehrte die Bedeutung um und wiese den planmäßigen Zustand vor 17 Uhr als Störung aus.
 

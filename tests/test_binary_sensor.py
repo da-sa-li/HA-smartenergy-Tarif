@@ -10,7 +10,7 @@ als Invariante festgehalten.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -24,7 +24,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient
 from custom_components.smartenergy.binary_sensor import CheapHourBinarySensor
-from custom_components.smartenergy.const import SUBENTRY_TYPE_CHEAP_HOUR
+from custom_components.smartenergy.const import (
+    FETCH_JITTER_MINUTES,
+    NEXT_DAY_PRICES_HOUR,
+    SUBENTRY_TYPE_CHEAP_HOUR,
+)
 from custom_components.smartenergy.sensor import SENSORS, SmartTimesSensor
 
 # Die Fixture deckt den 05.06.2026 ab; 10:00 UTC = 12:00 Ortszeit liegt darin.
@@ -34,7 +38,7 @@ ZEITPUNKT = "2026-06-05 10:00:00"
 
 @pytest.fixture
 def untereintrag() -> ConfigSubentry:
-    """Ein „Günstige Stunde"-Untereintrag, wie ihn der Subentry-Flow anlegt."""
+    """Ein „Günstige Stunde“-Untereintrag, wie ihn der Subentry-Flow anlegt."""
     return ConfigSubentry(
         data={"cheap_hours": 4.0, "cheap_mode": "individual", "exact_hours": False},
         subentry_type=SUBENTRY_TYPE_CHEAP_HOUR,
@@ -102,7 +106,7 @@ def test_sensor_plattform_schliesst_ihre_listen_ebenfalls_aus():
     }
 
 
-# --- Diagnose-Sensor „Preise für morgen verfügbar" --------------------------- #
+# --- Diagnose-Sensor „Preise für morgen verfügbar“ --------------------------- #
 #
 # Beide Fixtures decken genau den 05. und 06.06.2026 ab (je 96 Viertelstunden,
 # letztes Intervall endet am 07.06. um 00:00). Vom 05.06. aus gesehen ist der
@@ -145,8 +149,41 @@ async def test_morgenpreise_vorhanden(
     assert zustand.state == "on"
     # 96 Viertelstunden = ein vollständiger Tag.
     assert zustand.attributes["price_count"] == 96
-    # Die API sagt die Preise ab NEXT_DAY_PRICES_HOUR Ortszeit zu.
-    assert zustand.attributes["expected_after"] == "2026-06-05T17:00:00+02:00"
+
+    # Die API sagt die Preise ab NEXT_DAY_PRICES_HOUR Ortszeit zu; die
+    # Integration wartet zusätzlich ihren Abruf-Jitter ab (0 bis unter
+    # FETCH_JITTER_MINUTES Minuten, deterministisch je Eintrag und Tag).
+    erwartet_ab = datetime.fromisoformat(zustand.attributes["expected_after"])
+    assert erwartet_ab.date() == date(2026, 6, 5)
+    assert erwartet_ab.hour == NEXT_DAY_PRICES_HOUR
+    assert 0 <= erwartet_ab.minute < FETCH_JITTER_MINUTES
+    assert (erwartet_ab.second, erwartet_ab.microsecond) == (0, 0)
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")
+async def test_expected_after_ist_genau_die_abruf_schwelle(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Das Attribut nennt exakt den Moment, ab dem die Integration Preise erwartet.
+
+    Gäbe es glatt NEXT_DAY_PRICES_HOUR aus, wäre ein leerer Morgen-Tag zwischen
+    17:00 und 17:00 + Jitter fälschlich als überfällig ausgewiesen – obwohl der
+    Koordinator bis dahin noch gar keinen Abruf versucht hat. Geprüft wird
+    deshalb die Umschaltung selbst und nicht eine fest verdrahtete Uhrzeit: Der
+    Jitter hängt an der Eintrags-ID, die je Testlauf neu vergeben wird.
+    """
+    entry = await _richte_ein(hass, smarttimes_payload)
+    coordinator = entry.runtime_data
+
+    erwartet_ab = datetime.fromisoformat(
+        hass.states.get(MORGEN_ENTITAET).attributes["expected_after"]
+    )
+
+    assert coordinator._next_day_prices_due(erwartet_ab) is True
+    assert (
+        coordinator._next_day_prices_due(erwartet_ab - timedelta(minutes=1))
+        is False
+    )
 
 
 @pytest.mark.freeze_time("2026-06-06 10:00:00")  # 12:00 Ortszeit am letzten Tag
@@ -156,7 +193,7 @@ async def test_morgenpreise_fehlen(
     """Am 06.06. fehlen die Preise für den 07.06. – der Sensor ist aus.
 
     Genau diesen Fall konnte eine Automatisierung bisher nicht erkennen:
-    ``prices_tomorrow`` ist hier und bei „gar keine Preise" gleichermaßen leer.
+    ``prices_tomorrow`` ist hier und bei „gar keine Preise“ gleichermaßen leer.
     """
     await _richte_ein(hass, smarttimes_payload)
 

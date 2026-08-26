@@ -1,4 +1,4 @@
-"""Binary-Sensoren „Günstige Stunde" für die smartTIMES Integration.
+"""Binary-Sensoren „Günstige Stunde“ für die smartTIMES Integration.
 
 Jeder Sensor markiert, ob das aktuelle Intervall zu den günstigsten Stunden des
 Tages zählt – gemessen an den **gesamten variablen Kosten** (Arbeitspreis +
@@ -26,7 +26,6 @@ from homeassistant.util import dt as dt_util
 from . import SmartTimesConfigEntry
 from .const import (
     JITTER_SPAN_SECONDS,
-    NEXT_DAY_PRICES_HOUR,
     SUBENTRY_TYPE_CHEAP_HOUR,
     UNIT_EUR_PER_KWH,
     to_eur,
@@ -53,7 +52,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     async_add_entities([TomorrowPricesBinarySensor(coordinator, entry)])
 
-    # Gerät, an dem die Untereintrags-Geräte als „verbunden über" hängen.
+    # Gerät, an dem die Untereintrags-Geräte als „verbunden über“ hängen.
     # `__init__.async_setup_entry` hat es vor dem Weiterreichen angelegt.
     hub_id = hub_device_id(hass, entry)
     for subentry in entry.subentries.values():
@@ -93,7 +92,7 @@ class CheapHourBinarySensor(CheapHourEntity, BinarySensorEntity):
         """Ob der aktuelle Zeitpunkt im (gejitterten) günstigen Fenster liegt."""
         data = self.coordinator.data
         now = dt_util.now()
-        # Ohne Preisabdeckung für „jetzt" ist der Zustand unbekannt.
+        # Ohne Preisabdeckung für „jetzt“ ist der Zustand unbekannt.
         if data.current(now) is None:
             return None
         return data.is_cheap_now(
@@ -180,10 +179,10 @@ class TomorrowPricesBinarySensor(
 ):
     """`on`, sobald die Preise für den Folgetag vorliegen.
 
-    Ohne diesen Sensor lässt sich „noch nicht veröffentlicht" nicht von „leer"
+    Ohne diesen Sensor lässt sich „noch nicht veröffentlicht“ nicht von „leer“
     unterscheiden: Das Attribut ``prices_tomorrow`` ist in beiden Fällen eine
     leere Liste. Er ist damit der natürliche Auslöser für „Tagesplan neu
-    rechnen, sobald die Morgenpreise da sind" – per Vorlage war das nur mit
+    rechnen, sobald die Morgenpreise da sind“ – per Vorlage war das nur mit
     Abfragen im Sekundentakt nachzubauen.
 
     Bewusst **ohne** ``device_class``: ``PROBLEM`` kehrte die Bedeutung um und
@@ -213,14 +212,15 @@ class TomorrowPricesBinarySensor(
     def extra_state_attributes(self) -> dict:
         """Anzahl der Intervalle und die zugesagte Veröffentlichungszeit.
 
-        Erst zusammen sind „planmäßig noch nicht da" und „überfällig"
+        Erst zusammen sind „planmäßig noch nicht da“ und „überfällig“
         auseinanderzuhalten: Vor ``expected_after`` ist ``off`` der
         Normalzustand, danach ein Hinweis auf eine Störung beim Anbieter.
         """
-        erwartet_ab = dt_util.start_of_local_day().replace(
-            hour=NEXT_DAY_PRICES_HOUR
-        )
         return {
             "price_count": len(self.coordinator.data.for_day(_morgen())),
-            "expected_after": erwartet_ab.isoformat(),
+            # Über den Koordinator, nicht selbst gebildet: Der Abruf-Jitter
+            # verschiebt die Schwelle um bis zu FETCH_JITTER_MINUTES nach hinten.
+            "expected_after": self.coordinator.next_day_prices_expected_after(
+                dt_util.now()
+            ).isoformat(),
         }
