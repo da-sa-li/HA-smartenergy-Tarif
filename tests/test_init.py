@@ -38,8 +38,8 @@ async def test_setup_and_unload(
     assert entry.state is ConfigEntryState.LOADED
 
     # 6 Sensor-Entities (die sechs Einträge in SENSORS in sensor.py) und der
-    # Diagnose-Binary-Sensor „Preise für morgen verfügbar". Kein „Günstige
-    # Stunde"-Untereintrag angelegt, also auch keine Untereintrags-Entitäten.
+    # Diagnose-Binary-Sensor „Preise für morgen verfügbar“. Kein „Günstige
+    # Stunde“-Untereintrag angelegt, also auch keine Untereintrags-Entitäten.
     registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(registry, entry.entry_id)
     assert sum(e.domain == "sensor" for e in entities) == 6
@@ -84,9 +84,9 @@ async def test_untereintrags_geraet_haengt_am_hub(
 ):
     """Das Gerät eines Untereintrags ist mit dem Hub-Gerät verknüpft.
 
-    Ohne die Verknüpfung stünden „Boiler" und „Strompreishelfer" im
+    Ohne die Verknüpfung stünden „Boiler“ und „Strompreishelfer“ im
     Geräteregister gleichrangig nebeneinander; auf der Geräteseite fehlte das
-    „Verbunden über".
+    „Verbunden über“.
 
     Dass das Hub-Gerät zum nötigen Zeitpunkt schon besteht, prüft
     ``test_hub_geraet_existiert_vor_dem_weiterreichen`` – hier ginge es sonst
@@ -209,7 +209,7 @@ async def test_ha_instanzen_laufen_auf_europe_vienna(hass: HomeAssistant):
     Wächter für die Fixture in ``conftest.py``: Das Test-Harness setzt von sich
     aus ``US/Pacific``. Fiele die Überschreibung weg – etwa weil eine neue
     Fassung des Harness die Fixture anders benennt –, verschöben sich
-    SNAP-Fenster, Tagesgrenzen und „morgen" um neun Stunden. Tests, deren
+    SNAP-Fenster, Tagesgrenzen und „morgen“ um neun Stunden. Tests, deren
     Sollwerte von Hand aus der Spezifikation abgeleitet sind, träfen dann
     bestenfalls zufällig zu, und das fiele ohne diesen Test niemandem auf.
     """

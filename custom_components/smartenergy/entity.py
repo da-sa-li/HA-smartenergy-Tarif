@@ -4,8 +4,8 @@ Die Integration legt zwei Sorten von Geräten an:
 
 * **Das Hub-Gerät** – eines je Config-Eintrag, es trägt die Preissensoren und
   den Diagnose-Binary-Sensor.
-* **Ein Gerät je „Günstige Stunde"-Untereintrag** – benannt nach dem
-  Verbraucher („Boiler", „Wallbox"), es trägt dessen Entitäten.
+* **Ein Gerät je „Günstige Stunde“-Untereintrag** – benannt nach dem
+  Verbraucher („Boiler“, „Wallbox“), es trägt dessen Entitäten.
 
 Beide Geräte-Infos standen früher als wörtlich ausgeschriebene ``DeviceInfo``
 in ``sensor.py`` bzw. ``binary_sensor.py``. Seit je Untereintrag **mehrere**
@@ -80,10 +80,10 @@ def hub_device_id(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
 def cheap_hour_device_info(
     subentry: ConfigSubentry, tariff_name: str, hub_id: str | None = None
 ) -> DeviceInfo:
-    """Geräte-Info eines „Günstige Stunde"-Untereintrags.
+    """Geräte-Info eines „Günstige Stunde“-Untereintrags.
 
-    ``hub_id`` verknüpft das Gerät als „verbunden über" mit dem Hub-Gerät, so
-    dass die Zugehörigkeit „Boiler-Sensor gehört zum Strompreishelfer" auf der
+    ``hub_id`` verknüpft das Gerät als „verbunden über“ mit dem Hub-Gerät, so
+    dass die Zugehörigkeit „Boiler-Sensor gehört zum Strompreishelfer“ auf der
     Geräteseite sichtbar wird. Fehlt die ID, bleibt der Schlüssel weg statt
     ``None`` zu setzen – siehe :func:`hub_device_id`.
     """
@@ -101,7 +101,7 @@ def cheap_hour_device_info(
 
 
 class CheapHourEntity(CoordinatorEntity[SmartTimesCoordinator]):
-    """Basis der Entitäten eines „Günstige Stunde"-Untereintrags.
+    """Basis der Entitäten eines „Günstige Stunde“-Untereintrags.
 
     Bündelt, was Binary-Sensor und Zeitstempel-Sensor gemeinsam aus dem
     Untereintrag ziehen: die Schaltparameter, den Last-Glättungs-Versatz und
@@ -121,7 +121,7 @@ class CheapHourEntity(CoordinatorEntity[SmartTimesCoordinator]):
         super().__init__(coordinator)
         self._cheap_hours: float = subentry.data[CONF_CHEAP_HOURS]
         # Auswahllogik: günstigste Einzelstunden (dürfen zerteilt sein) oder ein
-        # zusammenhängender Block „am Stück". Ältere Untereinträge ohne diese
+        # zusammenhängender Block „am Stück“. Ältere Untereinträge ohne diese
         # Option fallen auf den Standard (Einzelstunden) zurück.
         self._cheap_mode: str = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
         # Die eingestellte Stundenzahl exakt einhalten, statt bei

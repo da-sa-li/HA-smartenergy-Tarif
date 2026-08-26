@@ -241,7 +241,7 @@ async def test_validate_tariff_connection_maps_error_types(
 
 
 async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
-    """Der Untereintrags-Flow legt einen „Günstige Stunde"-Sensor an."""
+    """Der Untereintrags-Flow legt einen „Günstige Stunde“-Sensor an."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
@@ -275,7 +275,7 @@ async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
 async def test_subentry_create_with_exact_hours(
     hass: HomeAssistant, enable_custom_integrations
 ):
-    """Die Option „Stundenzahl exakt einhalten" wird im Untereintrag gespeichert."""
+    """Die Option „Stundenzahl exakt einhalten“ wird im Untereintrag gespeichert."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,

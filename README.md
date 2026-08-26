@@ -26,7 +26,7 @@ günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
 - 🟢 **Günstige Stunde** als Binary-Sensor – `on` in den günstigsten Stunden des
   Tages (nach **Gesamtkosten**), ideal zum Schalten von Boiler & Co. Wahlweise
   als **günstigste Einzelstunden** (dürfen über den Tag verteilt sein) oder als
-  **zusammenhängender Block „am Stück"** für Geräte mit fester Laufzeit
+  **zusammenhängender Block „am Stück“** für Geräte mit fester Laufzeit
   (Waschmaschine, Geschirrspüler)
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchst-**Gesamtpreis** von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
@@ -110,7 +110,7 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
      Tages – sie dürfen über den Tag verteilt (zerteilt) sein. Ideal für
      Verbraucher ohne feste Laufzeit (Boiler, Wallbox).
    - **Zusammenhängender Block**: ein einziges günstigstes Zeitfenster „am
-     Stück". Wichtig für Geräte mit fester, ununterbrochener Laufzeit
+     Stück“. Wichtig für Geräte mit fester, ununterbrochener Laufzeit
      (Waschmaschine, Geschirrspüler).
 4. **Stundenzahl exakt einhalten** (Vorgabe: **ein**) entscheidet, was bei
    Preisgleichstand passiert. Eingeschaltet liefert der Sensor exakt die
@@ -187,7 +187,7 @@ ebenfalls darauf.
 > [!TIP]
 > **Nächster günstiger Start** ist ein Zeitstempel-Sensor und lässt sich damit
 > direkt als `at:` eines `time`-Triggers verwenden – auch mit Vorlauf, etwa
-> „30 Minuten vorher vorheizen". Als Attribut allein ginge das nicht.
+> „30 Minuten vorher vorheizen“. Als Attribut allein ginge das nicht.
 > **Preise für morgen verfügbar** schaltet auf `on`, sobald die Preise des
 > Folgetags eingetroffen sind, und ist der passende Auslöser, um den Tagesplan
 > neu zu rechnen. Beispiele stehen im Wiki unter

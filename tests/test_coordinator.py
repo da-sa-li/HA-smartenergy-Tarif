@@ -255,7 +255,7 @@ async def test_min_interval_blocks_refetch_despite_demand(
 ):
     """Die Bremse verhindert den Abruf auch dann, wenn fachlich Bedarf bestünde.
 
-    ``_needs_fetch`` wird hier auf „immer wahr" gesetzt – genau der Zustand, den
+    ``_needs_fetch`` wird hier auf „immer wahr“ gesetzt – genau der Zustand, den
     ein künftiger Umbau versehentlich herstellen könnte. Die API darf trotzdem
     nicht angefragt werden, und die gecachten Preise bleiben erhalten.
     """
@@ -347,7 +347,7 @@ async def test_fetch_jitter_spreads_across_entries(hass: HomeAssistant):
 
     Bei Gleichverteilung über 20 Minuten sind aus 40 IDs rund 17 verschiedene
     Werte zu erwarten. Geprüft wird nur die deutlich lockerere Schranke „mindestens
-    die Hälfte der Minuten belegt", damit der Test die Streuung nachweist, ohne
+    die Hälfte der Minuten belegt“, damit der Test die Streuung nachweist, ohne
     an einem konkreten Hash-Verfahren zu kleben.
     """
     values = {

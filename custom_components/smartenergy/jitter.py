@@ -1,4 +1,4 @@
-"""Deterministischer Zeit-Jitter für die „Günstige Stunde"-Sensoren.
+"""Deterministischer Zeit-Jitter für die „Günstige Stunde“-Sensoren.
 
 Damit nicht hunderte Verbraucher exakt zur selben Sekunde (z. B. 10:00:00)
 gleichzeitig eine große Last schalten und so eine Lastspitze im Stromnetz
@@ -22,7 +22,7 @@ Beide Schaltflanken werden dabei **gleich** behandelt: Sie wandern nach innen,
 sodass das Fenster den günstigen Block nie verlässt (siehe
 :func:`jittered_window`).
 
-Wichtig: :func:`jittered_window` wirkt ausschließlich auf den „Günstige Stunde"-
+Wichtig: :func:`jittered_window` wirkt ausschließlich auf den „Günstige Stunde“-
 Binary-Sensor und verändert weder die Preis-Sensoren noch die zugrunde
 liegenden Preisdaten. :func:`cheap_phase` ist dagegen ein allgemeiner Helfer und
 liefert auch dem Koordinator den Versatz seines täglichen API-Abrufs (siehe
@@ -104,7 +104,7 @@ def jittered_window(
     # Sicherheitsnetz für (hier nicht vorkommende) extrem kurze Blöcke: Der
     # Jitter darf den Block nie ganz aufzehren. Ein auf einen Punkt
     # zusammengefallenes Fenster (`off == on`) wäre leer – `on <= moment < off`
-    # träfe nie zu und der Sensor bliebe dauerhaft „aus". Lieber ungejittert
+    # träfe nie zu und der Sensor bliebe dauerhaft „aus“. Lieber ungejittert
     # exakt den Block schalten als gar nicht: Beide Flanken bleiben damit
     # innerhalb ihres oben zugesagten Bereichs (`on` nicht vor `start`, `off`
     # nicht nach `end`), nur eben ohne Last-Glättung.

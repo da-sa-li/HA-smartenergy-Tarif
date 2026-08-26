@@ -151,7 +151,7 @@ def _is_available(description: SmartTimesSensorDescription, data: SmartTimesData
 
     Betrifft bislang nur die Grundgebühr: smartTIMES liefert den optionalen
     ``basicFee``-Block der API, smartCONTROL nicht. Ohne ihn stünde der Sensor
-    dauerhaft auf „unbekannt" und sähe aus wie ein Defekt.
+    dauerhaft auf „unbekannt“ und sähe aus wie ein Defekt.
     """
     if description.key == "basic_fee":
         return bool(data.basic_fees)
@@ -191,7 +191,7 @@ async def async_setup_entry(
         if _is_available(description, data)
     )
 
-    # Gerät, an dem die Untereintrags-Geräte als „verbunden über" hängen.
+    # Gerät, an dem die Untereintrags-Geräte als „verbunden über“ hängen.
     # `__init__.async_setup_entry` hat es vor dem Weiterreichen angelegt.
     hub_id = hub_device_id(hass, entry)
     for subentry in entry.subentries.values():
@@ -212,7 +212,7 @@ class NextCheapStartSensor(CheapHourEntity, SensorEntity):
     am Binary-Sensor: Der ``time``-Trigger von Home Assistant nimmt unter ``at:``
     ausschließlich Entitäten mit ``device_class: timestamp``. Ein Attribut lässt
     sich dort nicht referenzieren, weshalb „30 Minuten vor dem günstigen Fenster
-    vorheizen" bisher einen Template-Sensor brauchte.
+    vorheizen“ bisher einen Template-Sensor brauchte.
 
     Der Wert ist ``unknown``, solange kein nächstes Fenster bekannt ist – etwa
     spät abends, bevor die Preise für den Folgetag veröffentlicht sind. Ein
@@ -242,7 +242,7 @@ class NextCheapStartSensor(CheapHourEntity, SensorEntity):
 
         Der Wert enthält den Last-Glättungs-Versatz dieses Untereintrags bereits,
         stimmt also sekundengenau mit dem Schaltzeitpunkt des zugehörigen
-        „Günstige Stunde"-Binary-Sensors überein.
+        „Günstige Stunde“-Binary-Sensors überein.
         """
         return self.coordinator.data.next_cheap_on(
             dt_util.now(),

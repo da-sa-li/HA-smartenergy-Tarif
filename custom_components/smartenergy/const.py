@@ -40,7 +40,7 @@ TARIFF_API_URLS: Final[dict[str, str]] = {
 # Ende auf die Summe angewendet (siehe coordinator.py). Nur bei smartCONTROL > 0.
 SMARTCONTROL_HANDLING_FEE_NET: Final = 1.2
 
-# API-Doku-Seiten von smartENERGY (Geräte-Link „configuration_url").
+# API-Doku-Seiten von smartENERGY (Geräte-Link „configuration_url“).
 SMARTTIMES_DOC_URL: Final = "https://www.smartenergy.at/api-schnittstellen-smarttimes"
 SMARTENERGY_DOC_URL: Final = "https://www.smartenergy.at/api-schnittstellen"
 

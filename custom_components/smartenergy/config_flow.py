@@ -55,7 +55,7 @@ from .grid_fees import GRID_ZONES
 _LOGGER = logging.getLogger(__name__)
 
 def _title(tariff: str) -> str:
-    """Eintragstitel je Tarif (z. B. „smartCONTROL Strompreishelfer")."""
+    """Eintragstitel je Tarif (z. B. „smartCONTROL Strompreishelfer“)."""
     name = TARIFF_DISPLAY_NAMES.get(tariff, TARIFF_DISPLAY_NAMES[DEFAULT_TARIFF])
     return f"{name} Strompreishelfer"
 
@@ -160,7 +160,7 @@ def _cheap_hour_schema(
     cheap_mode: str = DEFAULT_CHEAP_MODE,
     exact_hours: bool = DEFAULT_EXACT_HOURS,
 ) -> vol.Schema:
-    """Schema für einen „Günstige Stunde"-Untereintrag (Name, Stundenzahl, Logik).
+    """Schema für einen „Günstige Stunde“-Untereintrag (Name, Stundenzahl, Logik).
 
     Der Name wird hier nur als ``str`` typisiert, damit das Schema für das
     Frontend serialisierbar bleibt (Callables/Validatoren wie ``vol.All`` mit
@@ -249,7 +249,7 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        """„Günstige Stunde"-Sensoren als Untereinträge unterstützen."""
+        """„Günstige Stunde“-Sensoren als Untereinträge unterstützen."""
         return {SUBENTRY_TYPE_CHEAP_HOUR: CheapHourSubentryFlowHandler}
 
 
@@ -304,12 +304,12 @@ class SmartTimesOptionsFlow(OptionsFlow):
 
 
 class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
-    """Flow zum Anlegen und Bearbeiten eines „Günstige Stunde"-Sensors."""
+    """Flow zum Anlegen und Bearbeiten eines „Günstige Stunde“-Sensors."""
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Einen neuen „Günstige Stunde"-Sensor (Untereintrag) anlegen."""
+        """Einen neuen „Günstige Stunde“-Sensor (Untereintrag) anlegen."""
         errors: dict[str, str] = {}
         if user_input is not None:
             name = user_input[CONF_NAME].strip()
@@ -352,7 +352,7 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Einen bestehenden „Günstige Stunde"-Sensor bearbeiten."""
+        """Einen bestehenden „Günstige Stunde“-Sensor bearbeiten."""
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
         if user_input is not None:

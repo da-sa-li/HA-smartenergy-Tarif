@@ -37,11 +37,11 @@ Konvention beibehalten.
   auf Python 3.14); beim Anheben der Zielruntime den Wert mitziehen. Nutzt der Code eine
   API, die es erst später gibt, zählt diese – und der Grund gehört hierher, damit der Wert
   nicht später als unbegründet zurückgedreht wird. Aktuell gilt **2026.8.0** wegen
-  `DeviceInfo["via_device_id"]`: Der Schlüssel existiert erst ab Home Assistant 2026.8, und
-  sein Vorgänger `via_device` wird ab 2026.9 als veraltet gemeldet (Entfernung 2027.8) –
-  eine Log-Warnung bei jedem Nutzer, die die Integration namentlich nennt. Für Nutzer auf
-  älteren Reihen bricht dadurch nichts: HACS bietet ihnen die neue Fassung schlicht nicht
-  an, die installierte läuft weiter.
+  `DeviceInfo["via_device_id"]`: Der Schlüssel existiert erst ab Home Assistant 2026.8.
+  Sein Vorgänger `via_device` ist **seit 2026.8** als veraltet markiert, wird **ab 2026.9**
+  zur Laufzeit gemeldet – eine Log-Warnung bei jedem Nutzer, die die Integration namentlich
+  nennt – und **2027.8** entfernt. Für Nutzer auf älteren Reihen bricht dadurch nichts: HACS
+  bietet ihnen die neue Fassung schlicht nicht an, die installierte läuft weiter.
 
 ## Befehle
 
@@ -78,7 +78,7 @@ in `tests/fixtures/`.
 
 **Zeitzone in Tests: durchgehend `Europe/Vienna`.** Die Integration gibt es nur in Österreich,
 und die gesamte handgerechnete Preis-Mathematik hängt an der Ortszeit – SNAP-Fenster
-(10–16 Uhr), Tagesgrenzen und „morgen". Zwei Fixtures in `conftest.py` stellen das sicher:
+(10–16 Uhr), Tagesgrenzen und „morgen“. Zwei Fixtures in `conftest.py` stellen das sicher:
 `_vienna_default_tz` (autouse) für Tests **ohne** HA-Instanz und eine Überschreibung der
 `hass`-Fixture für alle übrigen. Letztere ist nötig, weil
 `pytest-homeassistant-custom-component` beim Hochfahren fest `US/Pacific` setzt und die
@@ -105,7 +105,7 @@ Live-Lauf fehl, legt der Workflow ein Issue mit dem Label `live-api-fehler` an b
 kommentiert das bereits offene – die E-Mail-Benachrichtigung von GitHub ist bei geplanten
 Läufen zu unzuverlässig. Das Issue bleibt offen, bis es jemand von Hand schließt. Ein dritter
 Workflow (`wiki-push.yml`) veröffentlicht das Wiki und prüft nichts; er läuft nur bei Pushes
-auf `main`, die `wiki/` berühren (siehe „Dokumentation").
+auf `main`, die `wiki/` berühren (siehe „Dokumentation“).
 
 **Action-Referenzen in den Workflows:** `actions/checkout`, `actions/setup-python` und
 `Andrew-Chen-Wang/github-wiki-action` sind auf einen **Commit-SHA** gepinnt, mit der genauen
@@ -176,26 +176,26 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   (z. B. Elektrizitätsabgabe ab 2027) greifen **automatisch ohne Code-Änderung**.
 
 - **`grid_fees.py`** – **netzgebietsabhängige** Netzentgelte (Netzebene 7, Viertelstundenmessung,
-  Variante „ohne Leistungsmessung"). Enthält die **SNAP**-Logik (Sommer-Nieder-Arbeitspreis:
-  1. Apr–30. Sep, tgl. 10–16 Uhr, −20 % auf den Netz-Arbeitspreis). Werte sind **„Stand 2026"**
+  Variante „ohne Leistungsmessung“). Enthält die **SNAP**-Logik (Sommer-Nieder-Arbeitspreis:
+  1. Apr–30. Sep, tgl. 10–16 Uhr, −20 % auf den Netz-Arbeitspreis). Werte sind **„Stand 2026“**
   und müssen **jährlich** aktualisiert werden (gilt auch für den Förderbeitrag in
   `surcharges.py`).
 
 - **Günstige-Stunde-Sensoren** (`binary_sensor.py`) werden als **Config Subentries** angelegt –
   einer pro Verbraucher, mit eigener Stundenzahl (`cheap_hours`) und Auswahllogik (`cheap_mode`):
   - `individual`: günstigste **Einzel**-Intervalle (dürfen über den Tag verteilt sein).
-  - `consecutive`: ein **zusammenhängender Block** „am Stück".
-  `exact_hours` („Stundenzahl exakt einhalten", `DEFAULT_EXACT_HOURS`) entscheidet, was bei
+  - `consecutive`: ein **zusammenhängender Block** „am Stück“.
+  `exact_hours` („Stundenzahl exakt einhalten“, `DEFAULT_EXACT_HOURS`) entscheidet, was bei
   **Gleichstand** am Schwellwert passiert. **Vorgabe ist ein** – der Sensor liefert dann exakt
   die eingestellte Stundenzahl. Ausgeschaltet wird die Auswahl in `individual` erweitert (alle
   gleich teuren Intervalle mitmarkiert); betroffene Blöcke sind als `exceeds_cheap_hours`
   markiert. Das verteuert die kWh nie, verlängert aber die Einschaltdauer – und weil smartTIMES
   als Zeittarif nur **drei** Preisstufen kennt, liefert dort jede Stundenzahl zwischen 0,25 h
-  und 8 h dieselben 8 Stunden. Genau deshalb wurde die Vorgabe umgedreht: „4 Stunden" soll
+  und 8 h dieselben 8 Stunden. Genau deshalb wurde die Vorgabe umgedreht: „4 Stunden“ soll
   4 Stunden bedeuten. Ausschalten lohnt für selbstbegrenzende Verbraucher (Boiler mit
   Thermostat, Wallbox mit Ziel-Ladestand), die eine Gelegenheit zum selben Preis mitnehmen
   können. Dass Bestandssensoren ihr Verhalten behalten, sichert **nicht** die Vorgabe, sondern
-  `_migriere_exact_hours` (siehe „Schema-Migration"): Es trägt ihnen den alten Wert `False`
+  `_migriere_exact_hours` (siehe „Schema-Migration“): Es trägt ihnen den alten Wert `False`
   ausdrücklich ein. In `consecutive` wird **nie** erweitert und `exact_hours` ist wirkungslos:
   Eine feste Fensterlänge ist dort der Zweck der Betriebsart (Waschmaschine, Geschirrspüler).
 
@@ -245,7 +245,7 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   Damit lässt sich fast jeder Bruch vermeiden. Was bleibt, ist die Referenz **beim Nutzer**: Wer
   die alte Entity-ID in Automatisierungen, Vorlagen oder Dashboards stehen hat, muss sie
   anpassen. Eine umbenannte Entity-ID gehört deshalb in die Release-Notes, ins README **und ins
-  Wiki** – `wiki/` wird von keiner CI geprüft (siehe „Dokumentation").
+  Wiki** – `wiki/` wird von keiner CI geprüft (siehe „Dokumentation“).
 
 ## Wichtige Hinweise
 
@@ -296,8 +296,14 @@ Zuruf per `workflow_dispatch`) ins GitHub-Wiki. Daraus folgt:
 ## Release-Prozess
 
 1. Version in **`custom_components/smartenergy/manifest.json`** anheben (SemVer; Minor = neue
-   abwärtskompatible Features, Major = Breaking Change wie ein Domain-Wechsel). **Vorher prüfen,
-   ob sich der Bruch per Migration vermeiden lässt** (siehe „Schema-Migration" oben) – geänderte
+   abwärtskompatible Features, Major = Breaking Change wie ein Domain-Wechsel).
+
+   **Eine angehobene HA-Mindestversion in `hacs.json` ist für sich genommen kein Major.**
+   Bei Bestandsnutzern bricht dabei nichts: Wer die neue Reihe nicht fährt, dem bietet HACS
+   die Fassung gar nicht erst an, die installierte läuft unverändert weiter. Ein Bruch wäre
+   es nur, wenn sich zugleich eine Entity-ID, ein Attributname, eine Einheit oder das
+   Konfigurationsschema ändert. Der Hinweis gehört aber prominent in die Release-Notes. **Vorher prüfen,
+   ob sich der Bruch per Migration vermeiden lässt** (siehe „Schema-Migration“ oben) – geänderte
    Attributnamen, Einheiten und Entity-IDs sind für Nutzer spürbar, eine umgeschriebene
    `unique_id` oder ein nachgetragener Vorgabewert nicht.
 2. Mergen nach `main`.

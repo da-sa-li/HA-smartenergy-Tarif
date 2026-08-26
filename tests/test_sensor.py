@@ -80,7 +80,7 @@ async def test_smartcontrol_hat_keinen_grundgebuehr_sensor(
 ):
     """smartCONTROL liefert keinen basicFee-Block – der Sensor entfällt.
 
-    Vorher wurde er trotzdem angelegt und stand dauerhaft auf „unbekannt".
+    Vorher wurde er trotzdem angelegt und stand dauerhaft auf „unbekannt“.
     """
     entry = await _richte_ein(hass, smartcontrol_payload, "smartcontrol")
 
@@ -102,7 +102,7 @@ async def test_warnung_bei_abweichender_grundgebuehr_einheit(
     """Meldet die API eine andere Einheit, wird gewarnt.
 
     Die Anzeige-Einheit ist fest hinterlegt. Wechselte die API auf z. B.
-    „EUR/year", zeigte der Sensor sonst stillschweigend eine falsche an.
+    „EUR/year“, zeigte der Sensor sonst stillschweigend eine falsche an.
     """
     payload = dict(smarttimes_payload)
     payload["basicFee"] = dict(payload["basicFee"], unit="EUR/year")
@@ -275,7 +275,7 @@ def test_preissensoren_fuehren_langzeitstatistik():
         )
 
 
-# --- Zeitstempel-Sensor „Nächster günstiger Start" --------------------------- #
+# --- Zeitstempel-Sensor „Nächster günstiger Start“ --------------------------- #
 #
 # Sollwerte von Hand aus der smartTIMES-Fixture und den hinterlegten Sätzen
 # abgeleitet (Netzgebiet Wien, brutto, cheap_hours = 4,0, exact_hours = ein):

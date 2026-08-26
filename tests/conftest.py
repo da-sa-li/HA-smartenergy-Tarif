@@ -86,7 +86,7 @@ async def hass(hass):  # noqa: F811 – Absicht: überschreibt die Plugin-Fixtur
     oben, das nur für Tests **ohne** HA-Instanz greift.
 
     Für eine Integration, die es nur in Österreich gibt, ist das die falsche
-    Grundlage: SNAP-Fenster (10–16 Uhr), Tagesgrenzen und „morgen" verrutschen
+    Grundlage: SNAP-Fenster (10–16 Uhr), Tagesgrenzen und „morgen“ verrutschen
     um neun Stunden. Sollwerte, die von Hand aus der Spezifikation abgeleitet
     sind, treffen dann bestenfalls zufällig zu – aus einem anderen Grund als
     dem im Kommentar dokumentierten.

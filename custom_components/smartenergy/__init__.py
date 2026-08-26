@@ -88,7 +88,7 @@ async def async_setup_entry(
 
     # Das Hub-Gerät ausdrücklich anlegen, bevor die Plattformen laufen. Sensor-
     # und Binary-Sensor-Plattform werden nebenläufig eingerichtet, und die
-    # Geräte der „Günstige Stunde"-Untereinträge verweisen per `via_device_id`
+    # Geräte der „Günstige Stunde“-Untereinträge verweisen per `via_device_id`
     # auf dieses Gerät. Entstünde es weiterhin nur als Nebenprodukt des ersten
     # Preissensors, verlöre der Verweis dieses Rennen – und die Geräte-Registry
     # weist eine unbekannte ID zurück, statt sie still zu verwerfen.
@@ -181,7 +181,7 @@ def _migriere_gesamtpreis_entity_id(
 ) -> None:
     """Streicht das ``_eur_kwh`` aus der Entity-ID der Gesamtpreis-Entität.
 
-    Der Sensor hieß „Gesamtpreis (EUR/kWh)"; aus dem Zusatz wurde bei der
+    Der Sensor hieß „Gesamtpreis (EUR/kWh)“; aus dem Zusatz wurde bei der
     erstmaligen Anlage die Entity-ID abgeleitet. Ohne diesen Schritt behielten
     Bestandsinstallationen dauerhaft eine andere Entity-ID als
     Neuinstallationen, und Doku und Wiki könnten keine einheitliche nennen.
