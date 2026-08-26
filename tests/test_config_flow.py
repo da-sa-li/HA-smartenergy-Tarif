@@ -122,6 +122,44 @@ async def test_options_flow_updates_options_and_title(
     assert entry.title == "smartCONTROL Strompreishelfer"
 
 
+async def test_options_flow_tariff_change_reloads_once(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Titel- und Optionsänderung lösen zusammen nur einen Reload aus.
+
+    Titel und Optionen werden in einem einzigen ``async_update_entry``-Aufruf
+    gesetzt; die anschließende ``async_create_entry``-Rückgabe aktualisiert
+    die Optionen intern zwar noch einmal, das bleibt aber wirkungslos, da sie
+    bereits auf demselben Stand stehen. Ohne das würde ein Tarifwechsel (der
+    zugleich den Titel ändert) zwei Reloads statt einem auslösen.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        title="smartTIMES Strompreishelfer",
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "none"},
+    )
+    entry.add_to_hass(hass)
+
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    with patch(_PATCH_PRICES, AsyncMock(return_value=parsed)):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        reload_mock = AsyncMock(wraps=hass.config_entries.async_reload)
+        with patch.object(hass.config_entries, "async_reload", reload_mock):
+            result = await hass.config_entries.options.async_init(entry.entry_id)
+            result = await hass.config_entries.options.async_configure(
+                result["flow_id"],
+                {"tariff": "smartcontrol", "include_vat": False, "grid_zone": "wien"},
+            )
+            await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert reload_mock.call_count == 1
+
+
 async def test_options_flow_tariff_change_cannot_connect(
     hass: HomeAssistant, enable_custom_integrations
 ):

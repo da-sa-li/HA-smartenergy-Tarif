@@ -275,14 +275,15 @@ class SmartTimesOptionsFlow(OptionsFlow):
                     errors["base"] = error_key
 
             if not errors:
-                # Titel an den gewählten Tarif anpassen (nur bei Änderung), damit
-                # er nach einem Tarifwechsel nicht veraltet; der Update-Listener
-                # lädt die Integration anschließend ohnehin neu.
-                new_title = _title(tariff)
-                if new_title != self.config_entry.title:
-                    self.hass.config_entries.async_update_entry(
-                        self.config_entry, title=new_title
-                    )
+                # Titel und Optionen in einem Rutsch aktualisieren, damit der
+                # Update-Listener nur einmal neu lädt: async_create_entry
+                # aktualisiert die Optionen intern ohnehin noch einmal, das
+                # bleibt hier aber wirkungslos, weil sie schon auf demselben
+                # Stand stehen (async_update_entry löst den Listener nur bei
+                # einer tatsächlichen Änderung aus).
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, title=_title(tariff), options=user_input
+                )
                 return self.async_create_entry(data=user_input)
 
         # Bei einem Verbindungsfehler die bereits getroffene Auswahl erhalten,
