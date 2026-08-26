@@ -17,7 +17,7 @@ DOMAIN = "smartenergy"
 async def test_setup_and_unload(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
-    """Der Eintrag lädt sechs Sensoren und entlädt sich wieder sauber."""
+    """Der Eintrag lädt seine Hub-Entitäten und entlädt sich wieder sauber."""
     parsed = SmartTimesApiClient._parse(smarttimes_payload)
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -36,12 +36,13 @@ async def test_setup_and_unload(
 
     assert entry.state is ConfigEntryState.LOADED
 
-    # 6 Sensor-Entities (die sechs Einträge in SENSORS in sensor.py), 0 Binary-
-    # Sensoren (es wurde kein „Günstige Stunde"-Untereintrag angelegt).
+    # 6 Sensor-Entities (die sechs Einträge in SENSORS in sensor.py) und der
+    # Diagnose-Binary-Sensor „Preise für morgen verfügbar". Kein „Günstige
+    # Stunde"-Untereintrag angelegt, also auch keine Untereintrags-Entitäten.
     registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(registry, entry.entry_id)
     assert sum(e.domain == "sensor" for e in entities) == 6
-    assert sum(e.domain == "binary_sensor" for e in entities) == 0
+    assert sum(e.domain == "binary_sensor" for e in entities) == 1
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
@@ -126,6 +127,15 @@ async def test_untereintrags_geraet_haengt_am_hub(
     assert hub is not None
     assert untereintrag is not None
     assert untereintrag.via_device_id == hub.id
+
+    # Je Untereintrag entstehen zwei Entitäten: der Günstige-Stunde-Binary-
+    # Sensor und der Zeitstempel-Sensor. Dazu die sechs Hub-Sensoren und der
+    # Diagnose-Binary-Sensor.
+    entities = er.async_entries_for_config_entry(
+        er.async_get(hass), entry.entry_id
+    )
+    assert sum(e.domain == "sensor" for e in entities) == 7
+    assert sum(e.domain == "binary_sensor" for e in entities) == 2
 
     # Der Tarif-Anzeigename stammt aus der Nutzer-Auswahl, nicht aus der API.
     assert hub.name == "smartTIMES Strompreishelfer"

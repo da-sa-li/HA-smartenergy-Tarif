@@ -154,6 +154,9 @@
     "binary_sensor": {
       "cheap_hour": {
         "name": "Günstige Stunde"
+      },
+      "tomorrow_prices": {
+        "name": "Preise für morgen verfügbar"
       }
     }
   }

@@ -139,6 +139,17 @@ class SmartTimesData:
             self._day_price_cache[day] = prices
         return prices
 
+    def has_prices_for(self, day) -> bool:
+        """Ob für diesen lokalen Kalendertag überhaupt Preise vorliegen.
+
+        Nutzt den Tages-Cache aus :meth:`for_day`, kostet also nichts über den
+        ohnehin nötigen Durchlauf hinaus.
+
+        Das Gegenstück im Koordinator (``_has_tomorrow_prices``) bleibt bewusst
+        eigenständig: Es läuft, bevor diese Datenklasse überhaupt gebaut ist.
+        """
+        return bool(self.for_day(day))
+
     def value(self, price: MarketPrice) -> float:
         """Arbeitspreis eines Eintrags gemäß Brutto-/Netto-Einstellung."""
         return price.price(self.include_vat)
@@ -716,7 +727,15 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         return self._last_fetch
 
     def _has_tomorrow_prices(self, now: datetime) -> bool:
-        """Ob der Cache bereits Preise für den morgigen Kalendertag enthält."""
+        """Ob der Cache bereits Preise für den morgigen Kalendertag enthält.
+
+        Prüft bewusst das rohe Abruf-Ergebnis und nicht ``self.data``: Die
+        Methode steuert den Abruf und läuft damit, bevor die
+        ``SmartTimesData``-Instanz dieses Durchlaufs existiert – beim ersten
+        Lauf ist ``self.data`` sogar ``None``. Die Entitäts-Ebene benutzt
+        stattdessen :meth:`SmartTimesData.has_prices_for`; dass beide Sichten
+        übereinstimmen, sichert ein Test ab.
+        """
         if self._last_result is None:
             return False
         tomorrow = dt_util.as_local(now).date() + timedelta(days=1)

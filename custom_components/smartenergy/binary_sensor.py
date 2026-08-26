@@ -5,30 +5,43 @@ Tages zählt – gemessen an den **gesamten variablen Kosten** (Arbeitspreis +
 Abgaben + Netzentgelte inkl. SNAP). Die Anzahl günstiger Stunden wird je
 Untereintrag (Config Subentry) festgelegt, sodass pro Verbraucher ein eigener
 Sensor mit eigener Stundenzahl möglich ist (z. B. Boiler 4 h, Wallbox 8 h).
+
+Dazu kommt ein Diagnose-Sensor am Hub-Gerät, der meldet, ob die Preise für
+den Folgetag bereits vorliegen.
 """
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigSubentry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
 from .const import (
     JITTER_SPAN_SECONDS,
+    NEXT_DAY_PRICES_HOUR,
     SUBENTRY_TYPE_CHEAP_HOUR,
     UNIT_EUR_PER_KWH,
     to_eur,
 )
 from .coordinator import SmartTimesCoordinator
-from .entity import CheapHourEntity, hub_device_id
+from .entity import CheapHourEntity, hub_device_id, hub_device_info
 
 # Reine Koordinator-Lesesensoren ohne eigene API-Aufrufe oder Aktionen – eine
 # Drosselung paralleler Updates ist daher nicht nötig.
 PARALLEL_UPDATES = 0
+
+
+def _morgen():
+    """Der morgige lokale Kalendertag."""
+    return dt_util.now().date() + timedelta(days=1)
 
 
 async def async_setup_entry(
@@ -36,8 +49,10 @@ async def async_setup_entry(
     entry: SmartTimesConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Richtet je Untereintrag einen „Günstige Stunde"-Binary-Sensor ein."""
+    """Richtet den Diagnose-Sensor und je Untereintrag einen Günstig-Sensor ein."""
     coordinator = entry.runtime_data
+    async_add_entities([TomorrowPricesBinarySensor(coordinator, entry)])
+
     # Gerät, an dem die Untereintrags-Geräte als „verbunden über" hängen.
     # `__init__.async_setup_entry` hat es vor dem Weiterreichen angelegt.
     hub_id = hub_device_id(hass, entry)
@@ -157,4 +172,55 @@ class CheapHourBinarySensor(CheapHourEntity, BinarySensorEntity):
                 }
                 for on_time, off_time, exceeds in windows
             ],
+        }
+
+
+class TomorrowPricesBinarySensor(
+    CoordinatorEntity[SmartTimesCoordinator], BinarySensorEntity
+):
+    """`on`, sobald die Preise für den Folgetag vorliegen.
+
+    Ohne diesen Sensor lässt sich „noch nicht veröffentlicht" nicht von „leer"
+    unterscheiden: Das Attribut ``prices_tomorrow`` ist in beiden Fällen eine
+    leere Liste. Er ist damit der natürliche Auslöser für „Tagesplan neu
+    rechnen, sobald die Morgenpreise da sind" – per Vorlage war das nur mit
+    Abfragen im Sekundentakt nachzubauen.
+
+    Bewusst **ohne** ``device_class``: ``PROBLEM`` kehrte die Bedeutung um und
+    wiese den planmäßigen Zustand vor der Veröffentlichungszeit als Störung
+    aus. Die Einordnung als Diagnose blendet ihn lediglich aus der Gerätekarte
+    aus; als Auslöser einer Automatisierung bleibt er uneingeschränkt nutzbar.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "tomorrow_prices"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self, coordinator: SmartTimesCoordinator, entry: SmartTimesConfigEntry
+    ) -> None:
+        """Initialisiert den Diagnose-Sensor am Hub-Gerät."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_tomorrow_prices"
+        self._attr_device_info = hub_device_info(entry, coordinator.data.tariff)
+
+    @property
+    def is_on(self) -> bool:
+        """Ob für morgen bereits Preise im Cache liegen."""
+        return self.coordinator.data.has_prices_for(_morgen())
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Anzahl der Intervalle und die zugesagte Veröffentlichungszeit.
+
+        Erst zusammen sind „planmäßig noch nicht da" und „überfällig"
+        auseinanderzuhalten: Vor ``expected_after`` ist ``off`` der
+        Normalzustand, danach ein Hinweis auf eine Störung beim Anbieter.
+        """
+        erwartet_ab = dt_util.start_of_local_day().replace(
+            hour=NEXT_DAY_PRICES_HOUR
+        )
+        return {
+            "price_count": len(self.coordinator.data.for_day(_morgen())),
+            "expected_after": erwartet_ab.isoformat(),
         }

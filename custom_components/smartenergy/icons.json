@@ -30,6 +30,13 @@
           "on": "mdi:cash-clock",
           "off": "mdi:cash-remove"
         }
+      },
+      "tomorrow_prices": {
+        "default": "mdi:calendar-clock",
+        "state": {
+          "on": "mdi:calendar-check",
+          "off": "mdi:calendar-remove"
+        }
       }
     }
   }
