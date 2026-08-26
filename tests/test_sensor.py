@@ -302,6 +302,26 @@ BLOCKBEGINN_5 = datetime(2026, 6, 5, 10, 0, tzinfo=VIENNA)
 BLOCKBEGINN_6 = datetime(2026, 6, 6, 10, 0, tzinfo=VIENNA)
 
 
+async def _richte_ein_wien(hass: HomeAssistant, payload: dict) -> MockConfigEntry:
+    """Richtet einen smartTIMES-Eintrag ohne Untereintrag ein (Netzgebiet Wien)."""
+    parsed = SmartTimesApiClient._parse(payload)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    return entry
+
+
 async def _richte_mit_untereintrag_ein(
     hass: HomeAssistant, payload: dict
 ) -> tuple[MockConfigEntry, str]:
@@ -464,3 +484,43 @@ async def test_sensor_und_binary_sensor_nennen_denselben_start(
     attribut = datetime.fromisoformat(binary.attributes["next_cheap_start"])
 
     assert datetime.fromisoformat(sensor.state) == attribut.replace(microsecond=0)
+
+
+@pytest.mark.parametrize(
+    ("zeitpunkt", "erwartet"),
+    [
+        # Die Fixture deckt den 05. und 06.06.2026 ab: Vom 05.06. aus ist der
+        # morgige Tag vollständig da, vom 06.06. aus gar nicht.
+        ("2026-06-05 10:00:00", True),
+        ("2026-06-06 10:00:00", False),
+    ],
+)
+@pytest.mark.parametrize(
+    "entitaet",
+    [
+        "sensor.smarttimes_strompreishelfer_total_price",
+        "sensor.smarttimes_strompreishelfer_energy_price",
+    ],
+)
+async def test_prices_tomorrow_valid_an_beiden_preissensoren(
+    hass_wien: HomeAssistant,
+    enable_custom_integrations,
+    smarttimes_payload,
+    freezer,
+    zeitpunkt,
+    erwartet,
+    entitaet,
+):
+    """Beide Preissensoren weisen aus, ob die Morgen-Preise vorliegen.
+
+    Das Attribut steht direkt neben ``prices_tomorrow`` und löst dessen
+    Mehrdeutigkeit auf: Eine leere Liste heißt sonst gleichermaßen "noch nicht
+    veröffentlicht" und "keine Preise".
+    """
+    freezer.move_to(zeitpunkt)
+    await _richte_ein_wien(hass_wien, smarttimes_payload)
+
+    attribute = hass_wien.states.get(entitaet).attributes
+    assert attribute["prices_tomorrow_valid"] is erwartet
+    # Gegenprobe: Der Wert deckt sich mit der Liste, die er beschreibt.
+    assert attribute["prices_tomorrow_valid"] is bool(attribute["prices_tomorrow"])

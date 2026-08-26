@@ -343,6 +343,11 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "basic_fee_unit": data.basic_fee_unit,
             "prices_today": serialise(data.for_day(today)),
             "prices_tomorrow": serialise(data.for_day(tomorrow)),
+            # Unterscheidet "noch nicht veröffentlicht" von "leer": Beides
+            # ergibt sonst dieselbe leere Liste. Anders als die Liste selbst
+            # wird dieser Wert vom Recorder mitgeschrieben, taugt also auch
+            # zur Frage "ab wann waren die Preise da".
+            "prices_tomorrow_valid": data.has_prices_for(tomorrow),
         }
 
     def _all_in_attributes(self) -> dict:
@@ -408,4 +413,9 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             ),
             "prices_today": serialise(data.for_day(today)),
             "prices_tomorrow": serialise(data.for_day(tomorrow)),
+            # Unterscheidet "noch nicht veröffentlicht" von "leer": Beides
+            # ergibt sonst dieselbe leere Liste. Anders als die Liste selbst
+            # wird dieser Wert vom Recorder mitgeschrieben, taugt also auch
+            # zur Frage "ab wann waren die Preise da".
+            "prices_tomorrow_valid": data.has_prices_for(tomorrow),
         }
