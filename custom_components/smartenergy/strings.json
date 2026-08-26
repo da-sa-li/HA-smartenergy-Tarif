@@ -40,14 +40,14 @@
           "tariff": "smartTIMES: zeitabhängiger Tarif. smartCONTROL: an den EPEX-Spot-Börsenpreis gekoppelt; darauf wird eine Abwicklungsgebühr von 1,2 ct/kWh netto (1,44 ct/kWh brutto) aufgeschlagen.",
           "include_vat": "Wirkt auf sämtliche Sensoren der Integration, nicht nur auf einen. „Ein“ (brutto, wie die API liefert) ist die richtige Wahl fürs Energie-Dashboard und zum Vergleich mit der Stromrechnung.",
           "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
-        },
-        "error": {
-          "cannot_connect": "Verbindung zur smartENERGY-API fehlgeschlagen.",
-          "timeout": "Zeitüberschreitung beim Abruf der smartENERGY-API. Das deutet meist auf ein vorübergehendes Netzwerk- oder Lastproblem hin – bitte später erneut versuchen.",
-          "api_rejected": "Die smartENERGY-API hat die Anfrage abgelehnt. Der gewählte Tarif ist damit aktuell nicht abrufbar – bitte später erneut versuchen.",
-          "invalid_response": "Die smartENERGY-API hat eine unerwartete Antwort geliefert. Das deutet auf eine Formatänderung der API hin – bitte dazu ein Issue im GitHub-Repository der Integration melden."
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur smartENERGY-API fehlgeschlagen.",
+      "timeout": "Zeitüberschreitung beim Abruf der smartENERGY-API. Das deutet meist auf ein vorübergehendes Netzwerk- oder Lastproblem hin – bitte später erneut versuchen.",
+      "api_rejected": "Die smartENERGY-API hat die Anfrage abgelehnt. Der gewählte Tarif ist damit aktuell nicht abrufbar – bitte später erneut versuchen.",
+      "invalid_response": "Die smartENERGY-API hat eine unerwartete Antwort geliefert. Das deutet auf eine Formatänderung der API hin – bitte dazu ein Issue im GitHub-Repository der Integration melden."
     }
   },
   "config_subentries": {

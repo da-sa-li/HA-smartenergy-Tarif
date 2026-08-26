@@ -40,14 +40,14 @@
           "tariff": "smartTIMES: time-based tariff. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top.",
           "include_vat": "Affects all sensors of the integration, not just one. \"On\" (gross, as delivered by the API) is the right choice for the Energy Dashboard and for comparing against your electricity bill.",
           "grid_zone": "Determines the grid fees (grid level 7, quarter-hourly metering) in the total price. \"No grid area\" leaves them out."
-        },
-        "error": {
-          "cannot_connect": "Failed to connect to the smartENERGY API.",
-          "timeout": "The smartENERGY API timed out. This usually points to a temporary network or load issue – please try again later.",
-          "api_rejected": "The smartENERGY API rejected the request. The selected tariff is currently unavailable – please try again later.",
-          "invalid_response": "The smartENERGY API returned an unexpected response. This suggests the API's format has changed – please file an issue in the integration's GitHub repository."
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the smartENERGY API.",
+      "timeout": "The smartENERGY API timed out. This usually points to a temporary network or load issue – please try again later.",
+      "api_rejected": "The smartENERGY API rejected the request. The selected tariff is currently unavailable – please try again later.",
+      "invalid_response": "The smartENERGY API returned an unexpected response. This suggests the API's format has changed – please file an issue in the integration's GitHub repository."
     }
   },
   "config_subentries": {
