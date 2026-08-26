@@ -12,28 +12,19 @@ from __future__ import annotations
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
 from .const import (
-    CONF_CHEAP_HOURS,
-    CONF_CHEAP_MODE,
-    CONF_EXACT_HOURS,
-    DEFAULT_CHEAP_MODE,
-    DEFAULT_EXACT_HOURS,
-    DOMAIN,
     JITTER_SPAN_SECONDS,
     SUBENTRY_TYPE_CHEAP_HOUR,
     UNIT_EUR_PER_KWH,
-    documentation_url,
     to_eur,
 )
 from .coordinator import SmartTimesCoordinator
-from .jitter import cheap_phase
+from .entity import CheapHourEntity
 
 # Reine Koordinator-Lesesensoren ohne eigene API-Aufrufe oder Aktionen – eine
 # Drosselung paralleler Updates ist daher nicht nötig.
@@ -43,7 +34,7 @@ PARALLEL_UPDATES = 0
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: SmartTimesConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Richtet je Untereintrag einen „Günstige Stunde"-Binary-Sensor ein."""
     coordinator = entry.runtime_data
@@ -56,12 +47,9 @@ async def async_setup_entry(
         )
 
 
-class CheapHourBinarySensor(
-    CoordinatorEntity[SmartTimesCoordinator], BinarySensorEntity
-):
+class CheapHourBinarySensor(CheapHourEntity, BinarySensorEntity):
     """`on`, wenn die laufende Viertelstunde zu den günstigsten des Tages zählt."""
 
-    _attr_has_entity_name = True
     _attr_translation_key = "cheap_hour"
     # Günstig-Intervalle und Schaltfenster sind minütlich neu berechnete, rein
     # zukunftsgerichtete Listen - Recorder-History bringt hier keinen Mehrwert.
@@ -74,37 +62,11 @@ class CheapHourBinarySensor(
         self,
         coordinator: SmartTimesCoordinator,
         subentry: ConfigSubentry,
+        hub_id: str | None = None,
     ) -> None:
         """Initialisiert den Sensor aus dem Untereintrag (Stundenzahl, Logik, Jitter)."""
-        super().__init__(coordinator)
-        self._cheap_hours: float = subentry.data[CONF_CHEAP_HOURS]
-        # Auswahllogik: günstigste Einzelstunden (dürfen zerteilt sein) oder ein
-        # zusammenhängender Block „am Stück". Ältere Untereinträge ohne diese
-        # Option fallen auf den Standard (Einzelstunden) zurück.
-        self._cheap_mode: str = subentry.data.get(CONF_CHEAP_MODE, DEFAULT_CHEAP_MODE)
-        # Die eingestellte Stundenzahl exakt einhalten, statt bei
-        # Preisgleichstand darüber hinaus zu erweitern? Untereinträge, die die
-        # Option noch nicht kannten, haben ihren bisherigen Wert bei der
-        # Migration auf Schema-Version 2 ausdrücklich eingetragen (siehe
-        # __init__.py); der Rückfall auf die Vorgabe ist nur noch ein Netz.
-        self._exact_hours: bool = subentry.data.get(
-            CONF_EXACT_HOURS, DEFAULT_EXACT_HOURS
-        )
-        # Deterministischer, vom Nutzer nicht editierbarer Last-Glättungs-Versatz.
-        # Aus der Subentry-ID abgeleitet, damit er stabil und je Sensor
-        # gleichverteilt ist (siehe jitter.py).
-        self._jitter_phase: float = cheap_phase(subentry.subentry_id)
+        super().__init__(coordinator, subentry, hub_id)
         self._attr_unique_id = f"{subentry.subentry_id}_cheap_hour"
-        # Anzeige-Tarif aus den Koordinatordaten (Modell/Doku-Link je Tarif).
-        tariff_name = coordinator.data.tariff
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, subentry.subentry_id)},
-            name=subentry.title,
-            manufacturer="smartENERGY",
-            model=f"{tariff_name} Günstige Stunde",
-            entry_type=DeviceEntryType.SERVICE,
-            configuration_url=documentation_url(tariff_name),
-        )
 
     @property
     def is_on(self) -> bool | None:

@@ -13,22 +13,20 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
 from .const import (
-    DOMAIN,
     UNIT_EUR_PER_KWH,
     UNIT_EUR_PER_MONTH,
     VAT_RATE,
-    documentation_url,
     to_eur,
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
+from .entity import hub_device_info
 from .grid_fees import is_snap
 
 _LOGGER = logging.getLogger(__name__)
@@ -160,7 +158,7 @@ def _is_available(description: SmartTimesSensorDescription, data: SmartTimesData
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: SmartTimesConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Richtet die smartTIMES-Sensoren ein.
 
@@ -214,15 +212,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         # Anzeige-Tarif aus den Koordinatordaten (nach dem ersten Refresh
         # verfügbar) – bestimmt Gerätename, Modell und Doku-Link je Tarif.
-        tariff_name = coordinator.data.tariff
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=f"{tariff_name} Strompreishelfer",
-            manufacturer="smartENERGY",
-            model=tariff_name,
-            entry_type=DeviceEntryType.SERVICE,
-            configuration_url=documentation_url(tariff_name),
-        )
+        self._attr_device_info = hub_device_info(entry, coordinator.data.tariff)
 
     @property
     def native_value(self) -> StateType:
