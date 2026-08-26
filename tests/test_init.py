@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient
@@ -200,3 +201,17 @@ async def test_hub_geraet_existiert_vor_dem_weiterreichen(
         await hass.async_block_till_done()
 
     assert vorhanden == [True]
+
+
+async def test_ha_instanzen_laufen_auf_europe_vienna(hass: HomeAssistant):
+    """Jede HA-Instanz im Test läuft in der Zeitzone der Integration.
+
+    Wächter für die Fixture in ``conftest.py``: Das Test-Harness setzt von sich
+    aus ``US/Pacific``. Fiele die Überschreibung weg – etwa weil eine neue
+    Fassung des Harness die Fixture anders benennt –, verschöben sich
+    SNAP-Fenster, Tagesgrenzen und „morgen" um neun Stunden. Tests, deren
+    Sollwerte von Hand aus der Spezifikation abgeleitet sind, träfen dann
+    bestenfalls zufällig zu, und das fiele ohne diesen Test niemandem auf.
+    """
+    assert hass.config.time_zone == "Europe/Vienna"
+    assert dt_util.DEFAULT_TIME_ZONE.key == "Europe/Vienna"

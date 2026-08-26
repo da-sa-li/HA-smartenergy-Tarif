@@ -373,7 +373,7 @@ def ohne_jitter():
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
 async def test_zeitstempel_sensor_je_untereintrag(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Jeder Untereintrag bringt einen Zeitstempel-Sensor mit.
 
@@ -382,10 +382,10 @@ async def test_zeitstempel_sensor_je_untereintrag(
     fehlen – Home Assistant weist beides für Zeitstempel zurück.
     """
     entry, subentry_id = await _richte_mit_untereintrag_ein(
-        hass_wien, smarttimes_payload
+        hass, smarttimes_payload
     )
 
-    registry = er.async_get(hass_wien)
+    registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id(
         "sensor", DOMAIN, f"{subentry_id}_next_cheap_start"
     )
@@ -398,7 +398,7 @@ async def test_zeitstempel_sensor_je_untereintrag(
     eintrag = registry.async_get(entity_id)
     assert eintrag.config_subentry_id == subentry_id
 
-    zustand = hass_wien.states.get(entity_id)
+    zustand = hass.states.get(entity_id)
     assert zustand.attributes["device_class"] == SensorDeviceClass.TIMESTAMP
     assert "state_class" not in zustand.attributes
     assert "unit_of_measurement" not in zustand.attributes
@@ -406,7 +406,7 @@ async def test_zeitstempel_sensor_je_untereintrag(
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit, im Block
 async def test_naechster_start_ist_der_folgetags_block(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
 ):
     """Mitten im heutigen Block zeigt der Sensor auf den Block von morgen.
 
@@ -414,26 +414,26 @@ async def test_naechster_start_ist_der_folgetags_block(
     Einschaltzeitpunkt ist damit der 06.06. um 10:00 Ortszeit. Der Zustand wird
     in UTC und auf Sekunden gekürzt ausgegeben.
     """
-    await _richte_mit_untereintrag_ein(hass_wien, smarttimes_payload)
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
 
-    zustand = hass_wien.states.get("sensor.boiler_next_cheap_start")
+    zustand = hass.states.get("sensor.boiler_next_cheap_start")
     assert zustand.state == "2026-06-06T08:00:00+00:00"
 
 
 @pytest.mark.freeze_time("2026-06-05 06:00:00")  # 08:00 Ortszeit, vor dem Block
 async def test_naechster_start_ist_der_heutige_block(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
 ):
     """Vor dem Block zeigt der Sensor auf den heutigen Beginn."""
-    await _richte_mit_untereintrag_ein(hass_wien, smarttimes_payload)
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
 
-    zustand = hass_wien.states.get("sensor.boiler_next_cheap_start")
+    zustand = hass.states.get("sensor.boiler_next_cheap_start")
     assert zustand.state == "2026-06-05T08:00:00+00:00"
 
 
 @pytest.mark.freeze_time("2026-06-06 14:00:00")  # 16:00 Ortszeit am letzten Tag
 async def test_ohne_folgetag_ist_der_sensor_unbekannt(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload, ohne_jitter
 ):
     """Ohne bekanntes nächstes Fenster meldet der Sensor ``unknown``.
 
@@ -442,15 +442,15 @@ async def test_ohne_folgetag_ist_der_sensor_unbekannt(
     spät abends, bevor die Preise für den Folgetag veröffentlicht sind – ein
     ``time``-Trigger feuert dann schlicht nicht.
     """
-    await _richte_mit_untereintrag_ein(hass_wien, smarttimes_payload)
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
 
-    zustand = hass_wien.states.get("sensor.boiler_next_cheap_start")
+    zustand = hass.states.get("sensor.boiler_next_cheap_start")
     assert zustand.state == "unknown"
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
 async def test_naechster_start_liegt_im_jitter_fenster(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Ohne Eingriff liegt der Wert im zugesagten Versatz-Bereich.
 
@@ -458,9 +458,9 @@ async def test_naechster_start_liegt_im_jitter_fenster(
     verschiebt sie nie davor (siehe jitter.py). Diese Zusage gilt für jede
     Phase, der Test braucht die konkrete Subentry-ID also nicht zu kennen.
     """
-    await _richte_mit_untereintrag_ein(hass_wien, smarttimes_payload)
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
 
-    zustand = hass_wien.states.get("sensor.boiler_next_cheap_start")
+    zustand = hass.states.get("sensor.boiler_next_cheap_start")
     wert = datetime.fromisoformat(zustand.state)
     assert BLOCKBEGINN_6 <= wert <= BLOCKBEGINN_6 + timedelta(
         seconds=JITTER_SPAN_SECONDS
@@ -469,7 +469,7 @@ async def test_naechster_start_liegt_im_jitter_fenster(
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
 async def test_sensor_und_binary_sensor_nennen_denselben_start(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Sensorwert und Attribut des Binary-Sensors stimmen überein.
 
@@ -477,10 +477,10 @@ async def test_sensor_und_binary_sensor_nennen_denselben_start(
     Jitter also bereits. Der Zustand ist auf Sekunden gekürzt, das Attribut
     trägt die volle Auflösung; verglichen wird deshalb sekundengenau.
     """
-    await _richte_mit_untereintrag_ein(hass_wien, smarttimes_payload)
+    await _richte_mit_untereintrag_ein(hass, smarttimes_payload)
 
-    sensor = hass_wien.states.get("sensor.boiler_next_cheap_start")
-    binary = hass_wien.states.get("binary_sensor.boiler_cheap_hour")
+    sensor = hass.states.get("sensor.boiler_next_cheap_start")
+    binary = hass.states.get("binary_sensor.boiler_cheap_hour")
     attribut = datetime.fromisoformat(binary.attributes["next_cheap_start"])
 
     assert datetime.fromisoformat(sensor.state) == attribut.replace(microsecond=0)
@@ -503,7 +503,7 @@ async def test_sensor_und_binary_sensor_nennen_denselben_start(
     ],
 )
 async def test_prices_tomorrow_valid_an_beiden_preissensoren(
-    hass_wien: HomeAssistant,
+    hass: HomeAssistant,
     enable_custom_integrations,
     smarttimes_payload,
     freezer,
@@ -518,9 +518,9 @@ async def test_prices_tomorrow_valid_an_beiden_preissensoren(
     veröffentlicht" und "keine Preise".
     """
     freezer.move_to(zeitpunkt)
-    await _richte_ein_wien(hass_wien, smarttimes_payload)
+    await _richte_ein_wien(hass, smarttimes_payload)
 
-    attribute = hass_wien.states.get(entitaet).attributes
+    attribute = hass.states.get(entitaet).attributes
     assert attribute["prices_tomorrow_valid"] is erwartet
     # Gegenprobe: Der Wert deckt sich mit der Liste, die er beschreibt.
     assert attribute["prices_tomorrow_valid"] is bool(attribute["prices_tomorrow"])

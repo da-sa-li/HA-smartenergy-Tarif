@@ -76,12 +76,19 @@ Spezifikation** abgeleitet und als Kommentar dokumentiert – nie aus dem zu tes
 Code erzeugt, sonst wäre der Test eine Tautologie. Fixtures (echte API-Antworten) liegen
 in `tests/fixtures/`.
 
-**Zeitzone in Tests:** Die autouse-Fixture `_vienna_default_tz` greift nur für Tests **ohne**
-HA-Instanz. Sobald `hass` beteiligt ist, setzt das Test-Harness `US/Pacific` und überschreibt
-sie – SNAP-Fenster, Tagesgrenzen und „morgen" verrutschen dann um neun Stunden. Alles
-Ortszeitabhängige nutzt deshalb die Fixture **`hass_wien`** statt `hass`. Sonst können
-Sollwerte zufällig zutreffen, aber aus einem anderen Grund als dem dokumentierten – und der
-Rechenweg im Kommentar wäre falsch.
+**Zeitzone in Tests: durchgehend `Europe/Vienna`.** Die Integration gibt es nur in Österreich,
+und die gesamte handgerechnete Preis-Mathematik hängt an der Ortszeit – SNAP-Fenster
+(10–16 Uhr), Tagesgrenzen und „morgen". Zwei Fixtures in `conftest.py` stellen das sicher:
+`_vienna_default_tz` (autouse) für Tests **ohne** HA-Instanz und eine Überschreibung der
+`hass`-Fixture für alle übrigen. Letztere ist nötig, weil
+`pytest-homeassistant-custom-component` beim Hochfahren fest `US/Pacific` setzt und die
+Vorgabe damit wieder überschreibt.
+
+Diese Aufteilung nicht aufweichen und die Zeitzone **nicht je Test von Hand setzen** – genau
+so stand derselbe Aufruf vorher fünfmal in einzelnen Testkörpern, und wer ihn vergaß, bekam
+still US/Pacific. Sollwerte treffen dann bestenfalls zufällig zu, aus einem anderen Grund als
+dem im Kommentar dokumentierten; der Test prüft dann nicht mehr, was er zu prüfen vorgibt.
+`test_ha_instanzen_laufen_auf_europe_vienna` wacht darüber.
 
 **Live-Tests** (`tests/test_api_live.py`, Marker `live`) sind die einzigen Tests, die die
 echte smartENERGY-API abrufen. Ohne die Option `--live` werden sie übersprungen – der

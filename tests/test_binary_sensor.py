@@ -136,12 +136,12 @@ async def _richte_ein(hass: HomeAssistant, payload: dict) -> MockConfigEntry:
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
 async def test_morgenpreise_vorhanden(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Am 05.06. liegen die Preise für den 06.06. vollständig vor."""
-    await _richte_ein(hass_wien, smarttimes_payload)
+    await _richte_ein(hass, smarttimes_payload)
 
-    zustand = hass_wien.states.get(MORGEN_ENTITAET)
+    zustand = hass.states.get(MORGEN_ENTITAET)
     assert zustand.state == "on"
     # 96 Viertelstunden = ein vollständiger Tag.
     assert zustand.attributes["price_count"] == 96
@@ -151,42 +151,42 @@ async def test_morgenpreise_vorhanden(
 
 @pytest.mark.freeze_time("2026-06-06 10:00:00")  # 12:00 Ortszeit am letzten Tag
 async def test_morgenpreise_fehlen(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Am 06.06. fehlen die Preise für den 07.06. – der Sensor ist aus.
 
     Genau diesen Fall konnte eine Automatisierung bisher nicht erkennen:
     ``prices_tomorrow`` ist hier und bei „gar keine Preise" gleichermaßen leer.
     """
-    await _richte_ein(hass_wien, smarttimes_payload)
+    await _richte_ein(hass, smarttimes_payload)
 
-    zustand = hass_wien.states.get(MORGEN_ENTITAET)
+    zustand = hass.states.get(MORGEN_ENTITAET)
     assert zustand.state == "off"
     assert zustand.attributes["price_count"] == 0
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")
 async def test_morgenpreise_sensor_ist_diagnose_ohne_geraeteklasse(
-    hass_wien: HomeAssistant, enable_custom_integrations, smarttimes_payload
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Diagnose-Kategorie, aber keine device_class.
 
     ``PROBLEM`` kehrte die Bedeutung um und wiese den planmäßigen Zustand vor
     der Veröffentlichungszeit als Störung aus.
     """
-    entry = await _richte_ein(hass_wien, smarttimes_payload)
+    entry = await _richte_ein(hass, smarttimes_payload)
 
-    eintrag = er.async_get(hass_wien).async_get(MORGEN_ENTITAET)
+    eintrag = er.async_get(hass).async_get(MORGEN_ENTITAET)
     assert eintrag.unique_id == f"{entry.entry_id}_tomorrow_prices"
     assert eintrag.entity_category is EntityCategory.DIAGNOSTIC
-    assert "device_class" not in hass_wien.states.get(MORGEN_ENTITAET).attributes
+    assert "device_class" not in hass.states.get(MORGEN_ENTITAET).attributes
 
 
 @pytest.mark.parametrize(
     "zeitpunkt", ["2026-06-05 10:00:00", "2026-06-06 10:00:00"]
 )
 async def test_koordinator_und_datenklasse_sind_sich_einig(
-    hass_wien: HomeAssistant,
+    hass: HomeAssistant,
     enable_custom_integrations,
     smarttimes_payload,
     freezer,
@@ -200,7 +200,7 @@ async def test_koordinator_und_datenklasse_sind_sich_einig(
     auseinanderlaufen.
     """
     freezer.move_to(zeitpunkt)
-    entry = await _richte_ein(hass_wien, smarttimes_payload)
+    entry = await _richte_ein(hass, smarttimes_payload)
     coordinator = entry.runtime_data
 
     jetzt = dt_util.now()
