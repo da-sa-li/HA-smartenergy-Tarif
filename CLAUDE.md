@@ -76,6 +76,13 @@ Spezifikation** abgeleitet und als Kommentar dokumentiert – nie aus dem zu tes
 Code erzeugt, sonst wäre der Test eine Tautologie. Fixtures (echte API-Antworten) liegen
 in `tests/fixtures/`.
 
+**Zeitzone in Tests:** Die autouse-Fixture `_vienna_default_tz` greift nur für Tests **ohne**
+HA-Instanz. Sobald `hass` beteiligt ist, setzt das Test-Harness `US/Pacific` und überschreibt
+sie – SNAP-Fenster, Tagesgrenzen und „morgen" verrutschen dann um neun Stunden. Alles
+Ortszeitabhängige nutzt deshalb die Fixture **`hass_wien`** statt `hass`. Sonst können
+Sollwerte zufällig zutreffen, aber aus einem anderen Grund als dem dokumentierten – und der
+Rechenweg im Kommentar wäre falsch.
+
 **Live-Tests** (`tests/test_api_live.py`, Marker `live`) sind die einzigen Tests, die die
 echte smartENERGY-API abrufen. Ohne die Option `--live` werden sie übersprungen – der
 normale Lauf bleibt offline und unabhängig vom fremden Server. Sie prüfen **Invarianten**
@@ -106,7 +113,8 @@ regulär getaggt ist.
 ## Architektur – das große Bild
 
 Datenfluss: **`api.py` (Abruf + Parsing) → `coordinator.py` (Caching, Drosselung, gesamte
-Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
+Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Basis in
+`entity.py`)**.
 
 - **`coordinator.py`** ist das Herzstück. `SmartTimesData` (immutable dataclass) kapselt die
   aufbereiteten Daten und **alle Berechnungen** (aktueller Preis, Tageskennzahlen, Gesamtpreis,
@@ -194,6 +202,18 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`)**.
   `JITTER_SPAN_SECONDS` je Block – bewusst gewählt, um nie zum teureren Preis zu laufen.
   Zusammenhängende Blöcke werden dafür auch **über die Tagesgrenze** hinweg zusammengefasst
   (`_cheap_blocks_spanning`), sonst risse der Jitter an Mitternacht eine Schaltlücke auf.
+
+- **`entity.py`** – gemeinsame **Geräte-Infos** und die Basisklasse der Untereintrags-
+  Entitäten. Es gibt zwei Gerätesorten: ein **Hub-Gerät** je Config-Eintrag (trägt die
+  Preissensoren und den Diagnose-Sensor) und **je Untereintrag ein Gerät**, benannt nach dem
+  Verbraucher. Letztere hängen über `via_device_id` am Hub. Weil die Registry eine unbekannte
+  ID zurückweist und die Entität dann gar nicht erst entsteht, legt `__init__.async_setup_entry`
+  das Hub-Gerät **vor** `async_forward_entry_setups` an – die Plattformen werden nebenläufig
+  eingerichtet, ein Entstehen als Nebenprodukt des ersten Sensors wäre ein Rennen.
+  `CheapHourEntity` liest Stundenzahl, Auswahllogik, `exact_hours` und Jitter-Phase aus dem
+  Untereintrag; `CheapHourBinarySensor` und `NextCheapStartSensor` erben davon.
+  `SmartTimesConfigEntry` wird dort nur unter `TYPE_CHECKING` importiert – `__init__.py` bezieht
+  `hub_device_info` von hier, zur Laufzeit wäre das ein Zyklus.
 
 - **`config_flow.py`** – UI-Einrichtung (kein YAML): Haupteintrag (Tarif, USt., Netzgebiet) +
   Options-Flow + Subentry-Flow für die Günstige-Stunde-Sensoren. Der **Tarif** (`CONF_TARIFF`:

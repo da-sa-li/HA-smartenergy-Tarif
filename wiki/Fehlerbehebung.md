@@ -22,6 +22,23 @@ Der Versatz ist aus der ID des Untereintrags abgeleitet und damit **je Sensor ko
 
 Stimmt der Gesamtpreis nicht mit der Abrechnung überein, ist meist das **Netzgebiet** nicht oder falsch gewählt – davon hängen die Netzentgelte ab (siehe [Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)). Das korrekte Netzgebiet steht im **Netzzugangsvertrag** des Netzbetreibers und lässt sich über **Konfigurieren** jederzeit anpassen. „Kein Netzgebiet“ lässt die Netzentgelte ganz weg, der Gesamtpreis fällt dann zu niedrig aus.
 
+# Preise für morgen fehlen
+
+Der Diagnose-Sensor **Preise für morgen verfügbar** zeigt, ob die Preise des
+Folgetags schon eingetroffen sind. Sein Attribut `expected_after` nennt den
+Zeitpunkt, ab dem die API sie zusagt (17 Uhr Ortszeit).
+
+* **Vor dieser Zeit ist `off` der Normalzustand** – die Preise sind schlicht
+  noch nicht veröffentlicht, es ist nichts zu tun.
+* **Danach anhaltend `off`** deutet auf eine Störung beim Anbieter hin. Die
+  Integration versucht es in wachsenden Abständen erneut; hält der Fehler über
+  Stunden an, erscheint zusätzlich eine Meldung unter „Reparaturen“.
+
+Das Attribut `price_count` nennt die Zahl der bereits vorliegenden Intervalle –
+ein vollständiger Tag sind 96 Viertelstunden.
+
+Der Sensor steht unter **Diagnose** auf der Geräteseite des Strompreishelfers.
+
 # Meldungen unter „Reparaturen“
 
 Die Integration meldet zwei Zustände als Reparatur-Hinweis (**Einstellungen → System → Reparaturen**):

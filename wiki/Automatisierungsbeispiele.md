@@ -28,6 +28,57 @@ automation:
 > Ohne den Filter feuert die Automatisierung auch auf diese Übergänge und
 > schaltet den Verbraucher dann ab, obwohl gar keine Aussage vorliegt.
 
+# Vor dem günstigen Fenster vorheizen
+
+Der Sensor **Nächster günstiger Start** ist ein Zeitstempel und lässt sich
+deshalb direkt als `at:` eines `time`-Triggers verwenden – mit `offset` auch
+mit Vorlauf. Damit läuft der Boiler nicht erst *ab* dem günstigen Fenster an,
+sondern ist dann schon warm:
+
+```yaml
+automation:
+  - triggers:
+      - trigger: time
+        at:
+          entity_id: sensor.boiler_nachster_gunstiger_start
+          offset: "-00:30:00"
+    actions:
+      - action: switch.turn_on
+        target: { entity_id: switch.boiler_vorheizen }
+```
+
+> [!NOTE]
+> Steht der Sensor auf `unknown` – spät abends, bevor die Preise für den
+> Folgetag veröffentlicht sind –, feuert der Trigger einfach nicht. Das ist
+> der gewünschte Fall: Lieber gar nicht vorheizen als zur falschen Zeit.
+> Ein `to:`-Filter wie beim Zustands-Trigger oben ist hier nicht nötig.
+
+# Tagesplan neu rechnen, sobald die Morgenpreise da sind
+
+Der Diagnose-Sensor **Preise für morgen verfügbar** schaltet auf `on`, sobald
+die Preise des Folgetags eingetroffen sind (laut API-Zusage ab 17 Uhr). Das ist
+der passende Auslöser für alles, was auf den Preisen von morgen aufbaut – etwa
+eine Benachrichtigung mit dem günstigsten Fenster:
+
+```yaml
+automation:
+  - triggers:
+      - trigger: state
+        entity_id: binary_sensor.smarttimes_strompreishelfer_preise_fur_morgen_verfugbar
+        to: "on"
+    actions:
+      - action: notify.persistent_notification
+        data:
+          message: >-
+            Günstigstes Fenster morgen ab
+            {{ states('sensor.boiler_nachster_gunstiger_start') | as_timestamp
+               | timestamp_custom('%H:%M') }}
+```
+
+> Ohne diesen Sensor ließe sich „noch nicht veröffentlicht“ nicht von „keine
+> Preise“ unterscheiden: Das Attribut `prices_tomorrow` ist in beiden Fällen
+> eine leere Liste.
+
 # Gesamtpreis im Energie-Dashboard hinterlegen
 
 Der `…_gesamtpreis`-Sensor liefert den Preis bereits in **EUR/kWh**

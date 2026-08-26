@@ -8,10 +8,12 @@
 | `sensor.smarttimes_strompreishelfer_arbeitspreis` | **Reiner Arbeitspreis** der aktuell gültigen Tarifzone (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_gesamtpreis` | **Gesamtpreis inkl. aller variablen Nebenkosten** (EUR/kWh) – fürs Energie-Dashboard |
 | `binary_sensor.<name>_gunstige_stunde` *(je Untereintrag)* | `on` in den günstigsten Stunden des Tages (nach **Gesamtkosten**); ein Sensor je angelegtem Untereintrag |
+| `sensor.<name>_nachster_gunstiger_start` *(je Untereintrag)* | Beginn des nächsten günstigen Fensters als **Zeitstempel** – direkt als `at:` eines `time`-Triggers verwendbar |
 | `sensor.smarttimes_strompreishelfer_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_niedrigster_gesamtpreis_heute` | Günstigster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute` | Teuerster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**) |
+| `binary_sensor.smarttimes_strompreishelfer_preise_fur_morgen_verfugbar` | `on`, sobald die Preise für den Folgetag vorliegen (Diagnose) |
 
 Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis. Der **Gesamtpreis**-Sensor addiert Steuern, Abgaben und Netzentgelte (siehe [Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)) und ist die richtige Wahl fürs Energie-Dashboard und zum Schalten. Tageskennzahlen und der Günstige-Stunde-Sensor beziehen sich auf den **Gesamtpreis**.
 
@@ -30,12 +32,15 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 | `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen (Gesamtpreis, EUR/kWh) |
 | `next_price` / `next_price_start` | Gesamtpreis und Beginn des nächsten Intervalls |
 | `prices_today` / `prices_tomorrow` | Vollständige **Gesamtpreis**-Vorschau für heute und morgen (`start`, `end`, `price`) |
+| `prices_tomorrow_valid` | `true`, sobald die Preise für morgen vorliegen. Trennt „noch nicht veröffentlicht" von „keine Preise" – `prices_tomorrow` ist in beiden Fällen leer |
 | `unit` | Einheit der Preisangaben in diesen Attributen (`EUR/kWh`) |
 | `source_unit` | Einheit, in der die API liefert – smartTIMES meldet `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz |
 
 > [!NOTE]
 > `prices_tomorrow` ist leer, solange die Preise für den nächsten Tag noch nicht veröffentlicht sind – laut API-Zusage ab 17 Uhr. Eine leere Liste bedeutet also nicht zwingend „keine Preise", sondern meist „noch nicht verfügbar".
+>
+> Wer das in einer Automatisierung unterscheiden muss, nimmt das Attribut `prices_tomorrow_valid` oder den Binary-Sensor [Preise für morgen verfügbar](#binary-sensor-preise-für-morgen-verfügbar).
 
 # Binary-Sensor „Günstige Stunde"
 
@@ -83,6 +88,33 @@ Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist gen
 
 `exceeds_cheap_hours` in `cheap_windows` ist `true`, wenn der Block wegen eines Preis-Gleichstands über die eingestellte Stundenzahl hinausreicht. Die Angabe ist rein informativ – auf das Schaltverhalten wirkt sie sich nicht aus. Bei eingeschaltetem `exact_hours` und im Blockmodus ist sie immer `false`.
 
+# Sensor „Nächster günstiger Start"
+
+Je Untereintrag entsteht neben dem Binary-Sensor ein **Zeitstempel-Sensor** mit dem Beginn des nächsten günstigen Fensters. Er trägt `device_class: timestamp`, und genau darum geht es: Der `time`-Trigger von Home Assistant nimmt unter `at:` nur Entitäten mit dieser Geräteklasse. Ein Attribut – auch `next_cheap_start` am Binary-Sensor – lässt sich dort nicht referenzieren, weshalb „30 Minuten vor dem günstigen Fenster vorheizen" bislang einen Template-Sensor brauchte. Ein Beispiel steht unter [Automatisierungsbeispiele](Automatisierungsbeispiele).
+
+Der Wert **enthält die Last-Glättung bereits** und stimmt damit sekundengenau mit dem Zeitpunkt überein, zu dem der zugehörige Binary-Sensor auf `on` geht.
+
+> [!NOTE]
+> Der Sensor steht auf `unknown`, wenn kein nächstes Fenster bekannt ist – typischerweise spät abends, bevor die Preise für den Folgetag veröffentlicht sind. Das ist Absicht und kein Fehler: Ein `time`-Trigger feuert dann schlicht nicht, statt eine falsche Zeit zu verwenden.
+
+Der Sensor führt keine Einheit und keine Langzeitstatistik; beides gibt es für Zeitstempel nicht.
+
+# Binary-Sensor „Preise für morgen verfügbar"
+
+Ein Diagnose-Sensor am Gerät des Strompreishelfers. Er ist `on`, sobald die Preise für den Folgetag im Zwischenspeicher liegen.
+
+Ohne ihn lässt sich „noch nicht veröffentlicht" nicht von „keine Preise" unterscheiden: `prices_tomorrow` ist in beiden Fällen eine leere Liste. Er ist damit der natürliche Auslöser für „Tagesplan neu rechnen, sobald die Morgenpreise da sind".
+
+| Attribut | Beschreibung |
+|---|---|
+| `price_count` | Anzahl der bereits vorliegenden Intervalle für morgen (ein voller Tag sind 96 Viertelstunden) |
+| `expected_after` | Zeitpunkt, ab dem die API die Preise zusagt (17 Uhr Ortszeit). Vor dieser Zeit ist `off` der Normalzustand, danach ein Hinweis auf eine Störung beim Anbieter |
+
+> [!NOTE]
+> Die Einordnung als **Diagnose** blendet den Sensor lediglich aus der Gerätekarte aus (er steht dort unter „Diagnose"). Als Auslöser einer Automatisierung, in Vorlagen und in der Historie ist er uneingeschränkt nutzbar.
+>
+> Er trägt bewusst **keine** `device_class`: `problem` kehrte die Bedeutung um und wiese den planmäßigen Zustand vor 17 Uhr als Störung aus.
+
 # Arbeitspreis-Sensor
 
 | Attribut | Beschreibung |
@@ -97,3 +129,4 @@ Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist gen
 | `average_working_price_today` / `lowest_working_price_today` / `highest_working_price_today` | Tageskennzahlen des **Arbeitspreises** |
 | `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit, direkt aus der API (üblicherweise `EUR/month`). Liefert der Tarif keine Grundgebühr – etwa smartCONTROL –, sind beide `null` |
 | `prices_today` / `prices_tomorrow` | **Arbeitspreis**-Vorschau für heute und morgen (`start`, `end`, `price`) |
+| `prices_tomorrow_valid` | `true`, sobald die Preise für morgen vorliegen (wie beim Gesamtpreis-Sensor) |
