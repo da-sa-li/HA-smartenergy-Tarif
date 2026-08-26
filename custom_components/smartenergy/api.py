@@ -100,6 +100,25 @@ class SmartTimesApiPermanentError(SmartTimesApiError):
     """
 
 
+class SmartTimesApiTimeoutError(SmartTimesApiError):
+    """Der Abruf der API hat das Zeitlimit überschritten.
+
+    Eigene, vom generischen ``SmartTimesApiError`` unterscheidbare Fehlerart,
+    damit der Options-/Einrichtungs-Flow gezielter Auskunft geben kann. Am
+    Retry-Verhalten des Koordinators ändert das nichts – dort zählt weiterhin
+    nur die Unterscheidung dauerhaft/vorübergehend (``SmartTimesApiPermanentError``).
+    """
+
+
+class SmartTimesApiPayloadError(SmartTimesApiError):
+    """Die Antwort der API lässt sich nicht auswerten (kein JSON, unerwartetes
+    Format oder keine gültigen Preisdaten).
+
+    Eigene Fehlerart, damit der Config-Flow gezielt auf eine mögliche
+    Formatänderung der smartENERGY-API hinweisen kann.
+    """
+
+
 @dataclass(slots=True)
 class MarketPrice:
     """Ein Preis-Eintrag für ein Zeitintervall.
@@ -185,7 +204,7 @@ class SmartTimesApiClient:
                 text = await response.text()
                 response.raise_for_status()
         except asyncio.TimeoutError as err:
-            raise SmartTimesApiError(
+            raise SmartTimesApiTimeoutError(
                 f"Zeitüberschreitung beim Abruf der smartENERGY-API ({self._api_url})"
             ) from err
         except aiohttp.ClientResponseError as err:
@@ -207,7 +226,7 @@ class SmartTimesApiClient:
             payload = json.loads(text)
         except ValueError as err:
             snippet = text[:200].replace("\n", " ")
-            raise SmartTimesApiError(
+            raise SmartTimesApiPayloadError(
                 f"Ungültige (kein JSON) Antwort der smartENERGY-API. Auszug: {snippet!r}"
             ) from err
 
@@ -224,7 +243,7 @@ class SmartTimesApiClient:
         ``_parse_date`` respektiert dabei einen vorhandenen Zeitzonen-Offset.
         """
         if not isinstance(payload, dict):
-            raise SmartTimesApiError("Unerwartetes Antwortformat der API")
+            raise SmartTimesApiPayloadError("Unerwartetes Antwortformat der API")
 
         # Energiepreis-Block bestimmen (neues Format) bzw. auf oberste Ebene
         # zurückfallen (dokumentiertes Format).
@@ -243,7 +262,7 @@ class SmartTimesApiClient:
         if not isinstance(raw_values, list):
             raw_values = energy.get("data")
         if not isinstance(raw_values, list) or not raw_values:
-            raise SmartTimesApiError(
+            raise SmartTimesApiPayloadError(
                 "Die API hat keine Preisdaten geliefert. Vorhandene Felder: "
                 f"oberste Ebene={sorted(payload)}, energyPrice={sorted(energy)}"
             )
@@ -264,7 +283,7 @@ class SmartTimesApiClient:
             )
 
         if not prices:
-            raise SmartTimesApiError("Keine gültigen Preisdaten in der API-Antwort")
+            raise SmartTimesApiPayloadError("Keine gültigen Preisdaten in der API-Antwort")
 
         prices.sort(key=lambda p: p.start)
 

@@ -20,7 +20,9 @@ from custom_components.smartenergy.api import (
     MarketPrice,
     SmartTimesApiClient,
     SmartTimesApiError,
+    SmartTimesApiPayloadError,
     SmartTimesApiPermanentError,
+    SmartTimesApiTimeoutError,
     _build_user_agent,
     _parse_retry_after,
 )
@@ -95,15 +97,33 @@ def test_parse_date_assumes_default_tz_when_naive():
 
 
 def test_parse_rejects_non_dict():
-    """Ein nicht-Objekt als Antwort löst einen Fehler aus."""
-    with pytest.raises(SmartTimesApiError):
+    """Ein nicht-Objekt als Antwort löst einen Payload-Fehler aus."""
+    with pytest.raises(SmartTimesApiPayloadError):
         SmartTimesApiClient._parse([])
 
 
 def test_parse_rejects_empty_values():
-    """Eine leere Werteliste löst einen Fehler aus (keine Preisdaten)."""
-    with pytest.raises(SmartTimesApiError):
+    """Eine leere Werteliste löst einen Payload-Fehler aus (keine Preisdaten)."""
+    with pytest.raises(SmartTimesApiPayloadError):
         SmartTimesApiClient._parse({"energyPrice": {"values": []}})
+
+
+def test_parse_rejects_all_invalid_entries():
+    """Sind alle Einträge unbrauchbar (kein Datum/Wert), bleibt kein Preis übrig."""
+    with pytest.raises(SmartTimesApiPayloadError):
+        SmartTimesApiClient._parse({"energyPrice": {"values": [{"foo": "bar"}]}})
+
+
+def test_new_error_types_are_siblings_of_permanent_error():
+    """Timeout- und Payload-Fehler hängen NICHT unter ``SmartTimesApiPermanentError``
+    und umgekehrt – sonst schlüge der isinstance-Check in coordinator.py an.
+    """
+    assert issubclass(SmartTimesApiTimeoutError, SmartTimesApiError)
+    assert issubclass(SmartTimesApiPayloadError, SmartTimesApiError)
+    assert not issubclass(SmartTimesApiTimeoutError, SmartTimesApiPermanentError)
+    assert not issubclass(SmartTimesApiPayloadError, SmartTimesApiPermanentError)
+    assert not issubclass(SmartTimesApiPermanentError, SmartTimesApiTimeoutError)
+    assert not issubclass(SmartTimesApiPermanentError, SmartTimesApiPayloadError)
 
 
 def test_build_user_agent_with_version_and_doc_url():
@@ -143,6 +163,35 @@ class _FakeResponse:
 
     def raise_for_status(self) -> None:
         """No-Op: die Fake-Antwort ist immer erfolgreich."""
+
+
+class _InvalidJsonResponse:
+    """Antwort-Attrappe mit einem Body, der sich nicht als JSON lesen lässt."""
+
+    async def text(self) -> str:
+        """Liefert absichtlich keinen gültigen JSON-Text."""
+        return "<html>kein JSON</html>"
+
+    def raise_for_status(self) -> None:
+        """No-Op: der HTTP-Status allein ist hier erfolgreich."""
+
+
+async def test_invalid_json_raises_payload_error():
+    """Ein nicht auswertbarer Body löst einen Payload-Fehler aus."""
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=_InvalidJsonResponse())
+    client = SmartTimesApiClient(session)
+    with pytest.raises(SmartTimesApiPayloadError):
+        await client.async_get_prices()
+
+
+async def test_timeout_raises_timeout_error():
+    """Eine Zeitüberschreitung beim Abruf löst den eigenen Timeout-Fehler aus."""
+    session = AsyncMock()
+    session.get = AsyncMock(side_effect=TimeoutError())
+    client = SmartTimesApiClient(session)
+    with pytest.raises(SmartTimesApiTimeoutError):
+        await client.async_get_prices()
 
 
 async def test_client_sends_dynamic_user_agent_header(smarttimes_payload):
