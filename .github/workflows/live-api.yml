@@ -6,9 +6,7 @@ name: Live-API
 # API trotzdem innerhalb eines Tages auffällt.
 on:
   schedule:
-    # Täglich 04:17 UTC (06:17 Wien). Krumme Minute, um die Lastspitze zur
-    # vollen Stunde bei GitHub zu meiden.
-    - cron: "17 4 * * *"
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 # Immer nur ein Lauf gleichzeitig: Sonst könnten sich ein geplanter und ein

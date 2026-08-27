@@ -1,6 +1,3 @@
-> [!NOTE]
-> Community-Projekt, keine Verbindung zu smartENERGY oder der Energie Steiermark Kunden GmbH.
-
 # smartENERGY Strompreishelfer – Wiki
 
 Willkommen im Wiki der Home-Assistant-Integration **smartENERGY Strompreishelfer** für die dynamischen österreichischen Stromtarife **smartTIMES** und **smartCONTROL** von [smartENERGY](https://www.smartenergy.at/).

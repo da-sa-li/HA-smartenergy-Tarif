@@ -102,22 +102,6 @@ automation:
 > anders als eine Schwelle in EUR/kWh, die bei jeder Preisänderung nachgezogen
 > werden müsste.
 
-> [!IMPORTANT]
-> `below: 25` heißt **nicht** „genau das günstigste Viertel des Tages“.
-> Preisgleiche Intervalle teilen sich einen Quantilwert und kommen deshalb nur
-> gemeinsam unter die Schwelle. Bei **smartTIMES ohne Netzgebiet** liegt die
-> günstigste Stufe bei 16,67 %, `below: 25` schaltet also die ganze Stufe ein –
-> 8 Stunden statt der erwarteten 6. Mit Netzgebiet Wien sind es 6 Stunden. Wer
-> eine feste Laufzeit braucht, nimmt den „Günstige Stunde“-Sensor; er hält die
-> eingestellte Stundenzahl ein.
-
-> [!IMPORTANT]
-> Liegt für den aktuellen Zeitpunkt kein Preis vor, steht der Sensor auf
-> `unknown`. Ein `numeric_state`-Trigger feuert darauf nicht – anders als ein
-> Zustands-Trigger, der ohne `to:`-Filter auch auf `unknown` anspringen würde.
-> Wer den Verbraucher am Ende des günstigen Fensters wieder abschalten will,
-> nimmt einen zweiten Trigger mit `above: 25`.
-
 > [!NOTE]
 > Für einen Verbraucher mit einer festen Laufzeit („vier Stunden am Tag“) ist
 > der **Günstige Stunde**-Binary-Sensor die bessere Wahl: Er wählt die Fenster
