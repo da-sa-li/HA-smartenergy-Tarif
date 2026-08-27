@@ -221,3 +221,49 @@ def test_next_cheap_start_has_no_phantom_midnight_restart(two_day_data, phase):
     assert next_on is not None
     assert next_on.date() == DAY_6
     assert next_on.hour == 9
+
+
+# --- Die Jitterbreite selbst ------------------------------------------------- #
+#
+# Alle Tests oben messen Eigenschaften *relativ* zu JITTER_SPAN_SECONDS und
+# gelten damit für jede Breite – bewusst so, denn "das Fenster ist L - SPAN
+# lang" ist die Zusage, nicht "600". Genau deshalb war die Breite selbst aber
+# von keinem Test gepinnt: Sie ließ sich auf 60, 300, 900 oder 1200 Sekunden
+# stellen, ohne dass ein einziger Test ansprang.
+#
+# Die beiden Tests hier schließen diese Lücke – der erste aus der
+# Spezifikation abgeleitet, der zweite als bewusste Zweitschrift.
+
+
+def test_jitterbreite_bleibt_unter_einem_intervall():
+    """Der Jitter darf das kleinste reale Intervall nicht aufzehren.
+
+    Aus der Spezifikation abgeleitet (siehe Modul-Docstring von ``jitter.py``):
+    Die kleinste real vorkommende Blocklänge ist ein Viertelstunden-Intervall,
+    das Raster der API. Ist die Jitterbreite nicht kürzer als das, fällt so ein
+    Block auf das ungejitterte Sicherheitsnetz in :func:`jittered_window`
+    zurück – die Last-Glättung setzt dann ausgerechnet dort aus, wo die meisten
+    Verbraucher gleichzeitig schalten würden, und zwar still.
+
+    Nach oben also 15 Minuten, nach unten mehr als null: Ohne Breite gäbe es
+    überhaupt keine Streuung, und der Jitter wäre eine wirkungslose Attrappe.
+    """
+    viertelstunde_in_sekunden = 15 * 60
+    assert 0 < JITTER_SPAN_SECONDS < viertelstunde_in_sekunden
+
+
+def test_jitterbreite_ist_die_vereinbarten_zehn_minuten():
+    """Die Breite steht auf 10 Minuten.
+
+    Das ist bewusst eine **Zweitschrift** des Werts aus ``const.py`` und damit
+    keine unabhängige Herleitung – 600 folgt aus einer Abwägung
+    (Lastverteilung gegen den festen Laufzeitverlust je Block), nicht aus einer
+    Formel. Zweck ist, dass eine Änderung an zwei Stellen bewusst geschehen
+    muss, statt sich unbemerkt einzuschleichen: Die Breite kostet jeden
+    Verbraucher deterministisch Laufzeit im günstigen Fenster, ein versehentlich
+    vervierfachter Wert also 40 statt 10 Minuten pro Block.
+
+    Die Prüfung darüber ist die eigentliche Zusage; diese hier ist die Bremse
+    gegen den Zahlendreher.
+    """
+    assert JITTER_SPAN_SECONDS == 600

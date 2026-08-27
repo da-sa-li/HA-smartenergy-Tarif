@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import zoneinfo
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from homeassistant.util import dt as dt_util
@@ -143,3 +144,22 @@ def make_data():
         )
 
     return _make
+
+
+@pytest.fixture
+def ohne_jitter():
+    """Setzt die Last-Glättung auf 0, damit Sollzeiten exakt prüfbar sind.
+
+    Die Jitter-Phase leitet sich aus der Subentry-ID ab, die je Testlauf neu
+    vergeben wird – ohne diesen Eingriff wäre nur ein Intervall prüfbar.
+    Gepatcht wird die Bindung in ``entity``, nicht die in ``jitter``: Sonst
+    verstellte der Test zugleich den Abruf-Jitter des Koordinators.
+
+    Liegt hier und nicht in einer einzelnen Testdatei, weil sowohl die
+    Zeitstempel-Tests (``test_sensor.py``) als auch die Schaltflanken-Tests
+    (``test_schaltverhalten.py``) darauf aufsetzen.
+    """
+    with patch(
+        "custom_components.smartenergy.entity.cheap_phase", return_value=0.0
+    ):
+        yield

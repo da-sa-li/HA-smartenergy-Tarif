@@ -16,7 +16,14 @@ from pathlib import Path
 
 import pytest
 
-UEBERSETZUNGSWURZEL = Path("custom_components/smartenergy")
+# Am Ort dieser Datei verankert, nicht am Arbeitsverzeichnis: Mit einem
+# relativen Pfad findet der glob unten aus einem anderen Verzeichnis heraus
+# nichts, und die beiden parametrisierten Tests werden dann still zu Skips
+# statt zu Fehlschlägen. Dieselbe Verankerung nutzen conftest.py (Fixtures)
+# und test_api_live.py (Manifest).
+UEBERSETZUNGSWURZEL = (
+    Path(__file__).resolve().parents[1] / "custom_components" / "smartenergy"
+)
 STRINGS = UEBERSETZUNGSWURZEL / "strings.json"
 SPRACHDATEIEN = sorted((UEBERSETZUNGSWURZEL / "translations").glob("*.json"))
 

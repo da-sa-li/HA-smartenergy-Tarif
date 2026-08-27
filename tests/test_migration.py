@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.smartenergy import async_migrate_entry
 from custom_components.smartenergy.api import SmartTimesApiClient
 from custom_components.smartenergy.const import CONFIG_ENTRY_VERSION
 
@@ -101,18 +102,66 @@ async def test_neuer_eintrag_wird_nicht_angefasst(
     assert _untereintrag(entry) == {"cheap_hours": 4.0, "cheap_mode": "individual"}
 
 
-async def test_neuere_version_wird_abgelehnt(
+async def test_neuere_version_wird_von_home_assistant_abgelehnt(
     hass: HomeAssistant, enable_custom_integrations
 ):
-    """Ein Eintrag aus einer neueren Fassung lässt sich nicht herunterstufen."""
+    """Ein Eintrag aus einer neueren Fassung lässt sich nicht herunterstufen.
+
+    Wichtig ist, wer das erledigt: **Home Assistant selbst**. Es vergleicht in
+    ``ConfigEntry.async_migrate()`` die Version des Eintrags mit
+    ``ConfigFlow.VERSION`` und bricht ab, *bevor* ``async_migrate_entry``
+    überhaupt aufgerufen wird. Der gleichlautende Vorabtest in ``__init__.py``
+    ist deshalb ein Sicherheitsnetz, das im Betrieb nie zum Zug kommt – dieser
+    Test deckt ihn nicht ab, auch wenn der Name das früher nahelegte.
+
+    Die Zusicherung unten hält genau diese Arbeitsteilung fest. Ohne sie prüfte
+    der Test nur das Ergebnis und behauptete im Docstring eine Ursache, die er
+    nie berührt: Er bliebe selbst dann grün, wenn unser Vorabtest fehlerhaft
+    wäre oder ganz fehlte.
+    """
     entry = _eintrag(
         CONFIG_ENTRY_VERSION + 1, {"cheap_hours": 4.0, "cheap_mode": "individual"}
     )
     entry.add_to_hass(hass)
 
-    assert not await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
+    with patch(
+        "custom_components.smartenergy.async_migrate_entry",
+        wraps=async_migrate_entry,
+    ) as migration:
+        assert not await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
     assert entry.state is ConfigEntryState.MIGRATION_ERROR
+    migration.assert_not_called()
+
+
+async def test_aeltere_version_erreicht_unsere_migration(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Gegenprobe: Bei einer *älteren* Version läuft unsere Migration sehr wohl.
+
+    Zusammen mit dem Test darüber ist damit beides festgehalten – wann Home
+    Assistant selbst abbricht und wann es an uns weiterreicht.
+    """
+    entry = _eintrag(1, {"cheap_hours": 4.0, "cheap_mode": "individual"})
+    entry.add_to_hass(hass)
+
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    with (
+        patch(
+            "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+            AsyncMock(return_value=parsed),
+        ),
+        patch(
+            "custom_components.smartenergy.async_migrate_entry",
+            wraps=async_migrate_entry,
+        ) as migration,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    migration.assert_called_once()
+    assert entry.version == CONFIG_ENTRY_VERSION
 
 
 async def test_gesamtpreis_entitaet_behaelt_ihren_registry_eintrag(
