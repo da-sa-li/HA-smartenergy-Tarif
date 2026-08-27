@@ -318,3 +318,175 @@ def test_parse_retry_after_past_http_date_is_clamped():
 def test_parse_retry_after_invalid(value):
     """Fehlt der Header oder ist er unbrauchbar, gilt die eigene Wartezeit."""
     assert _parse_retry_after(value) is None
+
+
+# --- Fehlertoleranz des Parsers --------------------------------------------- #
+#
+# Diese Zweige greifen genau dann, wenn smartENERGY die Antwort verändert – das
+# Hauptrisiko einer Integration, die eine fremde, nicht versionierte API
+# konsumiert. Der Live-Test bemerkt einen Formatwechsel zwar, prüft aber nicht,
+# ob der Parser ihn *sauber* abfängt statt mit einem Stacktrace mitten im Setup
+# auszusteigen.
+#
+# Maßstab ist durchweg: Ein unbrauchbarer Einzelwert kostet höchstens seinen
+# eigenen Eintrag; erst wenn gar nichts Verwertbares übrig bleibt, gibt es einen
+# SmartTimesApiPayloadError.
+
+
+async def test_network_error_raises_api_error():
+    """Ein Verbindungsabbruch wird als allgemeiner API-Fehler gemeldet.
+
+    Der schlichte Netzwerkfehler – abgerissene Verbindung, DNS, TLS – hatte
+    bisher keinen Test, obwohl er der häufigste Fehlerfall im Betrieb ist.
+    Wichtig ist, dass er NICHT als dauerhafte Ablehnung gilt: Sonst ginge der
+    Koordinator sofort auf das Maximal-Intervall und eine kurze Störung kostete
+    zwei Stunden Aktualität.
+    """
+    session = AsyncMock()
+    session.get = AsyncMock(
+        side_effect=aiohttp.ClientConnectionError("Verbindung abgebrochen")
+    )
+    client = SmartTimesApiClient(session)
+
+    with pytest.raises(SmartTimesApiError) as excinfo:
+        await client.async_get_prices()
+
+    assert not isinstance(excinfo.value, SmartTimesApiPermanentError)
+    # Der Grund bleibt in der Meldung erhalten (Diagnose im Log).
+    assert "Verbindung abgebrochen" in str(excinfo.value)
+    # Ohne Antwort gibt es auch keine Wartezeit-Vorgabe des Servers.
+    assert excinfo.value.retry_after is None
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")
+def test_parse_retry_after_date_without_zone_counts_as_gmt():
+    """Ein HTTP-Datum ohne verwertbare Zone gilt laut RFC 9110 als GMT.
+
+    ``-0000`` heißt „Zone unbekannt“; ``parsedate_to_datetime`` liefert dann ein
+    zeitzonenloses datetime. Ohne die Annahme GMT vergliche der Code ein naives
+    mit einem zeitzonenbehafteten datetime und liefe in einen TypeError – mitten
+    in der Fehlerbehandlung eines ohnehin schon fehlgeschlagenen Abrufs.
+    """
+    # Eingefroren auf den 05.06.2026 10:00:00 UTC, das Datum liegt 2 Minuten später.
+    assert _parse_retry_after("Fri, 05 Jun 2026 10:02:00 -0000") == timedelta(
+        minutes=2
+    )
+
+
+def test_parse_falls_back_to_quarter_hour_on_unreadable_interval():
+    """Ein unlesbares ``interval`` fällt auf das Viertelstundenraster zurück.
+
+    Die Intervalllänge bestimmt das Ende jedes Preis-Eintrags. Ein Ausfall hier
+    dürfte nicht den ganzen Abruf scheitern lassen – der dokumentierte Standard
+    beider Tarife ist 15 Minuten.
+    """
+    result = SmartTimesApiClient._parse(
+        {
+            "energyPrice": {
+                "interval": "viertelstuendlich",
+                "values": [
+                    {"dateTimeFrom": "2026-06-05T00:00:00+02:00", "value": 13.02}
+                ],
+            }
+        }
+    )
+
+    assert result.interval_minutes == 15
+    assert result.prices[0].end == _iso("2026-06-05T00:15:00+02:00")
+
+
+@pytest.mark.parametrize(
+    ("eintrag", "grund"),
+    [
+        ("kein Objekt", "Zeichenkette statt Objekt in der Werteliste"),
+        ({"dateTimeFrom": "kein Datum", "value": 13.02}, "unlesbares Datum"),
+        ({"dateTimeFrom": "2026-06-05T01:00:00+02:00", "value": "teuer"}, "Wert keine Zahl"),
+        ({"dateTimeFrom": "2026-06-05T01:00:00+02:00", "value": []}, "Wert falscher Typ"),
+    ],
+    ids=["nicht-objekt", "kaputtes-datum", "wert-keine-zahl", "wert-falscher-typ"],
+)
+def test_parse_skips_single_broken_entry(eintrag, grund):
+    """Ein unbrauchbarer Eintrag kostet nur sich selbst, nicht den ganzen Abruf.
+
+    Der gültige Eintrag daneben bleibt erhalten – ein einzelner Ausreißer in der
+    Antwort darf die Preise des restlichen Tages nicht mitreißen.
+    """
+    result = SmartTimesApiClient._parse(
+        {
+            "energyPrice": {
+                "interval": 15,
+                "values": [
+                    eintrag,
+                    {"dateTimeFrom": "2026-06-05T00:00:00+02:00", "value": 13.02},
+                ],
+            }
+        }
+    )
+
+    assert len(result.prices) == 1, grund
+    assert result.prices[0].start == _iso("2026-06-05T00:00:00+02:00")
+
+
+def test_parse_basic_fee_without_values_keeps_the_unit():
+    """Fehlt die Werteliste der Grundgebühr, bleibt wenigstens die Einheit erhalten.
+
+    Die Einheit steuert die Warnung in ``sensor.async_setup_entry`` (meldet die
+    API plötzlich EUR/year statt EUR/month, zeigte der Sensor stillschweigend
+    eine falsche an). Sie darf deshalb nicht mit der Werteliste verloren gehen.
+    """
+    result = SmartTimesApiClient._parse(
+        {
+            "energyPrice": {
+                "values": [
+                    {"dateTimeFrom": "2026-06-05T00:00:00+02:00", "value": 13.02}
+                ]
+            },
+            "basicFee": {"unit": "EUR/month"},
+        }
+    )
+
+    assert result.basic_fees == []
+    assert result.basic_fee_unit == "EUR/month"
+
+
+def test_parse_basic_fee_skips_broken_entries():
+    """Ein kaputter Grundgebühr-Eintrag wird übersprungen, der gültige bleibt."""
+    result = SmartTimesApiClient._parse(
+        {
+            "energyPrice": {
+                "values": [
+                    {"dateTimeFrom": "2026-06-05T00:00:00+02:00", "value": 13.02}
+                ]
+            },
+            "basicFee": {
+                "unit": "EUR/month",
+                "values": [
+                    {"dateTimeFrom": "kein Datum", "value": 2.988},
+                    {"dateTimeFrom": "2026-06-05T00:00:00+02:00", "value": 2.988},
+                ],
+            },
+        }
+    )
+
+    assert [f.gross_value for f in result.basic_fees] == [2.988]
+
+
+def test_parse_ignores_basic_fee_of_wrong_shape():
+    """Ist ``basicFee`` gar kein Objekt, gibt es schlicht keine Grundgebühr.
+
+    Der Sensor entfällt dann (siehe ``sensor._is_available``), statt dauerhaft
+    auf „unbekannt“ zu stehen.
+    """
+    result = SmartTimesApiClient._parse(
+        {
+            "energyPrice": {
+                "values": [
+                    {"dateTimeFrom": "2026-06-05T00:00:00+02:00", "value": 13.02}
+                ]
+            },
+            "basicFee": "2,988 EUR",
+        }
+    )
+
+    assert result.basic_fees == []
+    assert result.basic_fee_unit is None
