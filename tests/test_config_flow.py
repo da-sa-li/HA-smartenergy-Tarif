@@ -372,7 +372,7 @@ async def _reconfigure_starten(
     )
 
 
-async def test_subentry_reconfigure_ist_vorbefuellt(
+async def test_subentry_reconfigure_prefills_stored_values(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Das Formular zeigt die gespeicherten Werte und den bisherigen Namen.
@@ -392,7 +392,7 @@ async def test_subentry_reconfigure_ist_vorbefuellt(
     assert result["data_schema"]({}) == {"name": "Boiler", **BESTAND}
 
 
-async def test_subentry_reconfigure_speichert_aenderungen(
+async def test_subentry_reconfigure_saves_changes(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Geänderte Werte landen im Untereintrag, der Titel folgt dem neuen Namen."""
@@ -454,7 +454,7 @@ async def test_subentry_reconfigure_name_required(
     assert entry.subentries[subentry_id].data == BESTAND
 
 
-async def test_subentry_reconfigure_haelt_die_eingaben_bei_fehler(
+async def test_subentry_reconfigure_keeps_input_on_error(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Nach dem Namensfehler bleiben die übrigen Eingaben im Formular stehen.

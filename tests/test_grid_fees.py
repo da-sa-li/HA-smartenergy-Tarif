@@ -110,7 +110,7 @@ ERWARTETE_ZONEN = {
 }
 
 
-def test_alle_netzgebiete_sind_erfasst():
+def test_all_grid_zones_are_covered():
     """Die Prüftabelle deckt exakt die hinterlegten Netzgebiete ab.
 
     Ohne diesen Abgleich bliebe ein neu ergänztes Netzgebiet unbemerkt
@@ -120,7 +120,7 @@ def test_alle_netzgebiete_sind_erfasst():
 
 
 @pytest.mark.parametrize("schluessel", sorted(ERWARTETE_ZONEN), ids=str)
-def test_zonenwerte_stimmen_mit_der_tabelle(schluessel: str):
+def test_zone_values_match_the_table(schluessel: str):
     """Jedes Netzgebiet führt die erwarteten Sätze und seinen Anzeigenamen."""
     name, usage_ap, usage_snap, loss = ERWARTETE_ZONEN[schluessel]
     zone = grid_fees.GRID_ZONES[schluessel]
@@ -133,7 +133,7 @@ def test_zonenwerte_stimmen_mit_der_tabelle(schluessel: str):
 
 
 @pytest.mark.parametrize("schluessel", sorted(ERWARTETE_ZONEN), ids=str)
-def test_snap_ist_20_prozent_unter_dem_arbeitspreis(schluessel: str):
+def test_snap_is_20_percent_below_usage_rate(schluessel: str):
     """Der SNAP-Satz jeder Zone liegt 20 % unter ihrem Netz-Arbeitspreis.
 
     Das ist die Regel aus der Spezifikation (siehe Modul-Docstring von
@@ -149,7 +149,7 @@ def test_snap_ist_20_prozent_unter_dem_arbeitspreis(schluessel: str):
 
 
 @pytest.mark.parametrize("schluessel", sorted(ERWARTETE_ZONEN), ids=str)
-def test_jede_zone_rechnet_snap_und_regelzeit(schluessel: str):
+def test_every_zone_computes_snap_and_regular(schluessel: str):
     """``total_ct_per_kwh`` summiert je Zone den gültigen AP und das Verlustentgelt.
 
     Bisher belegte das nur Wien; ein Fehler in ``usage_rate`` oder ``breakdown``

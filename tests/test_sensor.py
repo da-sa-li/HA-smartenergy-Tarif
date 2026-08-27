@@ -18,10 +18,7 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient
-from custom_components.smartenergy.const import (
-    JITTER_SPAN_SECONDS,
-    SMARTCONTROL_HANDLING_FEE_NET,
-)
+from custom_components.smartenergy.const import JITTER_SPAN_SECONDS
 
 from tests.conftest import VIENNA
 
@@ -542,7 +539,11 @@ SMARTCONTROL_GEBUEHR_EUR = 0.0144
 @pytest.mark.parametrize(
     ("tarif", "payload_name", "erwartet"),
     [
-        ("smartcontrol", "smartcontrol_payload", SMARTCONTROL_HANDLING_FEE_NET),
+        # 1,2 ct/kWh netto laut Spezifikation (CLAUDE.md, README) – bewusst als
+        # Zahl und nicht als SMARTCONTROL_HANDLING_FEE_NET: Gegen die Konstante
+        # zu prüfen hieße, den Wert gegen sich selbst zu prüfen, und ein
+        # verstellter Satz änderte Laufzeitwert und Sollwert gemeinsam.
+        ("smartcontrol", "smartcontrol_payload", 1.2),
         ("smarttimes", "smarttimes_payload", 0.0),
     ],
 )
