@@ -20,12 +20,18 @@ Ausführen (Netzzugang nötig)::
 
 Ohne ``--live`` werden diese Tests übersprungen (siehe ``conftest.py``), damit
 die normale CI offline und unabhängig vom fremden Server bleibt.
+
+Ist ``LIVE_ANTWORT_DIR`` gesetzt, legen sie die abgerufenen Antworten dort als
+Dateien ab. Die nächtliche CI nutzt das, um sie bei einem Fehlschlag als
+Artefakt an den Lauf zu hängen: Ohne sie stünde die wahrscheinlichste Diagnose
+– smartENERGY hat das Antwortformat geändert – ohne Belegmaterial da.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import socket
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,6 +71,11 @@ ECHTE_NETZFUNKTIONEN: Final = {
     "gethostbyname": socket.gethostbyname,
     "gethostbyname_ex": socket.gethostbyname_ex,
 }
+
+# Umgebungsvariable, die das Zielverzeichnis für die abgerufenen Antworten nennt.
+# Gesetzt wird sie in der CI (siehe .github/workflows/live-api.yml); fehlt sie,
+# bleibt der Lauf ohne Nebenwirkung auf der Platte.
+ANTWORT_ABLAGE_ENV: Final = "LIVE_ANTWORT_DIR"
 
 # --- Sollwerte laut Spezifikation ------------------------------------------- #
 
@@ -199,6 +210,58 @@ def erzeuge_client(
     )
 
 
+def lege_antwort_ab(tarif: str, text: str) -> None:
+    """Legt die abgerufene Antwort für die Fehlerdiagnose auf der Platte ab.
+
+    Schlägt der nächtliche Lauf fehl, ist die Antwort sonst mit dem Runner
+    verloren – und genau sie belegt, ob smartENERGY das Format geändert hat. Die
+    CI lädt das Verzeichnis als Artefakt hoch und verlinkt es im Fehler-Issue.
+
+    Dateiname und Formatierung entsprechen der Fixture (``smarttimes.json``,
+    zweifach eingerückt): So zeigt ein ``diff`` gegen ``tests/fixtures/`` nur
+    echte Unterschiede statt der Minifizierung der API. Ist die Antwort kein
+    JSON – etwa eine HTML-Fehlerseite –, wird sie roh als ``.txt`` abgelegt; sie
+    ist dann selbst die Auskunft darüber, was schiefging.
+
+    Ohne die Umgebungsvariable passiert nichts, damit ein lokaler Lauf nichts
+    hinterlässt. Gelesen wird sie bewusst hier und nicht beim Import, sonst wäre
+    die Funktion nicht mit ``monkeypatch.setenv`` prüfbar.
+    """
+    verzeichnis = os.environ.get(ANTWORT_ABLAGE_ENV)
+    if not verzeichnis:
+        return
+    ziel = Path(verzeichnis)
+    ziel.mkdir(parents=True, exist_ok=True)
+    try:
+        inhalt = json.dumps(json.loads(text), indent=2, ensure_ascii=False) + "\n"
+    except ValueError:
+        (ziel / f"{tarif}.txt").write_text(text, encoding="utf-8")
+        return
+    (ziel / f"{tarif}.json").write_text(inhalt, encoding="utf-8")
+
+
+async def hole_rohantwort(
+    session: aiohttp.ClientSession, erwartung: TarifErwartung
+) -> dict:
+    """Ruft die Antwort unverarbeitet ab und legt sie für die Diagnose ab.
+
+    Die Header des produktiven Clients werden bewusst wiederverwendet, damit die
+    Anfrage exakt der echten entspricht. Abgelegt wird **vor**
+    ``raise_for_status``, damit auch der Körper einer Fehlerantwort erhalten
+    bleibt – bei einem 4xx/5xx ist gerade er die Diagnose. Das Zeitlimit umfasst
+    nur den Netzverkehr, nicht das Schreiben der Datei.
+    """
+    client = erzeuge_client(session, erwartung.api_url)
+    async with asyncio.timeout(API_TIMEOUT):
+        response = await session.get(
+            erwartung.api_url, headers=client._headers  # noqa: SLF001
+        )
+        text = await response.text()
+    lege_antwort_ab(erwartung.tarif, text)
+    response.raise_for_status()
+    return json.loads(text)
+
+
 def schluessel_struktur(wert: object) -> object:
     """Reduziert eine JSON-Struktur auf ihre reine Schlüssel-Signatur.
 
@@ -314,16 +377,7 @@ async def test_live_antwort_passt_zur_fixture(
     optionales Feld macht den Test bewusst ebenfalls rot: Genau dieses Signal
     will man haben. Da der Test nur nächtlich läuft, blockiert er keine PRs.
     """
-    client = erzeuge_client(live_session, erwartung.api_url)
-    # Die Header des Clients bewusst wiederverwenden, damit die Anfrage exakt der
-    # produktiven entspricht.
-    async with asyncio.timeout(API_TIMEOUT):
-        response = await live_session.get(
-            erwartung.api_url, headers=client._headers  # noqa: SLF001
-        )
-        text = await response.text()
-        response.raise_for_status()
-    live_payload = json.loads(text)
+    live_payload = await hole_rohantwort(live_session, erwartung)
     fixture_payload = request.getfixturevalue(erwartung.fixture_name)
 
     assert schluessel_struktur(live_payload) == schluessel_struktur(

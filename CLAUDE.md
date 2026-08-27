@@ -138,12 +138,23 @@ Läufen zu unzuverlässig. Das Issue bleibt offen, bis es jemand von Hand schlie
 Workflow (`wiki-push.yml`) veröffentlicht das Wiki und prüft nichts; er läuft nur bei Pushes
 auf `main`, die `wiki/` berühren (siehe „Dokumentation“).
 
-**Action-Referenzen in den Workflows:** `actions/checkout`, `actions/setup-python` und
-`Andrew-Chen-Wang/github-wiki-action` sind auf einen **Commit-SHA** gepinnt, mit der genauen
-Version als Kommentar dahinter (`# v7.0.1`) – daran verankert Dependabot den Ist-Stand und
-schreibt beim Update SHA *und* Kommentar um. Bei der Wiki-Action kommt hinzu, dass sie als
-einzige Schreibrecht auf das Repository bekommt. `home-assistant/actions/hassfest` und
-`hacs/action` bleiben dagegen bewusst auf `master`/`main`: Beide werden nicht mehr getaggt, und
+Ein fehlgeschlagener Live-Lauf hängt außerdem die **abgerufenen API-Antworten als Artefakt**
+`live-antworten` an und verlinkt es im Issue. Ohne das stirbt die Antwort mit dem Runner –
+und mit ihr der Beleg für die wahrscheinlichste Ursache, eine Formatänderung. Geschrieben
+werden sie von `lege_antwort_ab` in `tests/test_api_live.py`, gesteuert über die
+Umgebungsvariable `LIVE_ANTWORT_DIR`; ohne sie bleibt ein lokaler Lauf ohne Nebenwirkung.
+Dateiname und Formatierung entsprechen den Fixtures, damit ein `diff` gegen
+`tests/fixtures/` nur echte Unterschiede zeigt. Übernommen wird daraus die **Feldänderung**,
+nicht die Datei: Die handgerechneten Sollwerte der übrigen Tests hängen an den eingefrorenen
+Tagen und Preisen der Fixture.
+
+**Action-Referenzen in den Workflows:** `actions/checkout`, `actions/setup-python`,
+`actions/upload-artifact` und `Andrew-Chen-Wang/github-wiki-action` sind auf einen
+**Commit-SHA** gepinnt, mit der genauen Version als Kommentar dahinter (`# v7.0.1`) – daran
+verankert Dependabot den Ist-Stand und schreibt beim Update SHA *und* Kommentar um. Bei der
+Wiki-Action kommt hinzu, dass sie als einzige Schreibrecht auf das Repository bekommt.
+`home-assistant/actions/hassfest` und `hacs/action` bleiben dagegen bewusst auf
+`master`/`main`: Beide werden nicht mehr getaggt, und
 ein Pin würde ausgerechnet die Validatoren einfrieren, die die jeweils aktuellen
 Hassfest-/HACS-Regeln prüfen sollen. Diese Aufteilung beibehalten – gepinnt wird alles, was
 regulär getaggt ist.
