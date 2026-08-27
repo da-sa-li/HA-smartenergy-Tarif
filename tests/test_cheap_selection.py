@@ -191,7 +191,10 @@ def test_ueberschuss_gilt_fuer_den_ganzen_block(gross):
     beide Fälle fälschlich als unauffällig.
     """
     data = _synthetic(gross)
-    blocks = {start.hour: exceeds for start, _, exceeds in data._cheap_blocks(DAY, 1.0, "individual", False)}
+    blocks = {
+        start.hour: exceeds
+        for start, _, exceeds in data._cheap_blocks(DAY, 1.0, "individual", False)
+    }
     assert blocks == {2: False, 10: True}
 
 

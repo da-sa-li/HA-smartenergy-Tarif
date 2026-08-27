@@ -1,0 +1,73 @@
+# Ruff-Konfiguration.
+#
+# Zweck ist nicht die Fehlersuche – beim Einführen fand Ruff über den gesamten
+# Code keinen einzigen Bug, nur zwei Dutzend Kleinigkeiten. Die Konfiguration
+# steht hier aus einem anderen Grund: **Sie macht die Haltung des Projekts
+# maschinenlesbar.** Ohne sie führt jedes Review-Werkzeug Ruff mit den
+# Standardeinstellungen aus und meldet dieselben 284 Treffer zur deutschen
+# Typografie wieder und wieder (siehe `lint.ignore` unten). Mit ihr ist die
+# Frage einmal entschieden.
+
+# Zielruntime wie im übrigen Projekt (siehe CLAUDE.md): Home Assistant 2026.8+
+# läuft auf Python 3.14.
+target-version = "py314"
+
+# 100 statt der 88, die Home-Assistant-Core verwendet. Bei 88 wären 46 Zeilen zu
+# brechen, bei 100 sind es zwei – die längste Zeile im Repo hat 109 Zeichen.
+# Deutsche Prosa in Docstrings auf 88 umzubrechen kostet Lesbarkeit, ohne etwas
+# zu gewinnen.
+line-length = 100
+
+[lint]
+select = [
+    "E",    # pycodestyle – Fehler
+    "W",    # pycodestyle – Warnungen
+    "F",    # Pyflakes: ungenutzte Importe/Namen, echte Tippfehler
+    "I",    # Importreihenfolge
+    "UP",   # pyupgrade: veraltete Schreibweisen für die Zielruntime
+    "B",    # bugbear: verbreitete Fallstricke (Mutable Defaults u. ä.)
+    "SIM",  # überflüssige Verzweigungen und Vergleiche
+    "DTZ",  # naive datetime-Aufrufe – siehe Anmerkung unten
+    "C4",   # überflüssige Comprehensions
+    "RET",  # unnötige Umwege am Funktionsende
+    "PTH",  # os.path -> pathlib
+    "RUF",  # Ruff-eigene Regeln
+]
+
+# `DTZ` ist für dieses Projekt besonders passend: Die gesamte Preis-Mathematik
+# hängt an der Ortszeit (SNAP-Fenster, Tagesgrenzen, „morgen“), und CLAUDE.md
+# widmet der Zeitzonen-Disziplin in den Tests einen eigenen Abschnitt. Die Regel
+# bewacht genau die Fehlerklasse, die dort ohnehin gefürchtet wird.
+
+ignore = [
+    # Der gesamte Code, alle Kommentare und Docstrings sind auf Deutsch
+    # (CLAUDE.md). Diese drei Regeln melden jeden Gedankenstrich, jedes
+    # „Anführungszeichen“ und jedes Non-ASCII-Zeichen als „mehrdeutig“ – beim
+    # Einführen waren das 284 Treffer, ausnahmslos korrekte Typografie.
+    # Ausdrücklich hier abgeschaltet, damit die Entscheidung dokumentiert ist
+    # und nicht in jedem Review neu begründet werden muss.
+    "RUF001",  # ambiguous-unicode-character-string
+    "RUF002",  # ambiguous-unicode-character-docstring
+    "RUF003",  # ambiguous-unicode-character-comment
+]
+
+# `D` (pydocstyle) ist bewusst **nicht** ausgewählt, obwohl Home-Assistant-Core
+# es führt: Regeln wie D401 („imperative mood“) sind auf englische Docstrings
+# gemünzt und bewerten deutsche Sätze willkürlich. Dass jede öffentliche
+# Funktion einen Docstring trägt, ist ohnehin Konvention und wird beim Review
+# geprüft.
+
+[lint.isort]
+# Aliasierte Importe zusammenfassen, statt sie auf je eine eigene Zeile zu
+# ziehen. Ohne diese Einstellung würde aus
+#     from homeassistant.helpers import device_registry as dr, entity_registry as er
+# ein Paar getrennter Zeilen, und aus einem `from .surcharges import (a as x,
+# b as y)` sogar zwei vollständige import-Blöcke. Home-Assistant-Core setzt es
+# aus demselben Grund.
+combine-as-imports = true
+
+[lint.per-file-ignores]
+# Tests greifen absichtlich auf Interna zu (`SmartTimesApiClient._parse`, die
+# `*_cache`-Felder von `SmartTimesData`) – das ist der Zweck der jeweiligen
+# Tests. Ebenso sind Assertions dort erwünscht, nicht verdächtig.
+"tests/*" = ["S101"]

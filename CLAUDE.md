@@ -50,6 +50,7 @@ Es gibt **kein** Build-System. Validiert wird über Home-Assistant-Tooling sowie
 
 - **Hassfest** – prüft `manifest.json`, Übersetzungen, Struktur.
 - **HACS validation** – prüft HACS-Tauglichkeit (`hacs.json`).
+- **Ruff** – Linter, Konfiguration in `ruff.toml` (siehe unten).
 - **pytest** – Unit-Tests der Preis-Mathematik, des Parsers und der Auswahllogik
   (Verzeichnis `tests/`).
 
@@ -69,7 +70,26 @@ pytest
 
 # Zusätzlich die Live-Tests gegen die echte API (braucht Netzzugang):
 pytest -m live --live
+
+# Linter (kommt mit requirements_test.txt; `--fix` behebt das meiste selbst):
+ruff check .
 ```
+
+**Ruff (`ruff.toml`).** Der Linter steht **nicht** wegen der Fehlersuche da – beim
+Einführen fand er über den gesamten Code keinen einzigen Bug, nur zwei Dutzend
+Kleinigkeiten. Sein Zweck ist, die Haltung des Projekts **maschinenlesbar** zu machen:
+Ohne Konfiguration führt jedes Review-Werkzeug Ruff mit den Standardeinstellungen aus
+und meldet 284-mal deutsche Typografie (`RUF001/002/003`: Gedankenstrich,
+„Anführungszeichen“, Umlaute) als „mehrdeutiges Unicode-Zeichen“. Genau das kam auf
+PRs wiederholt auf und musste jedes Mal neu begründet werden. Die drei Regeln sind
+deshalb in `ruff.toml` ausdrücklich abgeschaltet – mitsamt Begründung, damit der
+Eintrag später nicht als unbegründet zurückgedreht wird.
+
+Zwei weitere Festlegungen dort: `line-length = 100` statt der 88 von
+Home-Assistant-Core (bei 88 wären 46 Zeilen zu brechen, bei 100 sind es zwei), und
+`D`/pydocstyle ist **nicht** ausgewählt, weil Regeln wie D401 („imperative mood“) auf
+englische Docstrings gemünzt sind. Der **Formatter** (`ruff format`) läuft bewusst
+nicht: Er würde 28 Dateien umbrechen, ohne dass jemand darum gebeten hätte.
 
 **Testkonvention:** Die erwarteten Werte (Sollergebnisse) werden **von Hand aus der
 Spezifikation** abgeleitet und als Kommentar dokumentiert – nie aus dem zu testenden

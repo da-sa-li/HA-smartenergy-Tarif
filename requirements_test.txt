@@ -5,3 +5,9 @@
 # (.github/dependabot.yml) hebt den Pin über automatische, von der CI geprüfte
 # PRs an, sobald eine neue Version erscheint.
 pytest-homeassistant-custom-component==0.13.356
+
+# Linter. Steht hier und nicht in einer eigenen Datei, damit es genau einen Pin
+# gibt: Der Lint-Job in der CI zieht die Version aus dieser Zeile, Dependabot
+# hebt sie mit den übrigen Test-Abhängigkeiten an. Die Regelauswahl und ihre
+# Begründungen stehen in ruff.toml.
+ruff==0.16.4

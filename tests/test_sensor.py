@@ -23,7 +23,6 @@ from custom_components.smartenergy.const import (
     JITTER_SPAN_SECONDS,
     UNIT_EUR_PER_MONTH,
 )
-
 from tests.conftest import VIENNA
 
 DOMAIN = "smartenergy"
@@ -395,7 +394,7 @@ async def test_zeitstempel_sensor_je_untereintrag(
     ``time``-Trigger sie unter ``at:`` an. Einheit und ``state_class`` müssen
     fehlen – Home Assistant weist beides für Zeitstempel zurück.
     """
-    entry, subentry_id = await _richte_mit_untereintrag_ein(
+    _entry, subentry_id = await _richte_mit_untereintrag_ein(
         hass, smarttimes_payload
     )
 

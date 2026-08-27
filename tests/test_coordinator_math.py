@@ -309,12 +309,12 @@ OFF_PEAK, SHOULDER, PEAK = 11.316, 13.020, 15.852
 
 # Stundenplan: jede Stufe zweimal im SNAP-Fenster (10-16) und sechsmal außerhalb.
 STUNDENPLAN = {
-    **{h: OFF_PEAK for h in (10, 11)},
-    **{h: SHOULDER for h in (12, 13)},
-    **{h: PEAK for h in (14, 15)},
-    **{h: OFF_PEAK for h in (0, 1, 2, 3, 16, 17)},
-    **{h: SHOULDER for h in (4, 5, 6, 7, 18, 19)},
-    **{h: PEAK for h in (8, 9, 20, 21, 22, 23)},
+    **dict.fromkeys((10, 11), OFF_PEAK),
+    **dict.fromkeys((12, 13), SHOULDER),
+    **dict.fromkeys((14, 15), PEAK),
+    **dict.fromkeys((0, 1, 2, 3, 16, 17), OFF_PEAK),
+    **dict.fromkeys((4, 5, 6, 7, 18, 19), SHOULDER),
+    **dict.fromkeys((8, 9, 20, 21, 22, 23), PEAK),
 }
 
 # (Stunde eines Intervalls der Zone, Gesamtpreis, Anzahl, Rang, Quantil)
@@ -517,6 +517,6 @@ def test_quantil_erreicht_0_und_100_prozent_nie(make_data, smarttimes_payload):
 
     assert min(quantile) == pytest.approx(16.67)
     assert max(quantile) == pytest.approx(83.33)
-    assert 0.0 < min(quantile) and max(quantile) < 100.0
+    assert min(quantile) > 0.0 and max(quantile) < 100.0
 
     assert sum(1 for q in quantile if q < 25) == 32

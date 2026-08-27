@@ -164,7 +164,9 @@ def _two_day_data(make_data, smarttimes_payload):
 def test_bloecke_verschmelzen_ueber_mitternacht(two_day_data):
     """Der über Mitternacht durchgehende Zeitraum ist ein einziger Block."""
     # Erwartet: 05.06. 22:00 -> 06.06. 06:00 (Herleitung siehe oben).
-    start, end, _ = two_day_data._cheap_blocks_spanning(DAY_5, CHEAP_HOURS, exact_hours=ERWEITERN)[-1]
+    start, end, _ = two_day_data._cheap_blocks_spanning(
+        DAY_5, CHEAP_HOURS, exact_hours=ERWEITERN
+    )[-1]
     assert start == datetime(2026, 6, 5, 22, 0, tzinfo=VIENNA)
     assert end == datetime(2026, 6, 6, 6, 0, tzinfo=VIENNA)
 
