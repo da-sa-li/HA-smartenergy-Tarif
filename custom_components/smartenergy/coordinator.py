@@ -33,6 +33,7 @@ from .const import (
     FETCH_RETRY_MAX_INTERVAL_MINUTES,
     MIN_FETCH_INTERVAL_MINUTES,
     NEXT_DAY_PRICES_HOUR,
+    QUANTILE_DECIMALS,
     RECALC_INTERVAL_MINUTES,
     VAT_RATE,
 )
@@ -45,6 +46,54 @@ from .surcharges import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class PriceRank:
+    """Einordnung eines Intervalls in die Gesamtpreise seines Kalendertages.
+
+    Bezugsgröße ist der **Gesamtpreis** (:meth:`SmartTimesData.all_in_value`),
+    wie bei allen übrigen Tageskennzahlen und bei der Günstig-Stunden-Auswahl.
+    Nach dem reinen Arbeitspreis fiele die Reihenfolge anders aus: Das
+    SNAP-Fenster (Sommer, 10-16 Uhr) senkt das Netzentgelt und spaltet damit
+    eine Arbeitspreis-Stufe in zwei verschieden teure Hälften.
+    """
+
+    rank: int
+    """Rangplatz, 1 = günstigstes Intervall des Tages.
+
+    Gleich teure Intervalle tragen denselben Rang (Wettkampfregel „1224“); die
+    nächste Preisstufe überspringt die dabei verbrauchten Plätze. Sind etwa die
+    n günstigsten Intervalle preisgleich, tragen alle Rang 1 und die nächste
+    Stufe beginnt bei n + 1.
+    """
+
+    count: int
+    """Intervalle des Kalendertages insgesamt (96 bei Viertelstunden)."""
+
+    cheaper: int
+    """Echt günstigere Intervalle desselben Tages."""
+
+    equal: int
+    """Gleich teure Intervalle, das eigene eingeschlossen (also mindestens 1)."""
+
+    quantile: float
+    """Mittelrang-Quantil in Prozent: je niedriger, desto günstiger.
+
+    ``(cheaper + equal / 2) / count``. Der Mittelrang teilt einen Gleichstand
+    hälftig und ist dadurch **symmetrisch**: Der Tagesdurchschnitt liegt immer
+    bei genau 50 %. Genau das leisten die naheliegenden Varianten nicht –
+    „Anteil kleiner gleich“ und „Anteil echt kleiner“ verschieben den
+    Durchschnitt um eine halbe Gleichstandsbreite nach oben bzw. unten.
+
+    **0 % und 100 % kommen nie vor.** Das günstigste Preisniveau liegt bei der
+    halben Breite seiner Gleichstandsgruppe: bei 96 lauter verschiedenen
+    Viertelstunden also bei 0,52 %, bei drei Stufen zu je 32 dagegen schon bei
+    16,67 %. Eine Schwelle wählt deshalb **nicht** garantiert den gleich großen
+    Anteil des Tages – „unter 25 %“ trifft im zweiten Fall die ganze günstigste
+    Stufe und damit ein Drittel des Tages. Wer eine feste Laufzeit braucht,
+    nimmt den Günstige-Stunde-Sensor, nicht eine Quantil-Schwelle.
+    """
 
 
 @dataclass(slots=True)
@@ -204,6 +253,58 @@ class SmartTimesData:
         """Berechnet den Gesamtpreis eines Eintrags (ohne Cache)."""
         net = price.net_ct_per_kwh + self._surcharges_net(price.start)
         return round(self._apply_vat(net), 4)
+
+    def price_rank(self, moment: datetime | None = None) -> PriceRank | None:
+        """Einordnung des laufenden Intervalls in die Gesamtpreise seines Tages.
+
+        ``None``, solange kein Intervall läuft – etwa kurz nach einem Neustart
+        oder wenn für den Zeitpunkt keine Preise vorliegen. Die Sensoren stehen
+        dann auf „unbekannt“, statt eine Einordnung ohne Grundlage zu melden.
+
+        Der Kalendertag wird aus dem **Intervall** abgeleitet, nicht aus
+        ``moment``: Nur so gehört das Intervall garantiert zu genau dem Tag, mit
+        dem es verglichen wird.
+
+        Eine eigene Zwischenspeicherung braucht es nicht. Die teuren Teile –
+        :meth:`for_day` und :meth:`all_in_value` – sind bereits gecacht; was
+        bleibt, ist ein Durchlauf über die Tageswerte, den die Sensoren wenige
+        Male je Minute anstoßen.
+        """
+        price = self.current(moment)
+        if price is None:
+            return None
+
+        day = dt_util.as_local(price.start).date()
+        prices = self.for_day(day)
+        if not prices:
+            return None
+
+        value = self.all_in_value(price)
+        values = [self.all_in_value(entry) for entry in prices]
+
+        # Exakter Vergleich ist hier richtig, weil `_compute_all_in_value` jedes
+        # Ergebnis auf vier Nachkommastellen rundet: Zwei gleich teure
+        # Intervalle landen damit auf demselben Float, auch wenn die Summe auf
+        # verschiedenen Wegen zustande kam. Auf den Rechenweg allein wäre kein
+        # Verlass – zwei Intervalle können denselben Preis über eine andere
+        # Tarifstufe *und* einen anderen SNAP-Zustand erreichen, die sich
+        # gegenseitig aufheben. In Wien liegt "Shoulder im SNAP" nur
+        # 0,024 ct/kWh über "Off-Peak außerhalb", weil die SNAP-Ersparnis (1,40
+        # netto) die Stufenlücke (1,42 netto) fast genau ausgleicht. Eine
+        # Toleranz verschmölze umgekehrt Preisstufen, die der Tarif bewusst
+        # trennt – und verschenkte den günstigeren Zeitpunkt.
+        cheaper = sum(1 for other in values if other < value)
+        equal = sum(1 for other in values if other == value)
+
+        return PriceRank(
+            rank=cheaper + 1,
+            count=len(values),
+            cheaper=cheaper,
+            equal=equal,
+            quantile=round(
+                (cheaper + equal / 2) / len(values) * 100, QUANTILE_DECIMALS
+            ),
+        )
 
     def surcharge_breakdown(self, moment: datetime | None = None) -> dict[str, float]:
         """Nebenkosten je Position in ct/kWh (gemäß Brutto-/Netto-Einstellung)."""

@@ -12,6 +12,8 @@
 | `sensor.smarttimes_strompreishelfer_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_niedrigster_gesamtpreis_heute` | Günstigster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute` | Teuerster **Gesamtpreis** heute (EUR/kWh) |
+| `sensor.smarttimes_strompreishelfer_preisrang_heute` | Der wievielt-günstigste ist das laufende Intervall unter den heutigen **Gesamtpreisen** (1 = günstigstes) |
+| `sensor.smarttimes_strompreishelfer_preisquantil_heute` | Dieselbe Einordnung normiert auf 0–100 % (je niedriger, desto günstiger) |
 | `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**) |
 | `binary_sensor.smarttimes_strompreishelfer_preise_fur_morgen_verfugbar` | `on`, sobald die Preise für den Folgetag vorliegen (Diagnose) |
 
@@ -41,6 +43,73 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 > `prices_tomorrow` ist leer, solange die Preise für den nächsten Tag noch nicht veröffentlicht sind – laut API-Zusage ab 17 Uhr. Eine leere Liste bedeutet also nicht zwingend „keine Preise“, sondern meist „noch nicht verfügbar“.
 >
 > Wer das in einer Automatisierung unterscheiden muss, nimmt das Attribut `prices_tomorrow_valid` oder den Binary-Sensor [Preise für morgen verfügbar](#binary-sensor-preise-für-morgen-verfügbar).
+
+# Preisrang und Preisquantil
+
+Beide Sensoren beantworten dieselbe Frage – *ist der Strom gerade günstig?* – und ersparen die Vorlage, die den aktuellen Preis sonst von Hand gegen Minimum, Maximum und Durchschnitt rechnen müsste. Weil es eigene Entitäten sind, landen sie in der Historie und lassen sich unmittelbar als `numeric_state`-Trigger verwenden.
+
+- **Preisrang** (`…_preisrang_heute`): Der wievielt-günstigste ist das laufende Intervall unter allen Intervallen des heutigen Kalendertages. **1 ist das günstigste.** Dimensionslos.
+- **Preisquantil** (`…_preisquantil_heute`): Dieselbe Einordnung normiert auf **0–100 %**, ebenfalls **je niedriger, desto günstiger**. Der handlichere der beiden Werte, weil er nicht davon abhängt, ob ein Tag 96 Viertelstunden- oder 24 Stundenwerte hat. Der Tagesdurchschnitt liegt immer bei genau 50 %; die Endpunkte 0 % und 100 % kommen dagegen **nie** vor (siehe [Preisgleiche Intervalle](#preisgleiche-intervalle)).
+
+Bezugsgröße ist der **Gesamtpreis** inklusive aller Nebenkosten – wie bei den Tageskennzahlen und beim Günstige-Stunde-Sensor, und **nicht** der reine Arbeitspreis. Das ist kein Detail: Das SNAP-Fenster verschiebt die Reihenfolge, siehe unten.
+
+Beide stehen auf `unknown`, solange für den aktuellen Zeitpunkt kein Preis vorliegt – etwa kurz nach einem Neustart. Dann fehlen auch die Attribute; ein Attributsatz voller `null` sähe aus wie eine Einordnung, wäre aber keine.
+
+## Preisgleiche Intervalle
+
+Bei **smartTIMES** ist Preisgleichheit der Normalfall, nicht die Ausnahme: Als Zeittarif kennt er nur drei Arbeitspreis-Stufen zu je acht Stunden. Deshalb gilt:
+
+- Der **Rang** folgt der üblichen Wettkampfregel: Alle preisgleichen Intervalle tragen denselben Rang, die nächste Stufe überspringt die verbrauchten Plätze (1, 1, …, 1, 33, …).
+- Das **Quantil** teilt eine preisgleiche Gruppe hälftig („Mittelrang“): `(günstigere + gleich teure / 2) / alle`. Dadurch bleibt die Skala symmetrisch – die mittlere von drei gleich großen Stufen liegt auf genau 50 %.
+
+> [!IMPORTANT]
+> **Eine Schwelle wählt nicht zwangsläufig den gleich großen Anteil des Tages.** Weil alle preisgleichen Intervalle denselben Quantilwert tragen, kommen sie immer nur gemeinsam unter eine Schwelle – oder gar nicht. Bei smartTIMES ohne Netzgebiet liegt die günstigste Stufe bei 16,67 %, also greift `unter 25 %` die **ganze** Stufe: 8 Stunden statt der erwarteten 6. Mit Netzgebiet Wien trifft dieselbe Schwelle dagegen 6 Stunden, weil die günstigste Stufe dort bei 12,50 % liegt und die nächste erst bei 29,17 %.
+>
+> Aus demselben Grund erreicht das Quantil nie 0 % oder 100 %: Das günstigste Preisniveau liegt bei der halben Breite seiner Gleichstandsgruppe. Wer eine **feste Laufzeit** braucht, nimmt deshalb den [Günstige-Stunde-Sensor](#binary-sensor-günstige-stunde) – der hält die eingestellte Stundenzahl ein, eine Quantil-Schwelle tut das nicht.
+
+Ohne gewähltes Netzgebiet ergibt ein smartTIMES-Tag damit genau drei Werte:
+
+| Stufe | Intervalle | Rang | Quantil |
+|---|---|---|---|
+| günstigste | 32 | 1 | 16,67 % |
+| mittlere | 32 | 33 | 50,00 % |
+| teuerste | 32 | 65 | 83,33 % |
+
+> [!NOTE]
+> **Mit** Netzgebiet werden im Sommer mehr Stufen daraus – das ist kein Fehler. Der [SNAP](Netzentgelte-und-Nebenkosten) senkt von April bis September zwischen 10 und 16 Uhr den Netz-Arbeitspreis. Jede der drei Arbeitspreis-Stufen kann innerhalb *und* außerhalb dieses Fensters liegen, es sind also **bis zu sechs** verschiedene Gesamtpreise am Tag möglich. Welche tatsächlich auftreten, hängt am Zonenplan des jeweiligen Tages, den die API liefert – eine feste Zahl gibt es nicht.
+>
+> Ein Beispiel: Netzgebiet Wien an einem Sommertag, dessen günstigste Arbeitspreis-Stufe die Stunden 02–03 und 10–15 umfasst. Hier fällt das ganze SNAP-Fenster in diese eine Stufe, also entstehen vier Gesamtpreise:
+>
+> | Gesamtpreis | Intervalle | Rang | Quantil |
+> |---|---|---|---|
+> | 0,19716 EUR/kWh (10–15 Uhr, SNAP) | 24 | 1 | 12,50 % |
+> | 0,21396 EUR/kWh (02–03 Uhr) | 8 | 25 | 29,17 % |
+> | 0,23100 EUR/kWh | 32 | 33 | 50,00 % |
+> | 0,25932 EUR/kWh | 32 | 65 | 83,33 % |
+>
+> Nach dem reinen Arbeitspreis wären die ersten beiden Zeilen dieselbe Stufe. Genau darin liegt der Nutzen: Der Rang zeigt, was der Strom *tatsächlich* kostet.
+
+> [!TIP]
+> Die Abstände zwischen den Stufen können sehr klein werden, weil sich die SNAP-Ersparnis und der Abstand zweier Arbeitspreis-Stufen fast aufheben können: In Wien liegt „Shoulder im SNAP“ nur 0,00024 EUR/kWh über „Off-Peak außerhalb“ – ein Unterschied in der fünften Nachkommastelle. Rang und Quantil trennen die beiden trotzdem sauber, der Sprung im Rang kann an so einer Stelle also groß sein, obwohl sich am Preis kaum etwas ändert. Wer nach dem Rang schaltet, sollte deshalb im Blick behalten, was ein Rangplatz tatsächlich wert ist; der Gesamtpreis-Sensor sagt das direkt.
+
+Bei **smartCONTROL** stellt sich die Frage kaum – der börsengekoppelte Tarif hat pro Tag fast durchweg verschiedene Preise, üblicherweise vier preisgleiche Viertelstunden je Stunde.
+
+## Attribute
+
+Beide Sensoren tragen **dieselben** Attribute, damit jeder für sich verständlich ist – wer nur das Quantil im Dashboard hat, sieht den Rang trotzdem.
+
+| Attribut | Beschreibung |
+|---|---|
+| `rank` | Rangplatz des laufenden Intervalls (1 = günstigstes) |
+| `quantile_percent` | Quantil in Prozent, je niedriger desto günstiger. Erreicht nie 0 % oder 100 % |
+| `interval_count` | Nenner der Einordnung: Intervalle des Tages insgesamt (96 an einem vollständigen Viertelstundentag) |
+| `cheaper_intervals` | Echt günstigere Intervalle desselben Tages |
+| `equal_intervals` | Gleich teure Intervalle, das eigene eingeschlossen – also mindestens 1 |
+| `quantile_method` | `midrank`: Ein Preisgleichstand wird hälftig geteilt (siehe oben) |
+| `reference` | `total_price`: Verglichen wird der **Gesamtpreis**, nicht der Arbeitspreis |
+
+> [!TIP]
+> Ein unvollständiges `interval_count` (unter 96) ist ein Hinweis darauf, dass für den heutigen Tag noch nicht alle Preise vorliegen. Rang und Quantil beziehen sich dann nur auf das, was da ist.
 
 # Binary-Sensor „Günstige Stunde“
 
