@@ -76,6 +76,37 @@ Spezifikation** abgeleitet und als Kommentar dokumentiert – nie aus dem zu tes
 Code erzeugt, sonst wäre der Test eine Tautologie. Fixtures (echte API-Antworten) liegen
 in `tests/fixtures/`.
 
+**Testnamen sind deutsch – repository-weit.** Eine Testfunktion beschreibt in
+deutscher Prosa, was sie zusagt: `test_blockmodus_behaelt_die_laenge_bei_gleichstand`,
+nicht `test_consecutive_keeps_the_requested_length_on_tie`. Der Name steht direkt
+über einem deutschen Docstring; eine englische Zeile dazwischen liest sich wie ein
+Fremdkörper. Umlaute und ß werden umschrieben (`ae`, `oe`, `ue`, `ss`), weil
+Bezeichner sonst je nach Editor und Terminal unterschiedlich aussehen.
+
+Die Suite war lange **dateiweise** gemischt – acht Dateien englisch, sechs deutsch,
+fünf gemischt. Das ließ jede neue Datei die Frage neu aufwerfen und beantwortete sie
+je nachdem, wen man fragte. Deshalb gilt jetzt eine Regel für alle.
+
+**Eine Ausnahme, und nur diese: Bezeichner, die ein konkretes Codeartefakt benennen,
+behalten ihre Schreibweise.** Der Name soll auf die geprüfte Sache zeigen; übersetzt
+man ihn, zeigt er ins Leere. Dazu zählen HTTP-Header (`retry_after`),
+Home-Assistant-Klassen (`update_failed` für `UpdateFailed`), Konfigurations- und
+Attributschlüssel (`exact_hours`, `prices_tomorrow_valid`, `expected_after`) sowie
+feststehende Fachbegriffe der Domäne (`snap`, `jitter`, `issue`, `user_agent`).
+Beispiel: `test_retry_after_mit_verstrichenem_datum_ergibt_null` – deutscher Satz,
+englischer Bezeichner am Anfang.
+
+Nicht darunter fallen bloße Anglizismen der Umgangssprache: `lookup` gehört
+übersetzt (`test_netzgebiet_nachschlagen`), `retry_after` nicht.
+
+Geprüft wird das **nicht** maschinell – eine Sprachprüfung wäre eine Heuristik mit
+falschen Alarmen, und die Ausnahme oben lässt sich ohnehin nicht mechanisch von einem
+Anglizismus unterscheiden. Die Regel steht hier, damit sie beim Schreiben gilt.
+
+**Fixtures und Hilfsfunktionen sind bewusst noch nicht umgestellt** (`_FakeResponse`,
+`_get_prices_error`, `live_session` neben `netzwerk_freigeben`, `uhr`, `tagesdaten`).
+Sie sind kein Teil dieser Regel; wer sie angleicht, tut das als eigene Änderung.
+
 **Zeitzone in Tests: durchgehend `Europe/Vienna`.** Die Integration gibt es nur in Österreich,
 und die gesamte handgerechnete Preis-Mathematik hängt an der Ortszeit – SNAP-Fenster
 (10–16 Uhr), Tagesgrenzen und „morgen“. Zwei Fixtures in `conftest.py` stellen das sicher:

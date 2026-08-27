@@ -28,7 +28,7 @@ def _issue(hass: HomeAssistant, issue_id: str) -> ir.IssueEntry | None:
     return ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
 
 
-async def test_tariff_data_outdated_creates_issue(hass: HomeAssistant):
+async def test_veraltete_tarifdaten_erzeugen_ein_issue(hass: HomeAssistant):
     """Im Folgejahr des Datenjahrs entsteht das WARNING-Issue (nicht behebbar)."""
     now = datetime(TARIFF_DATA_YEAR + 1, 1, 1)
     async_check_tariff_data_year(hass, now)
@@ -41,13 +41,13 @@ async def test_tariff_data_outdated_creates_issue(hass: HomeAssistant):
     assert issue.translation_placeholders == {"data_year": str(TARIFF_DATA_YEAR)}
 
 
-async def test_tariff_data_current_year_no_issue(hass: HomeAssistant):
+async def test_im_datenjahr_entsteht_kein_issue(hass: HomeAssistant):
     """Im (oder vor dem) Datenjahr selbst entsteht kein Issue."""
     async_check_tariff_data_year(hass, datetime(TARIFF_DATA_YEAR, 12, 31))
     assert _issue(hass, ISSUE_TARIFF_DATA_OUTDATED) is None
 
 
-async def test_tariff_data_outdated_issue_closes_again(hass: HomeAssistant):
+async def test_tarifdaten_issue_schliesst_sich_wieder(hass: HomeAssistant):
     """Ein bereits gemeldetes Issue wird geschlossen, sobald das Jahr wieder passt.
 
     Praxisfall: Nutzer aktualisiert die Integration auf eine Version mit neuem
@@ -61,7 +61,7 @@ async def test_tariff_data_outdated_issue_closes_again(hass: HomeAssistant):
 
 
 @pytest.mark.parametrize("year_offset", [2, 5])
-async def test_tariff_data_outdated_for_later_years_too(
+async def test_tarifdaten_issue_gilt_auch_in_spaeteren_jahren(
     hass: HomeAssistant, year_offset: int
 ):
     """Auch mehrere Jahre nach dem Datenjahr bleibt das Issue aktiv."""
@@ -69,7 +69,7 @@ async def test_tariff_data_outdated_for_later_years_too(
     assert _issue(hass, ISSUE_TARIFF_DATA_OUTDATED) is not None
 
 
-async def test_fetch_failing_creates_issue(hass: HomeAssistant):
+async def test_dauerhafter_abruf_fehler_erzeugt_ein_issue(hass: HomeAssistant):
     """Ein dauerhafter Abruf-Fehler erzeugt ein WARNING-Issue (nicht behebbar)."""
     async_update_fetch_issue(hass, failing=True)
 
@@ -80,7 +80,7 @@ async def test_fetch_failing_creates_issue(hass: HomeAssistant):
     assert issue.translation_key == ISSUE_FETCH_FAILING
 
 
-async def test_fetch_failing_issue_closes_when_resolved(hass: HomeAssistant):
+async def test_abruf_issue_schliesst_sich_bei_erfolg(hass: HomeAssistant):
     """Gelingt der Abruf wieder, wird das Issue automatisch geschlossen."""
     async_update_fetch_issue(hass, failing=True)
     assert _issue(hass, ISSUE_FETCH_FAILING) is not None
@@ -89,7 +89,7 @@ async def test_fetch_failing_issue_closes_when_resolved(hass: HomeAssistant):
     assert _issue(hass, ISSUE_FETCH_FAILING) is None
 
 
-async def test_fetch_not_failing_creates_no_issue(hass: HomeAssistant):
+async def test_ohne_stoerung_entsteht_kein_issue(hass: HomeAssistant):
     """Ohne anhaltenden Fehler entsteht erst gar kein Issue."""
     async_update_fetch_issue(hass, failing=False)
     assert _issue(hass, ISSUE_FETCH_FAILING) is None

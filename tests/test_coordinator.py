@@ -58,27 +58,27 @@ async def _coordinator(
     return coordinator, client
 
 
-async def test_needs_fetch_without_cache(hass: HomeAssistant):
+async def test_ohne_cache_wird_abgerufen(hass: HomeAssistant):
     """Ohne Cache wird immer abgerufen."""
     coordinator, _ = await _coordinator(hass)
     assert coordinator._needs_fetch(datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)) is True
 
 
-async def test_no_fetch_when_tomorrow_present(hass: HomeAssistant, smarttimes_payload):
+async def test_kein_abruf_wenn_die_morgenpreise_vorliegen(hass: HomeAssistant, smarttimes_payload):
     """Sind die Morgen-Preise bereits im Cache, wird nicht abgerufen."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload)
     # now am 05.06. -> morgen (06.06.) ist enthalten -> kein Abruf.
     assert coordinator._needs_fetch(datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)) is False
 
 
-async def test_no_fetch_before_threshold_hour(hass: HomeAssistant, smarttimes_payload):
+async def test_kein_abruf_vor_der_schwellenstunde(hass: HomeAssistant, smarttimes_payload):
     """Vor NEXT_DAY_PRICES_HOUR wird trotz fehlender Morgen-Preise nicht abgerufen."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload)
     # now am 06.06. 12:00 -> morgen (07.06.) fehlt, aber vor 17:00 -> kein Abruf.
     assert coordinator._needs_fetch(datetime(2026, 6, 6, 12, 0, tzinfo=VIENNA)) is False
 
 
-async def test_fetch_after_threshold_when_tomorrow_missing(
+async def test_abruf_nach_der_schwelle_wenn_morgenpreise_fehlen(
     hass: HomeAssistant, smarttimes_payload
 ):
     """Nach der Schwellenstunde wird abgerufen, wenn die Morgen-Preise fehlen."""
@@ -87,7 +87,7 @@ async def test_fetch_after_threshold_when_tomorrow_missing(
     assert coordinator._needs_fetch(datetime(2026, 6, 6, 18, 0, tzinfo=VIENNA)) is True
 
 
-async def test_no_fetch_after_threshold_if_recently_fetched(
+async def test_kein_abruf_innerhalb_der_wartezeit(
     hass: HomeAssistant, smarttimes_payload
 ):
     """Innerhalb des Retry-Intervalls wird nicht erneut abgerufen."""
@@ -98,14 +98,14 @@ async def test_no_fetch_after_threshold_if_recently_fetched(
     assert coordinator._needs_fetch(datetime(2026, 6, 6, 18, 0, tzinfo=VIENNA)) is False
 
 
-async def test_fetch_when_cache_expired(hass: HomeAssistant, smarttimes_payload):
+async def test_abruf_wenn_der_cache_abgelaufen_ist(hass: HomeAssistant, smarttimes_payload):
     """Deckt der Cache den aktuellen Zeitpunkt nicht mehr ab, wird abgerufen."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload, last_fetch=None)
     # now nach dem letzten gecachten Intervall -> Abruf (Cache deckt nicht ab).
     assert coordinator._needs_fetch(datetime(2026, 6, 10, 12, 0, tzinfo=VIENNA)) is True
 
 
-async def test_first_fetch_failure_raises_update_failed(hass: HomeAssistant):
+async def test_erster_fehlschlag_meldet_update_failed(hass: HomeAssistant):
     """Schlägt der allererste Abruf fehl, wird UpdateFailed ausgelöst."""
     coordinator, client = await _coordinator(hass)  # kein Cache
     client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))
@@ -113,7 +113,7 @@ async def test_first_fetch_failure_raises_update_failed(hass: HomeAssistant):
         await coordinator._async_update_data()
 
 
-async def test_fetch_failure_keeps_cached_data(
+async def test_fehlschlag_behaelt_die_gecachten_daten(
     hass: HomeAssistant, smarttimes_payload
 ):
     """Bei einem Abruf-Fehler mit vorhandenem Cache bleiben die Daten erhalten."""
@@ -129,7 +129,7 @@ async def test_fetch_failure_keeps_cached_data(
 # --- Wachsende Wartezeit zwischen Wiederholungsversuchen --------------------- #
 
 
-async def test_retry_delay_grows_and_caps(hass: HomeAssistant, smarttimes_payload):
+async def test_wartezeit_waechst_und_wird_gedeckelt(hass: HomeAssistant, smarttimes_payload):
     """Die Wartezeit wächst je erfolglosem Versuch bis zur Obergrenze.
 
     Sollwerte von Hand aus der Spezifikation abgeleitet: Basis 30 Minuten, ab dem
@@ -142,7 +142,7 @@ async def test_retry_delay_grows_and_caps(hass: HomeAssistant, smarttimes_payloa
         assert coordinator._retry_delay() == timedelta(minutes=minutes)
 
 
-async def test_retry_after_extends_but_never_shortens(
+async def test_retry_after_verlaengert_aber_verkuerzt_nie(
     hass: HomeAssistant, smarttimes_payload
 ):
     """``Retry-After`` verlängert die Wartezeit, verkürzt sie aber nie."""
@@ -156,7 +156,7 @@ async def test_retry_after_extends_but_never_shortens(
     assert coordinator._retry_delay() == timedelta(minutes=30)
 
 
-async def test_failures_count_up(hass: HomeAssistant, smarttimes_payload):
+async def test_fehlschlaege_zaehlen_hoch(hass: HomeAssistant, smarttimes_payload):
     """Jeder fehlgeschlagene Abruf erhöht den Zähler und damit die Wartezeit."""
     coordinator, client = await _coordinator(hass, smarttimes_payload)
     client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))
@@ -172,7 +172,7 @@ async def test_failures_count_up(hass: HomeAssistant, smarttimes_payload):
     assert coordinator._retry_delay() == timedelta(minutes=60)
 
 
-async def test_permanent_error_jumps_to_max_interval(
+async def test_dauerhafte_ablehnung_springt_auf_das_maximum(
     hass: HomeAssistant, smarttimes_payload
 ):
     """Eine dauerhafte Ablehnung wartet sofort das Maximal-Intervall ab.
@@ -194,7 +194,7 @@ async def test_permanent_error_jumps_to_max_interval(
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit, vor 17 Uhr
-async def test_successful_fetch_resets_backoff(
+async def test_gelungener_abruf_setzt_die_wartezeit_zurueck(
     hass: HomeAssistant, smarttimes_payload
 ):
     """Ein gelungener Abruf setzt Zähler und ``Retry-After`` zurück."""
@@ -214,7 +214,7 @@ async def test_successful_fetch_resets_backoff(
 
 
 @pytest.mark.freeze_time("2026-06-06 16:00:00")  # 18:00 Ortszeit, nach 17 Uhr
-async def test_successful_fetch_without_tomorrow_prices_backs_off(
+async def test_gelungener_abruf_ohne_morgenpreise_wartet_laenger(
     hass: HomeAssistant, smarttimes_payload
 ):
     """Fehlen die Morgen-Preise trotz gelungenem Abruf, wächst die Wartezeit.
@@ -238,7 +238,7 @@ async def test_successful_fetch_without_tomorrow_prices_backs_off(
 # --- Harte Untergrenze zwischen zwei API-Aufrufen ---------------------------- #
 
 
-async def test_fetch_allowed_boundary(hass: HomeAssistant, smarttimes_payload):
+async def test_mindestwartezeit_an_der_grenze(hass: HomeAssistant, smarttimes_payload):
     """Erst ``MIN_FETCH_INTERVAL_MINUTES`` nach dem letzten Versuch ist ein Abruf erlaubt."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload)
     # Ohne vorherigen Versuch gibt es nichts zu bremsen.
@@ -250,7 +250,7 @@ async def test_fetch_allowed_boundary(hass: HomeAssistant, smarttimes_payload):
     assert coordinator._fetch_allowed(threshold) is True
 
 
-async def test_min_interval_blocks_refetch_despite_demand(
+async def test_mindestwartezeit_bremst_trotz_bedarf(
     hass: HomeAssistant, smarttimes_payload
 ):
     """Die Bremse verhindert den Abruf auch dann, wenn fachlich Bedarf bestünde.
@@ -271,7 +271,7 @@ async def test_min_interval_blocks_refetch_despite_demand(
     assert len(data.prices) == 192
 
 
-async def test_min_interval_without_cache_reports_update_failed(hass: HomeAssistant):
+async def test_mindestwartezeit_ohne_cache_meldet_update_failed(hass: HomeAssistant):
     """Bremst die Wartezeit den Abruf, ohne dass je Daten vorlagen, meldet HA sauber.
 
     Grenzfall ohne Cache: Statt an einer Zusicherung zu scheitern, meldet der
@@ -300,13 +300,13 @@ JITTER_DAY = datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)
 @pytest.mark.parametrize(
     "entry_id", ["a", "smartenergy", "01JQZX7P8N4M2K6R", "0" * 32, "üü-ß"]
 )
-async def test_fetch_jitter_within_window(hass: HomeAssistant, entry_id):
+async def test_abruf_jitter_liegt_im_fenster(hass: HomeAssistant, entry_id):
     """Der Versatz liegt stets im Fenster 0..FETCH_JITTER_MINUTES-1 Minuten."""
     coordinator, _ = await _coordinator(hass, entry_id=entry_id)
     assert 0 <= coordinator._jitter_minutes(JITTER_DAY) <= FETCH_JITTER_MINUTES - 1
 
 
-async def test_fetch_jitter_is_stable_within_a_day(hass: HomeAssistant):
+async def test_abruf_jitter_bleibt_ueber_den_tag_konstant(hass: HomeAssistant):
     """Über einen Tag hinweg bleibt der Versatz konstant.
 
     Der Koordinator rechnet minütlich neu; ein wandernder Versatz würde die
@@ -319,14 +319,14 @@ async def test_fetch_jitter_is_stable_within_a_day(hass: HomeAssistant):
     assert morning == evening
 
 
-async def test_fetch_jitter_is_reproducible_across_reloads(hass: HomeAssistant):
+async def test_abruf_jitter_ist_nach_neuladen_derselbe(hass: HomeAssistant):
     """Dieselbe Entry-ID ergibt am selben Tag denselben Versatz."""
     first, _ = await _coordinator(hass, entry_id="01JQZX7P8N4M2K6R")
     second, _ = await _coordinator(hass, entry_id="01JQZX7P8N4M2K6R")
     assert first._jitter_minutes(JITTER_DAY) == second._jitter_minutes(JITTER_DAY)
 
 
-async def test_fetch_jitter_changes_across_days(hass: HomeAssistant):
+async def test_abruf_jitter_wechselt_ueber_die_tage(hass: HomeAssistant):
     """Der Versatz wechselt über die Tage – kein dauerhaft wiedererkennbares Muster.
 
     Ein über Jahre gleichbleibender Versatz wäre gegenüber dem API-Betreiber ein
@@ -342,7 +342,7 @@ async def test_fetch_jitter_changes_across_days(hass: HomeAssistant):
     assert len(values) >= FETCH_JITTER_MINUTES // 2
 
 
-async def test_fetch_jitter_spreads_across_entries(hass: HomeAssistant):
+async def test_abruf_jitter_streut_ueber_die_eintraege(hass: HomeAssistant):
     """Verschiedene Entry-IDs verteilen sich am selben Tag über das Abruf-Fenster.
 
     Bei Gleichverteilung über 20 Minuten sind aus 40 IDs rund 17 verschiedene
@@ -362,7 +362,7 @@ async def test_fetch_jitter_spreads_across_entries(hass: HomeAssistant):
 # --- Repair-Issues (Issue #36): dauerhafter Abruf-Fehler / veraltete Tarifdaten -- #
 
 
-async def test_fetch_not_failing_without_prior_success(hass: HomeAssistant):
+async def test_ohne_je_gelungenen_abruf_gilt_nichts_als_gestoert(hass: HomeAssistant):
     """Ohne je gelungenen Abruf gilt der Cache (noch) nicht als dauerhaft veraltet.
 
     Praktisch unerreichbar von außen (ein erster Fehlschlag löst ``UpdateFailed``
@@ -373,7 +373,7 @@ async def test_fetch_not_failing_without_prior_success(hass: HomeAssistant):
     assert coordinator._fetch_failing(datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)) is False
 
 
-async def test_fetch_failing_threshold(hass: HomeAssistant, smarttimes_payload):
+async def test_schwelle_fuer_den_dauerhaften_abruf_fehler(hass: HomeAssistant, smarttimes_payload):
     """Erst ab ``FETCH_FAILURE_REPAIR_HOURS`` ohne Erfolg gilt der Abruf als gestört."""
     coordinator, _ = await _coordinator(hass, smarttimes_payload)
     coordinator._last_success = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA)
@@ -384,7 +384,7 @@ async def test_fetch_failing_threshold(hass: HomeAssistant, smarttimes_payload):
 
 
 @pytest.mark.freeze_time("2026-06-08 12:00:00")
-async def test_persistent_fetch_failure_reports_and_clears_repair_issue(
+async def test_dauerhafter_abruf_fehler_meldet_und_schliesst_das_issue(
     hass: HomeAssistant, smarttimes_payload, freezer
 ):
     """Ein dauerhafter Abruf-Fehler meldet ein Issue, das bei Erfolg wieder schließt."""
@@ -413,7 +413,7 @@ async def test_persistent_fetch_failure_reports_and_clears_repair_issue(
 
 
 @pytest.mark.freeze_time("2027-01-02 12:00:00")
-async def test_outdated_tariff_data_year_reports_repair_issue(
+async def test_veraltetes_datenjahr_meldet_ein_issue(
     hass: HomeAssistant, smarttimes_payload
 ):
     """Liegt das laufende Jahr nach ``TARIFF_DATA_YEAR``, entsteht das Daten-Issue.

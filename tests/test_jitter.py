@@ -24,24 +24,24 @@ END = datetime(2026, 6, 5, 14, 0, tzinfo=VIENNA)  # 4-Stunden-Block
 SPAN = timedelta(seconds=JITTER_SPAN_SECONDS)
 
 
-def test_phase_is_deterministic():
+def test_phase_ist_deterministisch():
     """Dieselbe Subentry-ID ergibt immer denselben Phasenwert."""
     assert jitter.cheap_phase("subentry-123") == jitter.cheap_phase("subentry-123")
 
 
-def test_phase_differs_by_seed():
+def test_phase_unterscheidet_sich_je_seed():
     """Unterschiedliche IDs ergeben unterschiedliche Phasen."""
     assert jitter.cheap_phase("boiler") != jitter.cheap_phase("wallbox")
 
 
 @pytest.mark.parametrize("seed", ["", "x", "boiler", "wallbox", "0" * 40])
-def test_phase_in_unit_interval(seed):
+def test_phase_liegt_im_einheitsintervall(seed):
     """Der Phasenwert liegt stets im Intervall [0, 1)."""
     assert 0.0 <= jitter.cheap_phase(seed) < 1.0
 
 
 @pytest.mark.parametrize("phase", [0.0, 0.25, 0.5, 0.75, 0.999])
-def test_window_stays_inside_the_cheap_block(phase):
+def test_fenster_bleibt_im_guenstigen_block(phase):
     """Beide Flanken wandern nach innen – das Fenster verlässt den Block nie.
 
     Das ist die Gleichbehandlung der Flanken: Wie schon beim Einschalten nie
@@ -55,13 +55,13 @@ def test_window_stays_inside_the_cheap_block(phase):
 
 
 @pytest.mark.parametrize("phase", [0.0, 0.25, 0.5, 0.75, 0.999])
-def test_window_length_is_block_minus_span(phase):
+def test_fensterlaenge_ist_blocklaenge_minus_breite(phase):
     """Die Fensterlänge ist L - SPAN, unabhängig von der Phase."""
     on, off = jitter.jittered_window(START, END, phase)
     assert (off - on) == (END - START) - SPAN
 
 
-def test_window_length_identical_for_every_phase():
+def test_fensterlaenge_ist_fuer_jede_phase_gleich():
     """Alle Sensoren schalten gleich lang – unabhängig von ihrer Phase.
 
     Das ist die eigentliche Zusage des Jitters: Er *verschiebt* das Fenster,
@@ -79,7 +79,7 @@ def test_window_length_identical_for_every_phase():
     assert len(lengths) == 1
 
 
-def test_both_edges_spread_over_the_full_span():
+def test_beide_flanken_streuen_ueber_die_volle_breite():
     """Die Last-Glättung bleibt trotz Innen-Verschiebung erhalten.
 
     Beide Flanken streuen weiterhin über die volle Breite SPAN – verschoben ist
@@ -104,7 +104,7 @@ def test_both_edges_spread_over_the_full_span():
     [SPAN * 0.4, SPAN / 2, SPAN * 0.7, SPAN, timedelta(minutes=15)],
     ids=["0.4*span", "span/2", "0.7*span", "span", "viertelstunde"],
 )
-def test_short_block_never_yields_empty_window(length, phase):
+def test_kurzer_block_ergibt_nie_ein_leeres_fenster(length, phase):
     """Ein Block, den der Jitter aufzehren würde, wird ungejittert geschaltet.
 
     Die feste Verkürzung beträgt SPAN. Ist der Block nicht länger als das,
@@ -161,7 +161,7 @@ def _two_day_data(make_data, smarttimes_payload):
     return make_data(smarttimes_payload, include_vat=True, grid_zone=None)
 
 
-def test_blocks_merge_across_midnight(two_day_data):
+def test_bloecke_verschmelzen_ueber_mitternacht(two_day_data):
     """Der über Mitternacht durchgehende Zeitraum ist ein einziger Block."""
     # Erwartet: 05.06. 22:00 -> 06.06. 06:00 (Herleitung siehe oben).
     start, end, _ = two_day_data._cheap_blocks_spanning(DAY_5, CHEAP_HOURS, exact_hours=ERWEITERN)[-1]
@@ -169,7 +169,7 @@ def test_blocks_merge_across_midnight(two_day_data):
     assert end == datetime(2026, 6, 6, 6, 0, tzinfo=VIENNA)
 
 
-def test_merged_block_looks_the_same_from_both_days(two_day_data):
+def test_verschmolzener_block_ist_von_beiden_tagen_gleich(two_day_data):
     """Die Zusammenfassung ist symmetrisch – beide Tage liefern denselben Block.
 
     Nur dann ist es gleichgültig, über welchen Tag ein Aufrufer den Block
@@ -182,7 +182,7 @@ def test_merged_block_looks_the_same_from_both_days(two_day_data):
     )
 
 
-def test_selection_itself_stays_per_day(two_day_data):
+def test_auswahl_selbst_bleibt_tageweise(two_day_data):
     """Die tageweise Auswahl selbst bleibt unberührt.
 
     Zusammengefasst wird ausschließlich für den Jitter; welche Intervalle als
@@ -195,7 +195,7 @@ def test_selection_itself_stays_per_day(two_day_data):
 
 
 @pytest.mark.parametrize("phase", [0.0, 0.25, 0.5, 0.75, 0.999])
-def test_no_switch_off_gap_at_midnight(two_day_data, phase):
+def test_keine_schaltluecke_um_mitternacht(two_day_data, phase):
     """Der Sensor schaltet am Tageswechsel nicht kurz ab – für jede Phase."""
     moment = datetime(2026, 6, 5, 23, 30, tzinfo=VIENNA)
     last = datetime(2026, 6, 6, 0, 30, tzinfo=VIENNA)
@@ -205,7 +205,7 @@ def test_no_switch_off_gap_at_midnight(two_day_data, phase):
 
 
 @pytest.mark.parametrize("phase", [0.0, 0.25, 0.5, 0.75, 0.999])
-def test_next_cheap_start_has_no_phantom_midnight_restart(two_day_data, phase):
+def test_kein_scheinbarer_neustart_um_mitternacht(two_day_data, phase):
     """Mitten im Block wird kein Neustart um Mitternacht gemeldet.
 
     Getrennte Blöcke ließen ``next_cheap_on`` um 23:30 auf den 06.06. 00:00

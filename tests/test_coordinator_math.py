@@ -38,7 +38,7 @@ def _price_at(data: SmartTimesData, value: str) -> MarketPrice:
 # --- smartTIMES (keine Abwicklungsgebühr) ---------------------------------- #
 
 
-def test_allin_smarttimes_snap_wien(make_data, smarttimes_payload):
+def test_gesamtpreis_smarttimes_im_snap_fenster_wien(make_data, smarttimes_payload):
     """Gesamtpreis im SNAP-Fenster mit Netzgebiet Wien (brutto)."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone="wien")
     price = _price_at(data, "2026-06-05T14:00:00+02:00")  # 14 Uhr -> SNAP aktiv
@@ -47,7 +47,7 @@ def test_allin_smarttimes_snap_wien(make_data, smarttimes_payload):
     assert data.all_in_value(price) == pytest.approx(19.716)
 
 
-def test_allin_smarttimes_non_snap_wien(make_data, smarttimes_payload):
+def test_gesamtpreis_smarttimes_ausserhalb_des_snap_fensters_wien(make_data, smarttimes_payload):
     """Gesamtpreis außerhalb des SNAP-Fensters (Regel-Netzentgelt)."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone="wien")
     price = _price_at(data, "2026-06-05T18:00:00+02:00")  # 18 Uhr -> kein SNAP
@@ -56,7 +56,7 @@ def test_allin_smarttimes_non_snap_wien(make_data, smarttimes_payload):
     assert data.all_in_value(price) == pytest.approx(25.932)
 
 
-def test_allin_smarttimes_without_grid_zone(make_data, smarttimes_payload):
+def test_gesamtpreis_smarttimes_ohne_netzgebiet(make_data, smarttimes_payload):
     """Ohne Netzgebiet fließen nur die bundesweiten Abgaben ein."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
     price = _price_at(data, "2026-06-05T14:00:00+02:00")
@@ -64,7 +64,7 @@ def test_allin_smarttimes_without_grid_zone(make_data, smarttimes_payload):
     assert data.all_in_value(price) == pytest.approx(12.18)
 
 
-def test_allin_net_mode(make_data, smarttimes_payload):
+def test_gesamtpreis_im_netto_modus(make_data, smarttimes_payload):
     """Im Netto-Modus wird keine USt. aufgeschlagen."""
     data = make_data(smarttimes_payload, include_vat=False, grid_zone="wien")
     price = _price_at(data, "2026-06-05T14:00:00+02:00")
@@ -75,7 +75,7 @@ def test_allin_net_mode(make_data, smarttimes_payload):
 # --- smartCONTROL (Abwicklungsgebühr 1,2 netto) ---------------------------- #
 
 
-def test_allin_smartcontrol_with_handling_fee(make_data, smartcontrol_payload):
+def test_gesamtpreis_smartcontrol_mit_abwicklungsgebuehr(make_data, smartcontrol_payload):
     """Gesamtpreis mit Abwicklungsgebühr (smartCONTROL) im SNAP-Fenster."""
     data = make_data(
         smartcontrol_payload,
@@ -91,7 +91,7 @@ def test_allin_smartcontrol_with_handling_fee(make_data, smartcontrol_payload):
     assert data.all_in_value(price) == pytest.approx(13.6910)
 
 
-def test_allin_smartcontrol_negative_price(make_data, smartcontrol_payload):
+def test_gesamtpreis_smartcontrol_bei_negativem_preis(make_data, smartcontrol_payload):
     """Auch negative Börsenpreise werden korrekt verrechnet."""
     data = make_data(
         smartcontrol_payload, include_vat=True, grid_zone="wien", handling_fee_net=1.2
@@ -105,7 +105,7 @@ def test_allin_smartcontrol_negative_price(make_data, smartcontrol_payload):
 # --- Aufschlüsselung & USt.-Konvention ------------------------------------- #
 
 
-def test_breakdown_smartcontrol(make_data, smartcontrol_payload):
+def test_aufschluesselung_smartcontrol(make_data, smartcontrol_payload):
     """Jede Nebenkostenposition wird einzeln brutto ausgewiesen (USt. einmal)."""
     data = make_data(
         smartcontrol_payload, include_vat=True, grid_zone="wien", handling_fee_net=1.2
@@ -125,14 +125,14 @@ def test_breakdown_smartcontrol(make_data, smartcontrol_payload):
     assert data.surcharges_total(moment) == pytest.approx(9.84)
 
 
-def test_breakdown_smarttimes_has_no_handling_fee(make_data, smarttimes_payload):
+def test_aufschluesselung_smarttimes_ohne_abwicklungsgebuehr(make_data, smarttimes_payload):
     """Bei smartTIMES taucht keine Abwicklungsgebühr in der Aufschlüsselung auf."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone="wien")
     breakdown = data.surcharge_breakdown(_iso("2026-06-05T14:00:00+02:00"))
     assert "handling_fee" not in breakdown
 
 
-def test_basic_fee_gross_and_net(make_data, smarttimes_payload):
+def test_grundgebuehr_brutto_und_netto(make_data, smarttimes_payload):
     """Die Grundgebühr wird je nach Einstellung brutto bzw. netto geliefert."""
     moment = _iso("2026-06-05T12:00:00+02:00")
     gross = make_data(smarttimes_payload, include_vat=True)

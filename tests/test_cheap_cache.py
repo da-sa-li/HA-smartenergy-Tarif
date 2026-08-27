@@ -154,7 +154,7 @@ def test_zusammenfassung_laesst_die_gecachten_bloecke_unberuehrt(
     Die Zusammenfassung über die Tagesgrenze ersetzt den ersten bzw. letzten
     Block. Ihre Vorlage stammt aus dem Cache – arbeitete sie darauf, schlüge der
     zusammengefasste Block auf die *tageweise* Auswahl durch, die bewusst
-    tageweise bleibt (siehe ``test_jitter.test_selection_itself_stays_per_day``).
+    tageweise bleibt (siehe ``test_jitter.test_auswahl_selbst_bleibt_tageweise``).
     """
     # Ohne Netzgebiet, damit die in test_jitter.py hergeleitete Blockaufteilung
     # gilt: Bei 9 h grenzt der letzte Block des 05.06. (22:00-24:00) exakt an

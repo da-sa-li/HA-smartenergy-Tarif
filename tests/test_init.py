@@ -15,7 +15,7 @@ from custom_components.smartenergy.api import SmartTimesApiClient
 DOMAIN = "smartenergy"
 
 
-async def test_setup_and_unload(
+async def test_einrichten_und_entladen(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Der Eintrag lädt seine Hub-Entitäten und entlädt sich wieder sauber."""
@@ -50,7 +50,7 @@ async def test_setup_and_unload(
     assert entry.state is ConfigEntryState.NOT_LOADED
 
 
-async def test_setup_falls_back_to_data_tariff(
+async def test_tarif_faellt_auf_data_zurueck(
     hass: HomeAssistant, enable_custom_integrations, smartcontrol_payload
 ):
     """Ein Altbestand ohne Optionen liest den Tarif aus ``data``."""
