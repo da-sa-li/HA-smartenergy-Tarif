@@ -30,7 +30,7 @@ def _local(value: str) -> datetime:
 
 
 @pytest.mark.freeze_time("2026-06-05 10:30:00")
-async def test_diagnostics_snapshot(
+async def test_diagnose_schnappschuss(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Der Schnappschuss spiegelt Konfiguration, Cache und Stichproben wider."""
@@ -89,7 +89,7 @@ async def test_diagnostics_snapshot(
 
 
 @pytest.mark.freeze_time("2026-06-05 10:30:00")
-async def test_diagnostics_omits_user_chosen_names(
+async def test_diagnose_laesst_frei_gewaehlte_namen_weg(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Frei gewählte Sensor-Namen tauchen im Schnappschuss nicht auf.

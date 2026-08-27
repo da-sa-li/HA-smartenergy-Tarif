@@ -33,7 +33,7 @@ def _iso(value: str) -> datetime:
     return datetime.fromisoformat(value)
 
 
-def test_parse_smarttimes(smarttimes_payload):
+def test_parst_das_smarttimes_format(smarttimes_payload):
     """Das verschachtelte ``energyPrice``-Format wird vollständig ausgewertet."""
     result = SmartTimesApiClient._parse(smarttimes_payload)
     assert result.interval_minutes == 15
@@ -55,7 +55,7 @@ def test_parse_smarttimes(smarttimes_payload):
     assert result.basic_fees[0].gross_value == 2.988
 
 
-def test_parse_smartcontrol(smartcontrol_payload):
+def test_parst_das_smartcontrol_format(smartcontrol_payload):
     """Das flache ``data``-Format (mit Offset) wird als Fallback ausgewertet."""
     result = SmartTimesApiClient._parse(smartcontrol_payload)
     assert result.interval_minutes == 15
@@ -71,7 +71,7 @@ def test_parse_smartcontrol(smartcontrol_payload):
     assert result.basic_fee_unit is None
 
 
-def test_market_price_net_and_vat():
+def test_marktpreis_brutto_und_netto():
     """Brutto/Netto-Umrechnung: 13,020 brutto / 1,2 = 10,85 netto."""
     price = MarketPrice(
         start=_iso("2026-06-05T00:00:00+02:00"),
@@ -83,38 +83,38 @@ def test_market_price_net_and_vat():
     assert price.price(include_vat=False) == 10.85
 
 
-def test_parse_date_keeps_explicit_offset():
+def test_datum_behaelt_vorhandenen_offset():
     """Ein vorhandener Zeitzonen-Offset bleibt erhalten (+02:00)."""
     parsed = SmartTimesApiClient._parse_date("2026-06-05T14:00:00+02:00")
     assert parsed.utcoffset().total_seconds() == 2 * 3600
 
 
-def test_parse_date_assumes_default_tz_when_naive():
+def test_datum_ohne_offset_nimmt_die_standardzeitzone():
     """Ohne Offset wird die Standard-Zeitzone (Europe/Vienna) angenommen."""
     parsed = SmartTimesApiClient._parse_date("2026-06-05T14:00:00")
     assert parsed.tzinfo is not None
     assert parsed.utcoffset().total_seconds() == 2 * 3600
 
 
-def test_parse_rejects_non_dict():
+def test_parser_weist_ein_nicht_objekt_zurueck():
     """Ein nicht-Objekt als Antwort löst einen Payload-Fehler aus."""
     with pytest.raises(SmartTimesApiPayloadError):
         SmartTimesApiClient._parse([])
 
 
-def test_parse_rejects_empty_values():
+def test_parser_weist_eine_leere_werteliste_zurueck():
     """Eine leere Werteliste löst einen Payload-Fehler aus (keine Preisdaten)."""
     with pytest.raises(SmartTimesApiPayloadError):
         SmartTimesApiClient._parse({"energyPrice": {"values": []}})
 
 
-def test_parse_rejects_all_invalid_entries():
+def test_parser_weist_durchweg_ungueltige_eintraege_zurueck():
     """Sind alle Einträge unbrauchbar (kein Datum/Wert), bleibt kein Preis übrig."""
     with pytest.raises(SmartTimesApiPayloadError):
         SmartTimesApiClient._parse({"energyPrice": {"values": [{"foo": "bar"}]}})
 
 
-def test_new_error_types_are_siblings_of_permanent_error():
+def test_fehlerarten_sind_geschwister_und_keine_unterklassen():
     """Timeout- und Payload-Fehler hängen NICHT unter ``SmartTimesApiPermanentError``
     und umgekehrt – sonst schlüge der isinstance-Check in coordinator.py an.
     """
@@ -126,26 +126,26 @@ def test_new_error_types_are_siblings_of_permanent_error():
     assert not issubclass(SmartTimesApiPermanentError, SmartTimesApiPayloadError)
 
 
-def test_build_user_agent_with_version_and_doc_url():
+def test_user_agent_mit_version_und_doku_link():
     """Version und Doku-Link ergeben ``Produkt/Version (+URL)``."""
     ua = _build_user_agent("2.1.0", "https://github.com/da-sa-li/HA-smartenergy-Tarif")
     # Laut Spezifikation (Schema "Produkt/Version (+URL)"):
     assert ua == "HomeAssistant-Strompreishelfer/2.1.0 (+https://github.com/da-sa-li/HA-smartenergy-Tarif)"
 
 
-def test_build_user_agent_with_version_only():
+def test_user_agent_nur_mit_version():
     """Ohne Doku-Link bleibt es bei ``Produkt/Version`` (kein Klammer-Suffix)."""
     ua = _build_user_agent("2.1.0", None)
     assert ua == "HomeAssistant-Strompreishelfer/2.1.0"
 
 
-def test_build_user_agent_with_doc_url_only():
+def test_user_agent_nur_mit_doku_link():
     """Ohne Version steht der Doku-Link direkt hinterm reinen Produktnamen."""
     ua = _build_user_agent(None, "https://github.com/da-sa-li/HA-smartenergy-Tarif")
     assert ua == "HomeAssistant-Strompreishelfer (+https://github.com/da-sa-li/HA-smartenergy-Tarif)"
 
 
-def test_build_user_agent_fallback_without_version_or_doc_url():
+def test_user_agent_ohne_version_und_doku_link():
     """Ohne Version/Link fällt der User-Agent auf das reine Produkt zurück."""
     # Laut Spezifikation: ohne Metadaten bleibt nur der Produktname.
     assert _build_user_agent(None, None) == "HomeAssistant-Strompreishelfer"
@@ -176,7 +176,7 @@ class _InvalidJsonResponse:
         """No-Op: der HTTP-Status allein ist hier erfolgreich."""
 
 
-async def test_invalid_json_raises_payload_error():
+async def test_ungueltiges_json_loest_payload_fehler_aus():
     """Ein nicht auswertbarer Body löst einen Payload-Fehler aus."""
     session = AsyncMock()
     session.get = AsyncMock(return_value=_InvalidJsonResponse())
@@ -185,7 +185,7 @@ async def test_invalid_json_raises_payload_error():
         await client.async_get_prices()
 
 
-async def test_timeout_raises_timeout_error():
+async def test_zeitueberschreitung_loest_timeout_fehler_aus():
     """Eine Zeitüberschreitung beim Abruf löst den eigenen Timeout-Fehler aus."""
     session = AsyncMock()
     session.get = AsyncMock(side_effect=TimeoutError())
@@ -194,7 +194,7 @@ async def test_timeout_raises_timeout_error():
         await client.async_get_prices()
 
 
-async def test_client_sends_dynamic_user_agent_header(smarttimes_payload):
+async def test_client_sendet_den_gebauten_user_agent(smarttimes_payload):
     """Der gebaute User-Agent landet im tatsächlichen GET-Request-Header."""
     session = AsyncMock()
     session.get = AsyncMock(return_value=_FakeResponse(smarttimes_payload))
@@ -252,30 +252,30 @@ async def _get_prices_error(
 # Laut Spezifikation (RFC 9110) sind 4xx Client-Fehler, die sich durch bloßes
 # Wiederholen nicht beheben lassen – Ausnahmen sind 408 und 429.
 @pytest.mark.parametrize("status", [400, 401, 403, 404, 410, 451])
-async def test_permanent_client_errors(status):
+async def test_dauerhafte_client_fehler(status):
     """Die meisten 4xx gelten als dauerhafte Ablehnung."""
     assert isinstance(await _get_prices_error(status), SmartTimesApiPermanentError)
 
 
 @pytest.mark.parametrize("status", [408, 429, 500, 502, 503, 504])
-async def test_transient_errors(status):
+async def test_voruebergehende_fehler(status):
     """408/429 sowie alle 5xx sind vorübergehend – hier wird weiter wiederholt."""
     err = await _get_prices_error(status)
     assert not isinstance(err, SmartTimesApiPermanentError)
 
 
-async def test_status_appears_in_error_message():
+async def test_status_bleibt_in_der_fehlermeldung():
     """Der HTTP-Status bleibt in der Fehlermeldung erhalten (Diagnose im Log)."""
     assert "503" in str(await _get_prices_error(503))
 
 
-async def test_retry_after_is_carried_from_rate_limit_response():
+async def test_retry_after_kommt_aus_der_rate_limit_antwort():
     """Ein ``Retry-After`` bei HTTP 429 erreicht den Koordinator als Wartezeit."""
     err = await _get_prices_error(429, {"Retry-After": "90"})
     assert err.retry_after == timedelta(seconds=90)
 
 
-async def test_error_without_retry_after_header():
+async def test_fehler_ohne_retry_after_kopfzeile():
     """Ohne den Header bleibt ``retry_after`` leer – es gilt die eigene Wartezeit."""
     assert (await _get_prices_error(503)).retry_after is None
 
@@ -283,23 +283,23 @@ async def test_error_without_retry_after_header():
 # --- Retry-After-Header (RFC 9110) ------------------------------------------ #
 
 
-def test_parse_retry_after_seconds():
+def test_retry_after_in_sekunden():
     """Die Sekunden-Schreibweise wird direkt übernommen."""
     assert _parse_retry_after("120") == timedelta(seconds=120)
 
 
-def test_parse_retry_after_strips_whitespace():
+def test_retry_after_ignoriert_leerzeichen():
     """Umgebende Leerzeichen stören nicht."""
     assert _parse_retry_after("  45  ") == timedelta(seconds=45)
 
 
-def test_parse_retry_after_negative_is_clamped():
+def test_retry_after_wird_nie_negativ():
     """Ein negativer Wert ergibt keine negative Wartezeit."""
     assert _parse_retry_after("-5") == timedelta(0)
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")
-def test_parse_retry_after_http_date():
+def test_retry_after_als_http_datum():
     """Ein HTTP-Datum wird in die verbleibende Wartezeit umgerechnet.
 
     Eingefroren ist der 05.06.2026 um 10:00:00 UTC; das Datum im Header liegt
@@ -309,13 +309,13 @@ def test_parse_retry_after_http_date():
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")
-def test_parse_retry_after_past_http_date_is_clamped():
+def test_retry_after_mit_verstrichenem_datum_ergibt_null():
     """Ein bereits verstrichenes Datum ergibt die Wartezeit null."""
     assert _parse_retry_after("Fri, 05 Jun 2026 09:58:00 GMT") == timedelta(0)
 
 
 @pytest.mark.parametrize("value", [None, "", "   ", "bald", "morgen früh"])
-def test_parse_retry_after_invalid(value):
+def test_retry_after_unbrauchbar(value):
     """Fehlt der Header oder ist er unbrauchbar, gilt die eigene Wartezeit."""
     assert _parse_retry_after(value) is None
 
@@ -333,7 +333,7 @@ def test_parse_retry_after_invalid(value):
 # SmartTimesApiPayloadError.
 
 
-async def test_network_error_raises_api_error():
+async def test_netzwerkfehler_loest_einen_api_fehler_aus():
     """Ein Verbindungsabbruch wird als allgemeiner API-Fehler gemeldet.
 
     Der schlichte Netzwerkfehler – abgerissene Verbindung, DNS, TLS – hatte
@@ -359,7 +359,7 @@ async def test_network_error_raises_api_error():
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")
-def test_parse_retry_after_date_without_zone_counts_as_gmt():
+def test_retry_after_datum_ohne_zone_gilt_als_gmt():
     """Ein HTTP-Datum ohne verwertbare Zone gilt laut RFC 9110 als GMT.
 
     ``-0000`` heißt „Zone unbekannt“; ``parsedate_to_datetime`` liefert dann ein
@@ -373,7 +373,7 @@ def test_parse_retry_after_date_without_zone_counts_as_gmt():
     )
 
 
-def test_parse_falls_back_to_quarter_hour_on_unreadable_interval():
+def test_unlesbares_intervall_faellt_auf_die_viertelstunde_zurueck():
     """Ein unlesbares ``interval`` fällt auf das Viertelstundenraster zurück.
 
     Die Intervalllänge bestimmt das Ende jedes Preis-Eintrags. Ein Ausfall hier
@@ -405,7 +405,7 @@ def test_parse_falls_back_to_quarter_hour_on_unreadable_interval():
     ],
     ids=["nicht-objekt", "kaputtes-datum", "wert-keine-zahl", "wert-falscher-typ"],
 )
-def test_parse_skips_single_broken_entry(eintrag, grund):
+def test_parser_ueberspringt_einen_kaputten_eintrag(eintrag, grund):
     """Ein unbrauchbarer Eintrag kostet nur sich selbst, nicht den ganzen Abruf.
 
     Der gültige Eintrag daneben bleibt erhalten – ein einzelner Ausreißer in der
@@ -427,7 +427,7 @@ def test_parse_skips_single_broken_entry(eintrag, grund):
     assert result.prices[0].start == _iso("2026-06-05T00:00:00+02:00")
 
 
-def test_parse_basic_fee_without_values_keeps_the_unit():
+def test_grundgebuehr_ohne_werteliste_behaelt_die_einheit():
     """Fehlt die Werteliste der Grundgebühr, bleibt wenigstens die Einheit erhalten.
 
     Die Einheit steuert die Warnung in ``sensor.async_setup_entry`` (meldet die
@@ -449,7 +449,7 @@ def test_parse_basic_fee_without_values_keeps_the_unit():
     assert result.basic_fee_unit == "EUR/month"
 
 
-def test_parse_basic_fee_skips_broken_entries():
+def test_grundgebuehr_ueberspringt_kaputte_eintraege():
     """Ein kaputter Grundgebühr-Eintrag wird übersprungen, der gültige bleibt."""
     result = SmartTimesApiClient._parse(
         {
@@ -471,7 +471,7 @@ def test_parse_basic_fee_skips_broken_entries():
     assert [f.gross_value for f in result.basic_fees] == [2.988]
 
 
-def test_parse_ignores_basic_fee_of_wrong_shape():
+def test_grundgebuehr_falscher_form_wird_ignoriert():
     """Ist ``basicFee`` gar kein Objekt, gibt es schlicht keine Grundgebühr.
 
     Der Sensor entfällt dann (siehe ``sensor._is_available``), statt dauerhaft

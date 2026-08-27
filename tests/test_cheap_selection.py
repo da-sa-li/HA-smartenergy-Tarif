@@ -85,7 +85,7 @@ def _partial_day(entries: list[tuple[str, float]]) -> SmartTimesData:
     return _wrap(prices)
 
 
-def test_individual_picks_cheapest_quarter_hours(make_data, smartcontrol_payload):
+def test_einzelmodus_waehlt_die_guenstigsten_viertelstunden(make_data, smartcontrol_payload):
     """Einzelstunden-Modus wählt die günstigsten Viertelstunden des Tages."""
     # smartCONTROL hat unterschiedliche Preise -> klare Rangfolge.
     # Günstigste Stunde am 05.06. ist 14:00 (gross 3,851).
@@ -99,7 +99,7 @@ def test_individual_picks_cheapest_quarter_hours(make_data, smartcontrol_payload
     assert data.cheap_cutoff(DAY, 1.0, "individual") == pytest.approx(6.1550)
 
 
-def test_individual_tie_expands_selection(make_data, smarttimes_payload):
+def test_einzelmodus_erweitert_bei_gleichstand(make_data, smarttimes_payload):
     """Bei Gleichstand am Schwellwert wird die Auswahl erweitert."""
     # smartTIMES: 32 Intervalle teilen sich den Tiefstpreis 11,316
     # (Stunden 02-03 und 10-15). Ohne Netzgebiet sind sie exakt gleich teuer,
@@ -110,7 +110,7 @@ def test_individual_tie_expands_selection(make_data, smarttimes_payload):
     assert len(all_starts) == 32
 
 
-def test_individual_exact_hours_suppresses_expansion(make_data, smarttimes_payload):
+def test_exact_hours_unterbindet_die_erweiterung(make_data, smarttimes_payload):
     """Mit ``exact_hours`` bleibt es bei genau der eingestellten Stundenzahl.
 
     Ohne die Option liefert smartTIMES wegen seiner nur drei Preisstufen für
@@ -127,7 +127,7 @@ def test_individual_exact_hours_suppresses_expansion(make_data, smarttimes_paylo
     assert sorted(all_starts) == _quarter_hours("02")
 
 
-def test_exact_hours_scales_with_the_setting(make_data, smarttimes_payload):
+def test_exact_hours_laesst_die_stundenzahl_durchschlagen(make_data, smarttimes_payload):
     """Mit ``exact_hours`` schlägt die Stundenzahl wieder durch."""
     # Ohne die Option ergibt jede dieser Einstellungen 32 Intervalle.
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
@@ -136,7 +136,7 @@ def test_exact_hours_scales_with_the_setting(make_data, smarttimes_payload):
         assert len(selected) == expected
 
 
-def test_consecutive_block_crosses_hour_boundary(make_data, smartcontrol_payload):
+def test_blockmodus_waehlt_das_guenstigste_lueckenlose_fenster(make_data, smartcontrol_payload):
     """Der zusammenhängende Block ist das günstigste lückenlose Fenster."""
     # 2 h = 8 zusammenhängende Intervalle mit minimaler Summe.
     # Fenster 13:00-14:45: 4x5,160 + 4x3,851 = 36,044 (günstiger als 12:00-13:45
@@ -148,7 +148,7 @@ def test_consecutive_block_crosses_hour_boundary(make_data, smartcontrol_payload
     assert sorted(p.start for p in intervals) == _quarter_hours("13") + _quarter_hours("14")
 
 
-def test_consecutive_keeps_the_requested_length_on_tie(
+def test_blockmodus_behaelt_die_laenge_bei_gleichstand(
     make_data, smarttimes_payload
 ):
     """Der Block behält bei Gleichstand exakt die angeforderte Länge.
@@ -178,7 +178,7 @@ def test_consecutive_keeps_the_requested_length_on_tie(
     ],
     ids=["ueberschuss-am-blockanfang", "ueberschuss-in-blockmitte"],
 )
-def test_exceeds_flag_covers_the_whole_block(gross):
+def test_ueberschuss_gilt_fuer_den_ganzen_block(gross):
     """Ein Überschuss-Intervall zählt auch, wenn es nicht am Blockende liegt.
 
     Bei 1 h (= 4 Intervalle) sind die vier günstigsten die beiden 5,0er sowie
@@ -195,7 +195,7 @@ def test_exceeds_flag_covers_the_whole_block(gross):
     assert blocks == {2: False, 10: True}
 
 
-def test_consecutive_block_skips_a_gap():
+def test_blockmodus_ueberspringt_keine_luecke():
     """Ein Fenster darf keine Lücke im Tagesraster überspannen.
 
     09:30 und 09:45 sind mit 1,0 die günstigsten Intervalle des Tages, direkt
@@ -223,7 +223,7 @@ def test_consecutive_block_skips_a_gap():
     )
 
 
-def test_consecutive_falls_back_when_no_gapless_window_fits():
+def test_blockmodus_faellt_auf_die_einzelauswahl_zurueck():
     """Passt gar kein lückenloses Fenster, greift die Einzelauswahl.
 
     Sechs Intervalle mit einer Lücke um 00:45: Jedes der drei möglichen
@@ -252,7 +252,7 @@ def test_consecutive_falls_back_when_no_gapless_window_fits():
     ]
 
 
-def test_consecutive_ignores_exact_hours_option(make_data, smarttimes_payload):
+def test_blockmodus_ignoriert_exact_hours(make_data, smarttimes_payload):
     """``exact_hours`` ist im Blockmodus wirkungslos – dort gilt sie immer."""
     data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
     assert data._cheap_blocks(DAY, 1.0, "consecutive", False) == data._cheap_blocks(

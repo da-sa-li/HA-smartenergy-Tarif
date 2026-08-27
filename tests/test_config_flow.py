@@ -29,7 +29,7 @@ _PATCH_PRICES = "custom_components.smartenergy.api.SmartTimesApiClient.async_get
 _PATCH_SETUP = "custom_components.smartenergy.async_setup_entry"
 
 
-async def test_user_flow_creates_entry(
+async def test_einrichtung_legt_den_eintrag_an(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Erfolgreicher Flow legt den Eintrag mit den gewählten Optionen an."""
@@ -58,7 +58,7 @@ async def test_user_flow_creates_entry(
     }
 
 
-async def test_user_flow_cannot_connect(
+async def test_einrichtung_meldet_einen_verbindungsfehler(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Ein Verbindungsfehler zeigt das Formular mit ``cannot_connect`` erneut."""
@@ -75,7 +75,7 @@ async def test_user_flow_cannot_connect(
     assert result["errors"] == {"base": "cannot_connect"}
 
 
-async def test_only_single_instance_allowed(
+async def test_nur_eine_instanz_erlaubt(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Existiert bereits ein Eintrag, bricht ein zweiter Flow ab."""
@@ -93,7 +93,7 @@ async def test_only_single_instance_allowed(
     assert result["reason"] == "single_instance_allowed"
 
 
-async def test_options_flow_updates_options_and_title(
+async def test_optionen_aktualisieren_werte_und_titel(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Der Options-Flow aktualisiert Optionen und passt den Titel dem Tarif an."""
@@ -125,7 +125,7 @@ async def test_options_flow_updates_options_and_title(
     assert entry.title == "smartCONTROL Strompreishelfer"
 
 
-async def test_options_flow_tariff_change_reloads_once(
+async def test_tarifwechsel_laedt_nur_einmal_neu(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
     """Titel- und Optionsänderung lösen zusammen nur einen Reload aus.
@@ -163,7 +163,7 @@ async def test_options_flow_tariff_change_reloads_once(
     assert reload_mock.call_count == 1
 
 
-async def test_options_flow_tariff_change_cannot_connect(
+async def test_tarifwechsel_meldet_einen_verbindungsfehler(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Ein Verbindungsfehler bei Tarifwechsel zeigt das Formular erneut, ohne zu speichern."""
@@ -190,7 +190,7 @@ async def test_options_flow_tariff_change_cannot_connect(
     assert entry.title == "smartTIMES Strompreishelfer"
 
 
-async def test_options_flow_skips_connection_check_when_tariff_unchanged(
+async def test_ohne_tarifwechsel_keine_verbindungspruefung(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Bleibt der Tarif gleich, wird die API nicht abgefragt – auch nicht bei Störung."""
@@ -229,7 +229,7 @@ async def test_options_flow_skips_connection_check_when_tariff_unchanged(
         (SmartTimesApiError("boom"), "cannot_connect"),
     ],
 )
-async def test_validate_tariff_connection_maps_error_types(
+async def test_jede_fehlerart_hat_ihren_uebersetzungsschluessel(
     hass: HomeAssistant,
     enable_custom_integrations,
     fehler: SmartTimesApiError,
@@ -241,7 +241,7 @@ async def test_validate_tariff_connection_maps_error_types(
     assert result == erwarteter_schluessel
 
 
-async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
+async def test_untereintrag_anlegen(hass: HomeAssistant, enable_custom_integrations):
     """Der Untereintrags-Flow legt einen „Günstige Stunde“-Sensor an."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -273,7 +273,7 @@ async def test_subentry_create(hass: HomeAssistant, enable_custom_integrations):
     }
 
 
-async def test_subentry_create_with_exact_hours(
+async def test_untereintrag_anlegen_mit_exact_hours(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Die Option „Stundenzahl exakt einhalten“ wird im Untereintrag gespeichert."""
@@ -304,7 +304,7 @@ async def test_subentry_create_with_exact_hours(
     assert result["data"]["exact_hours"] is True
 
 
-async def test_subentry_name_required(
+async def test_untereintrag_verlangt_einen_namen(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Ein leerer Name im Untereintrags-Flow erzeugt den Fehler ``name_required``."""
@@ -372,7 +372,7 @@ async def _reconfigure_starten(
     )
 
 
-async def test_subentry_reconfigure_prefills_stored_values(
+async def test_untereintrag_bearbeiten_ist_vorbefuellt(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Das Formular zeigt die gespeicherten Werte und den bisherigen Namen.
@@ -392,7 +392,7 @@ async def test_subentry_reconfigure_prefills_stored_values(
     assert result["data_schema"]({}) == {"name": "Boiler", **BESTAND}
 
 
-async def test_subentry_reconfigure_saves_changes(
+async def test_untereintrag_bearbeiten_speichert_aenderungen(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Geänderte Werte landen im Untereintrag, der Titel folgt dem neuen Namen."""
@@ -425,12 +425,12 @@ async def test_subentry_reconfigure_saves_changes(
     assert list(entry.subentries) == [subentry_id]
 
 
-async def test_subentry_reconfigure_name_required(
+async def test_untereintrag_bearbeiten_verlangt_einen_namen(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Ein leerer Name wird abgewiesen und nichts gespeichert.
 
-    Dieselbe Zusage wie beim Anlegen (``test_subentry_name_required``) – hier ist
+    Dieselbe Zusage wie beim Anlegen (``test_untereintrag_verlangt_einen_namen``) – hier ist
     sie wichtiger, weil ein Fehlschlag sonst einen bereits benannten Sensor
     entnennen würde.
     """
@@ -454,7 +454,7 @@ async def test_subentry_reconfigure_name_required(
     assert entry.subentries[subentry_id].data == BESTAND
 
 
-async def test_subentry_reconfigure_keeps_input_on_error(
+async def test_untereintrag_bearbeiten_haelt_die_eingaben_bei_fehler(
     hass: HomeAssistant, enable_custom_integrations
 ):
     """Nach dem Namensfehler bleiben die übrigen Eingaben im Formular stehen.
