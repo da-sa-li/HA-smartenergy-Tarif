@@ -26,6 +26,7 @@ from custom_components.smartenergy.api import SmartTimesApiClient
 from custom_components.smartenergy.binary_sensor import CheapHourBinarySensor
 from custom_components.smartenergy.const import (
     FETCH_JITTER_MINUTES,
+    JITTER_SPAN_SECONDS,
     NEXT_DAY_PRICES_HOUR,
     SUBENTRY_TYPE_CHEAP_HOUR,
 )
@@ -245,3 +246,178 @@ async def test_koordinator_und_datenklasse_sind_sich_einig(
     assert coordinator._has_tomorrow_prices(jetzt) == (
         coordinator.data.has_prices_for(morgen)
     )
+
+
+# --- Attributwerte und Last-Glättung am laufenden Sensor -------------------- #
+#
+# Die Attribute wurden bisher nur auf ihre *Form* geprüft (Listen-Ausschluss für
+# den Recorder). Ihre Werte sind aber der öffentliche Vertrag, auf dem die
+# Automatisierungsbeispiele im Wiki stehen.
+#
+# Sollwerte von Hand, smartTIMES + Netzgebiet Wien, brutto, 05.06.2026 12:00
+# Ortszeit; Herleitung wie im Kopf des Zeitstempel-Abschnitts in
+# tests/test_sensor.py: Die 16 günstigsten Viertelstunden bei cheap_hours = 4,0
+# und exact_hours = ein bilden den Block 10:00-14:00, alle im SNAP-Fenster:
+#   (11,316/1,2 gerundet 9,43 + 0,72 Abgaben + 5,58 Netznutzung + 0,700 Verlust)
+#   * 1,2 = 19,7160 ct  ->  0,19716 EUR/kWh
+SCHWELLWERT_EUR = 0.19716
+BLOCK_BEGINN = datetime(2026, 6, 5, 10, 0, tzinfo=dt_util.get_time_zone("Europe/Vienna"))
+BLOCK_ENDE = datetime(2026, 6, 5, 14, 0, tzinfo=dt_util.get_time_zone("Europe/Vienna"))
+
+# Feste Untereintrags-IDs statt der sonst je Lauf neu vergebenen ULIDs: Die
+# Jitter-Phase leitet sich aus der ID ab, und nur mit festen IDs sind die
+# Versätze zweier Sensoren reproduzierbar verschieden. Mit zufälligen IDs wäre
+# ein Gleichstand zwar selten, aber möglich – der Test würde gelegentlich grundlos
+# fehlschlagen.
+ID_BOILER = "01BOILER00000000000000000A"
+ID_WALLBOX = "01WALLBOX0000000000000000B"
+
+
+async def _richte_mit_verbrauchern_ein(
+    hass: HomeAssistant, payload: dict, *ids_und_namen: tuple[str, str]
+) -> MockConfigEntry:
+    """Richtet einen smartTIMES-Eintrag (Wien) mit Günstig-Stunde-Sensoren ein."""
+    parsed = SmartTimesApiClient._parse(payload)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+        subentries_data=[
+            {
+                "subentry_id": subentry_id,
+                "data": {
+                    "cheap_hours": 4.0,
+                    "cheap_mode": "individual",
+                    "exact_hours": True,
+                },
+                "subentry_type": SUBENTRY_TYPE_CHEAP_HOUR,
+                "title": titel,
+                "unique_id": None,
+            }
+            for subentry_id, titel in ids_und_namen
+        ],
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    return entry
+
+
+@pytest.mark.freeze_time(ZEITPUNKT)  # 12:00 Ortszeit, mitten im Block
+async def test_guenstig_sensor_attribute_tragen_die_erwarteten_werte(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Schwellwert, aktueller Preis und Einstellungen stehen als Werte fest."""
+    await _richte_mit_verbrauchern_ein(
+        hass, smarttimes_payload, (ID_BOILER, "Boiler")
+    )
+
+    zustand = hass.states.get("binary_sensor.boiler_cheap_hour")
+    attribute = zustand.attributes
+
+    assert zustand.state == "on"  # 12:00 liegt im Block 10:00-14:00
+    assert attribute["cheap_hours"] == 4.0
+    assert attribute["cheap_mode"] == "individual"
+    assert attribute["exact_hours"] is True
+    assert attribute["unit"] == "EUR/kWh"
+    assert attribute["vat_included"] is True
+    assert attribute["threshold_eur_kwh"] == pytest.approx(SCHWELLWERT_EUR)
+    # Das laufende Intervall gehört selbst zu den günstigsten, aktueller Preis
+    # und Schwellwert fallen hier also zusammen.
+    assert attribute["current_price_eur_kwh"] == pytest.approx(SCHWELLWERT_EUR)
+    # 16 Viertelstunden = 4 Stunden, exakt wie eingestellt.
+    assert len(attribute["cheap_intervals"]) == 16
+    assert attribute["cheap_intervals"][0]["start"] == "2026-06-05T10:00:00+02:00"
+    assert attribute["cheap_intervals"][-1]["end"] == "2026-06-05T14:00:00+02:00"
+
+
+@pytest.mark.freeze_time(ZEITPUNKT)
+async def test_ausgewiesener_versatz_ist_der_tatsaechliche_schaltversatz(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """``jitter_offset_seconds`` nennt genau die Verzögerung des Einschaltens.
+
+    Das Attribut ist die einzige Stelle, an der ein Nutzer den Versatz seines
+    Sensors ablesen kann. Liefe es gegen einen anderen Wert als die tatsächliche
+    Flanke, wäre es schlimmer als gar kein Attribut – niemand würde den
+    Widerspruch bemerken.
+    """
+    await _richte_mit_verbrauchern_ein(
+        hass, smarttimes_payload, (ID_BOILER, "Boiler")
+    )
+
+    attribute = hass.states.get("binary_sensor.boiler_cheap_hour").attributes
+
+    (fenster,) = attribute["cheap_windows"]
+    ein = datetime.fromisoformat(fenster["on"])
+    aus = datetime.fromisoformat(fenster["off"])
+
+    # Beide Flanken wandern nach innen, das Fenster verlässt den Block nie.
+    assert BLOCK_BEGINN <= ein <= BLOCK_BEGINN + timedelta(seconds=JITTER_SPAN_SECONDS)
+    assert BLOCK_ENDE - timedelta(seconds=JITTER_SPAN_SECONDS) <= aus <= BLOCK_ENDE
+    # Die Fensterlänge ist für jeden Sensor dieselbe: Blocklänge minus Jitterbreite.
+    assert aus - ein == (BLOCK_ENDE - BLOCK_BEGINN) - timedelta(
+        seconds=JITTER_SPAN_SECONDS
+    )
+    # Und der ausgewiesene Versatz ist genau diese Verzögerung.
+    assert attribute["jitter_offset_seconds"] == round(
+        (ein - BLOCK_BEGINN).total_seconds()
+    )
+    # Kein Überschuss-Intervall: exact_hours ist an, es wird nie erweitert.
+    assert fenster["exceeds_cheap_hours"] is False
+
+
+@pytest.mark.freeze_time(ZEITPUNKT)
+async def test_zwei_verbraucher_schalten_zu_verschiedenen_zeiten(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Zwei Sensoren desselben Eintrags bekommen verschiedene Versätze.
+
+    Das ist der ganze Zweck der Last-Glättung. Bisher prüfte das nichts: Die
+    Tests in ``test_jitter.py`` reichen die Phase von Hand hinein, und die
+    Sensor-Tests deckten nur den zugesagten *Bereich* ab – ein fest auf 0
+    verdrahteter Versatz wäre darin unauffällig geblieben, obwohl dann alle
+    Verbraucher wieder gleichzeitig schalteten.
+    """
+    await _richte_mit_verbrauchern_ein(
+        hass, smarttimes_payload, (ID_BOILER, "Boiler"), (ID_WALLBOX, "Wallbox")
+    )
+
+    boiler = hass.states.get("binary_sensor.boiler_cheap_hour").attributes
+    wallbox = hass.states.get("binary_sensor.wallbox_cheap_hour").attributes
+
+    assert boiler["jitter_offset_seconds"] != wallbox["jitter_offset_seconds"]
+    for attribute in (boiler, wallbox):
+        assert 0 <= attribute["jitter_offset_seconds"] <= JITTER_SPAN_SECONDS
+    # Verschoben ist die Lage des Fensters, nicht seine Länge – beide laufen
+    # gleich lang.
+    def laenge(attribute: dict) -> timedelta:
+        (fenster,) = attribute["cheap_windows"]
+        return datetime.fromisoformat(fenster["off"]) - datetime.fromisoformat(
+            fenster["on"]
+        )
+
+    assert laenge(boiler) == laenge(wallbox)
+
+
+@pytest.mark.freeze_time("2026-06-07 10:00:00")  # 12:00 Ortszeit, nach der Fixture
+async def test_ohne_preisabdeckung_ist_der_zustand_unbekannt(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Deckt kein Intervall „jetzt“ ab, meldet der Sensor ``unknown``.
+
+    Die Fixture endet am 07.06. um 00:00. ``off`` wäre hier die falsche Antwort:
+    Eine Automatisierung liest das als „gerade nicht günstig“ und schaltet den
+    Verbraucher ab, obwohl in Wahrheit schlicht keine Preise vorliegen.
+    """
+    await _richte_mit_verbrauchern_ein(
+        hass, smarttimes_payload, (ID_BOILER, "Boiler")
+    )
+
+    assert hass.states.get("binary_sensor.boiler_cheap_hour").state == "unknown"
