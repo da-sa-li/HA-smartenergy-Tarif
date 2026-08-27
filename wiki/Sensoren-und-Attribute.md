@@ -13,7 +13,7 @@
 | `sensor.smarttimes_strompreishelfer_niedrigster_gesamtpreis_heute` | Günstigster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute` | Teuerster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_preisrang_heute` | Der wievielt-günstigste ist das laufende Intervall unter den heutigen **Gesamtpreisen** (1 = günstigstes) |
-| `sensor.smarttimes_strompreishelfer_preisquantil_heute` | Dieselbe Einordnung normiert auf 0–100 % (0 % = günstigstes) |
+| `sensor.smarttimes_strompreishelfer_preisquantil_heute` | Dieselbe Einordnung normiert auf 0–100 % (je niedriger, desto günstiger) |
 | `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**) |
 | `binary_sensor.smarttimes_strompreishelfer_preise_fur_morgen_verfugbar` | `on`, sobald die Preise für den Folgetag vorliegen (Diagnose) |
 
@@ -49,7 +49,7 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 Beide Sensoren beantworten dieselbe Frage – *ist der Strom gerade günstig?* – und ersparen die Vorlage, die den aktuellen Preis sonst von Hand gegen Minimum, Maximum und Durchschnitt rechnen müsste. Weil es eigene Entitäten sind, landen sie in der Historie und lassen sich unmittelbar als `numeric_state`-Trigger verwenden.
 
 - **Preisrang** (`…_preisrang_heute`): Der wievielt-günstigste ist das laufende Intervall unter allen Intervallen des heutigen Kalendertages. **1 ist das günstigste.** Dimensionslos.
-- **Preisquantil** (`…_preisquantil_heute`): Dieselbe Einordnung normiert auf **0–100 %**, ebenfalls mit **0 % = günstigstes**. Der handlichere der beiden Werte, weil er nicht davon abhängt, ob ein Tag 96 Viertelstunden- oder 24 Stundenwerte hat: „unter 25 %“ heißt immer „im günstigsten Viertel des Tages“.
+- **Preisquantil** (`…_preisquantil_heute`): Dieselbe Einordnung normiert auf **0–100 %**, ebenfalls **je niedriger, desto günstiger**. Der handlichere der beiden Werte, weil er nicht davon abhängt, ob ein Tag 96 Viertelstunden- oder 24 Stundenwerte hat. Der Tagesdurchschnitt liegt immer bei genau 50 %; die Endpunkte 0 % und 100 % kommen dagegen **nie** vor (siehe [Preisgleiche Intervalle](#preisgleiche-intervalle)).
 
 Bezugsgröße ist der **Gesamtpreis** inklusive aller Nebenkosten – wie bei den Tageskennzahlen und beim Günstige-Stunde-Sensor, und **nicht** der reine Arbeitspreis. Das ist kein Detail: Das SNAP-Fenster verschiebt die Reihenfolge, siehe unten.
 
@@ -61,6 +61,11 @@ Bei **smartTIMES** ist Preisgleichheit der Normalfall, nicht die Ausnahme: Als Z
 
 - Der **Rang** folgt der üblichen Wettkampfregel: Alle preisgleichen Intervalle tragen denselben Rang, die nächste Stufe überspringt die verbrauchten Plätze (1, 1, …, 1, 33, …).
 - Das **Quantil** teilt eine preisgleiche Gruppe hälftig („Mittelrang“): `(günstigere + gleich teure / 2) / alle`. Dadurch bleibt die Skala symmetrisch – die mittlere von drei gleich großen Stufen liegt auf genau 50 %.
+
+> [!IMPORTANT]
+> **Eine Schwelle wählt nicht zwangsläufig den gleich großen Anteil des Tages.** Weil alle preisgleichen Intervalle denselben Quantilwert tragen, kommen sie immer nur gemeinsam unter eine Schwelle – oder gar nicht. Bei smartTIMES ohne Netzgebiet liegt die günstigste Stufe bei 16,67 %, also greift `unter 25 %` die **ganze** Stufe: 8 Stunden statt der erwarteten 6. Mit Netzgebiet Wien trifft dieselbe Schwelle dagegen 6 Stunden, weil die günstigste Stufe dort bei 12,50 % liegt und die nächste erst bei 29,17 %.
+>
+> Aus demselben Grund erreicht das Quantil nie 0 % oder 100 %: Das günstigste Preisniveau liegt bei der halben Breite seiner Gleichstandsgruppe. Wer eine **feste Laufzeit** braucht, nimmt deshalb den [Günstige-Stunde-Sensor](#binary-sensor-günstige-stunde) – der hält die eingestellte Stundenzahl ein, eine Quantil-Schwelle tut das nicht.
 
 Ohne gewähltes Netzgebiet ergibt ein smartTIMES-Tag damit genau drei Werte:
 
@@ -96,7 +101,7 @@ Beide Sensoren tragen **dieselben** Attribute, damit jeder für sich verständli
 | Attribut | Beschreibung |
 |---|---|
 | `rank` | Rangplatz des laufenden Intervalls (1 = günstigstes) |
-| `quantile_percent` | Quantil in Prozent (0 % = günstigstes) |
+| `quantile_percent` | Quantil in Prozent, je niedriger desto günstiger. Erreicht nie 0 % oder 100 % |
 | `interval_count` | Nenner der Einordnung: Intervalle des Tages insgesamt (96 an einem vollständigen Viertelstundentag) |
 | `cheaper_intervals` | Echt günstigere Intervalle desselben Tages |
 | `equal_intervals` | Gleich teure Intervalle, das eigene eingeschlossen – also mindestens 1 |

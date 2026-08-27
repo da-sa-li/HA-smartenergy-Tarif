@@ -78,12 +78,21 @@ class PriceRank:
     """Gleich teure Intervalle, das eigene eingeschlossen (also mindestens 1)."""
 
     quantile: float
-    """Mittelrang-Quantil in Prozent, 0 % = günstigstes Intervall.
+    """Mittelrang-Quantil in Prozent: je niedriger, desto günstiger.
 
     ``(cheaper + equal / 2) / count``. Der Mittelrang teilt einen Gleichstand
-    hälftig und bleibt dadurch symmetrisch – der Tagesdurchschnitt liegt bei
-    50 %. Die naheliegenden Varianten tun das nicht: „Anteil kleiner gleich“
-    erreichte nie 0 %, „Anteil echt kleiner“ nie 100 %.
+    hälftig und ist dadurch **symmetrisch**: Der Tagesdurchschnitt liegt immer
+    bei genau 50 %. Genau das leisten die naheliegenden Varianten nicht –
+    „Anteil kleiner gleich“ und „Anteil echt kleiner“ verschieben den
+    Durchschnitt um eine halbe Gleichstandsbreite nach oben bzw. unten.
+
+    **0 % und 100 % kommen nie vor.** Das günstigste Preisniveau liegt bei der
+    halben Breite seiner Gleichstandsgruppe: bei 96 lauter verschiedenen
+    Viertelstunden also bei 0,52 %, bei drei Stufen zu je 32 dagegen schon bei
+    16,67 %. Eine Schwelle wählt deshalb **nicht** garantiert den gleich großen
+    Anteil des Tages – „unter 25 %“ trifft im zweiten Fall die ganze günstigste
+    Stufe und damit ein Drittel des Tages. Wer eine feste Laufzeit braucht,
+    nimmt den Günstige-Stunde-Sensor, nicht eine Quantil-Schwelle.
     """
 
 

@@ -79,7 +79,7 @@ automation:
 > Preise“ unterscheiden: Das Attribut `prices_tomorrow` ist in beiden Fällen
 > eine leere Liste.
 
-# Verbraucher starten, wenn der Preis im günstigsten Viertel liegt
+# Verbraucher starten, wenn der Preis günstig ist
 
 Das **Preisquantil** ordnet den laufenden Preis in den heutigen Tag ein, mit
 0 % für das günstigste Intervall. Damit reicht ein numerischer Trigger, wo
@@ -97,10 +97,19 @@ automation:
         target: { entity_id: switch.boiler }
 ```
 
-> Die Schwelle ist frei wählbar: `below: 25` heißt „im günstigsten Viertel des
-> Tages“, `below: 10` entsprechend strenger. Weil das Quantil normiert ist,
-> bedeutet derselbe Wert bei jedem Tarif dasselbe – anders als eine Schwelle in
-> EUR/kWh, die bei jeder Preisänderung nachgezogen werden müsste.
+> Die Schwelle ist frei wählbar, `below: 10` ist entsprechend strenger. Weil
+> das Quantil normiert ist, ist derselbe Wert über Tarife hinweg vergleichbar –
+> anders als eine Schwelle in EUR/kWh, die bei jeder Preisänderung nachgezogen
+> werden müsste.
+
+> [!IMPORTANT]
+> `below: 25` heißt **nicht** „genau das günstigste Viertel des Tages“.
+> Preisgleiche Intervalle teilen sich einen Quantilwert und kommen deshalb nur
+> gemeinsam unter die Schwelle. Bei **smartTIMES ohne Netzgebiet** liegt die
+> günstigste Stufe bei 16,67 %, `below: 25` schaltet also die ganze Stufe ein –
+> 8 Stunden statt der erwarteten 6. Mit Netzgebiet Wien sind es 6 Stunden. Wer
+> eine feste Laufzeit braucht, nimmt den „Günstige Stunde“-Sensor; er hält die
+> eingestellte Stundenzahl ein.
 
 > [!IMPORTANT]
 > Liegt für den aktuellen Zeitpunkt kein Preis vor, steht der Sensor auf

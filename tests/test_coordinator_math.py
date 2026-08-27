@@ -28,6 +28,11 @@ def _iso(value: str) -> datetime:
     return datetime.fromisoformat(value)
 
 
+def _tagesintervalle(data: SmartTimesData) -> tuple[MarketPrice, ...]:
+    """Alle Intervalle des 05.06.2026 (dem ersten Tag beider Fixtures)."""
+    return data.for_day(datetime(2026, 6, 5, tzinfo=VIENNA).date())
+
+
 def _price_at(data: SmartTimesData, value: str) -> MarketPrice:
     """Liefert den Preis-Eintrag mit dem Startzeitpunkt ``value``."""
     target = _iso(value)
@@ -441,3 +446,77 @@ def test_preisrang_gibt_exakt_gleich_teuren_zonen_denselben_rang():
         assert einordnung.rank == 1
         assert einordnung.equal == 2
         assert einordnung.quantile == pytest.approx(50.0)
+
+
+# --- Semantik der Quantil-Skala --------------------------------------------- #
+#
+# Diese beiden Zusagen standen zunaechst nur in der Doku – und zwei davon falsch
+# ("0 % = guenstigstes Intervall", "unter 25 % = guenstigstes Viertel").
+# Deshalb hier als geprueftes Verhalten.
+#
+# Herleitung des Tagesmittels von Hand: Bei lauter verschiedenen Preisen traegt
+# das Intervall auf sortierter Position i (ab 0) den Wert (i + 0,5) / n. Die
+# Summe ist  SUM(i + 0,5) / n = (n(n-1)/2 + n/2) / n = n/2 ,  das Mittel also
+# genau 0,5. Ein Gleichstand aendert daran nichts: Eine Gruppe der Groesse e mit
+# c guenstigeren traegt e * (c + e/2) / n bei – genau so viel wie dieselben e
+# Intervalle auf den Einzelpositionen c .. c+e-1. Der Mittelrang verschiebt also
+# nur innerhalb der Gruppe, nie die Summe. Das ist die eigentliche Zusage der
+# Methode; "Anteil <=" bzw. "Anteil <" verschoeben das Mittel um eine halbe
+# Gleichstandsbreite nach oben bzw. unten.
+
+
+@pytest.mark.parametrize(
+    ("payload_name", "grid_zone", "handling_fee_net"),
+    [
+        ("smarttimes_payload", None, 0.0),
+        ("smarttimes_payload", "wien", 0.0),
+        ("smartcontrol_payload", "wien", 1.2),
+    ],
+)
+def test_quantil_liegt_im_tagesmittel_bei_genau_50_prozent(
+    request, make_data, payload_name, grid_zone, handling_fee_net
+):
+    """Der Mittelrang haelt die Skala symmetrisch – unabhaengig vom Gleichstand.
+
+    Genau das ist der Grund fuer die Methode, nicht etwa das Erreichen der
+    Endpunkte (siehe den Test darunter). Geprueft ueber drei sehr verschiedene
+    Verteilungen: drei Stufen, vier Stufen, 24 Stufen.
+    """
+    data = make_data(
+        request.getfixturevalue(payload_name),
+        include_vat=True,
+        grid_zone=grid_zone,
+        handling_fee_net=handling_fee_net,
+    )
+    tag = _tagesintervalle(data)
+
+    quantile = [data.price_rank(p.start).quantile for p in tag]
+
+    assert len(quantile) == 96
+    # Toleranz nur wegen der Rundung auf QUANTILE_DECIMALS = 2 Stellen.
+    assert sum(quantile) / len(quantile) == pytest.approx(50.0, abs=0.01)
+
+
+def test_quantil_erreicht_0_und_100_prozent_nie(make_data, smarttimes_payload):
+    """Die Endpunkte kommen nicht vor – und Schwellen greifen entsprechend weit.
+
+    Das guenstigste Preisniveau liegt bei der halben Breite seiner
+    Gleichstandsgruppe. Bei smartTIMES ohne Netzgebiet sind das drei Stufen zu
+    je 32 Viertelstunden, also (0 + 16) / 96 = 16,67 % – nicht 0 %.
+
+    Praktische Folge, die in der Doku zunaechst falsch stand: Eine Schwelle
+    waehlt nicht den gleich grossen Anteil des Tages. Preisgleiche Intervalle
+    tragen denselben Wert und kommen deshalb nur gemeinsam unter die Schwelle;
+    "unter 25 %" trifft hier die ganze guenstigste Stufe und damit 32 von 96
+    Intervallen – ein Drittel des Tages, nicht ein Viertel.
+    """
+    data = make_data(smarttimes_payload, include_vat=True, grid_zone=None)
+    tag = _tagesintervalle(data)
+
+    quantile = [data.price_rank(p.start).quantile for p in tag]
+
+    assert min(quantile) == pytest.approx(16.67)
+    assert max(quantile) == pytest.approx(83.33)
+    assert 0.0 < min(quantile) and max(quantile) < 100.0
+
+    assert sum(1 for q in quantile if q < 25) == 32
