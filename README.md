@@ -56,16 +56,9 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 ## Installation
 
-> [!IMPORTANT]
-> Ab Version 4.1.0 wird **Home Assistant 2026.8** oder neuer vorausgesetzt. Wer
-> eine ältere Reihe fährt, bekommt die neue Fassung über HACS nicht angeboten;
-> die installierte läuft unverändert weiter.
-
 ### Über HACS (empfohlen)
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=da-sa-li&repository=HA-smartenergy-Tarif)
-
-[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=smartenergy)
 
 1. HACS öffnen → **Integrationen**.
 2. Nach **smartENERGY Strompreishelfer** suchen, herunterladen und Home Assistant neu starten.
@@ -78,6 +71,8 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 ## Einrichtung
 
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=smartenergy)
+
 1. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 2. Nach **smartENERGY Strompreishelfer** suchen.
 3. Das **Tarifmodell** wählen: **smartTIMES** (zeitabhängig) oder **smartCONTROL**.
@@ -87,14 +82,6 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
    Netzzugangsvertrag des Netzbetreibers.
 
 Diese Einstellungen sind über **Konfigurieren** jederzeit änderbar.
-
-> [!TIP]
-> Die Preise werden bewusst nur etwa **einmal täglich** abgerufen und minütlich
-> aus dem Cache neu berechnet. Wer einen sofortigen Abruf braucht, wählt beim
-> Eintrag im **Drei-Punkte-Menü → Neu laden**: Das baut die Integration neu auf
-> und holt die Preise unmittelbar. Einen Dienst dafür gibt es absichtlich nicht –
-> er müsste genau die Drosselung umgehen, die die kostenlos bereitgestellte API
-> schont.
 
 ### „Günstige Stunde“-Sensoren anlegen
 
@@ -134,9 +121,7 @@ Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeit
 > Sensor seine Schaltflanken um bis zu 10 Minuten – **nach innen**: eingeschaltet
 > wird etwas später, ausgeschaltet entsprechend früher. Der Versatz ist aus der
 > ID des Untereintrags abgeleitet, also je Sensor konstant, und steht im Attribut
-> `jitter_offset_seconds`. Das Fenster verlässt den günstigen Block dadurch nie –
-> der Verbraucher läuft nie zum teureren Preis. Preis dafür sind 10 Minuten
-> Laufzeit je Block.
+> `jitter_offset_seconds`.
 
 ## Entfernen
 
@@ -176,31 +161,11 @@ Netzentgelte inkl. SNAP) und ist die richtige Wahl fürs Energie-Dashboard und
 zum Schalten; Tageskennzahlen und der Günstige-Stunde-Sensor beziehen sich
 ebenfalls darauf.
 
-**Preisrang** und **Preisquantil** ordnen den laufenden Preis in den heutigen
-Tag ein – die Frage „ist es gerade günstig?“ beantwortet sich damit ohne eigene
-Vorlage. Beide zeigen in dieselbe Richtung: je niedriger, desto günstiger.
-Das Quantil ist der handlichere Wert, weil es unabhängig davon ist, ob ein Tag
-24 oder 96 Werte hat. Es liegt im Tagesmittel immer bei 50 %, erreicht 0 % und
-100 % aber nie – und weil preisgleiche Intervalle sich einen Wert teilen, wählt
-„unter 25 %“ nicht zwingend ein Viertel des Tages: Bei smartTIMES ohne
-Netzgebiet trifft die Schwelle die ganze günstigste Stufe, also ein Drittel.
-Näheres im
-[Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Sensoren-und-Attribute).
+**Preisrang** und **Preisquantil** ordnen den laufenden Preis in den heutigen Tag ein.
 
-> [!NOTE]
-> Alle Preissensoren liefern **EUR/kWh**. Die API rechnet in ct/kWh; umgerechnet
-> wird erst beim Sensor. Der Einheiten-String der API steht im Attribut
-> `source_unit`.
->
-> Beim Update von einer Version vor 4.0 wird der Gesamtpreis-Sensor von
-> `…_gesamtpreis_eur_kwh` auf `…_gesamtpreis` umbenannt, damit alle
-> Installationen dieselbe Entity-ID tragen. **Automatisierungen, Vorlagen und
-> Dashboards, die die alte ID verwenden, müssen angepasst werden.**
+Näheres im [Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Sensoren-und-Attribute).
 
 > [!TIP]
-> **Nächster günstiger Start** ist ein Zeitstempel-Sensor und lässt sich damit
-> direkt als `at:` eines `time`-Triggers verwenden – auch mit Vorlauf, etwa
-> „30 Minuten vorher vorheizen“. Als Attribut allein ginge das nicht.
 > **Preise für morgen verfügbar** schaltet auf `on`, sobald die Preise des
 > Folgetags eingetroffen sind, und ist der passende Auslöser, um den Tagesplan
 > neu zu rechnen. Beispiele stehen im Wiki unter
