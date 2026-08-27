@@ -8,6 +8,7 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.config_entries import ConfigSubentryData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import (
@@ -325,3 +326,158 @@ async def test_subentry_name_required(
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"name": "name_required"}
+
+
+# --- Untereintrag bearbeiten (reconfigure) ---------------------------------- #
+#
+# Bislang war ausschließlich das Anlegen eines Untereintrags getestet; der
+# Bearbeiten-Schritt hatte keine einzige Zeile Abdeckung. Er ist aber der Weg,
+# auf dem Nutzer Stundenzahl, Auswahllogik und „Stundenzahl exakt einhalten“
+# eines bestehenden Verbrauchers ändern – mit eigener Vorbefüllungs- und
+# Prüflogik, die die des Anlegen-Schritts spiegelt.
+
+BESTAND = {"cheap_hours": 4.0, "cheap_mode": "individual", "exact_hours": True}
+
+
+def _eintrag_mit_untereintrag(hass: HomeAssistant) -> tuple[MockConfigEntry, str]:
+    """Legt einen Eintrag mit einem „Günstige Stunde“-Untereintrag „Boiler“ an."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "none"},
+        subentries_data=[
+            ConfigSubentryData(
+                data=dict(BESTAND),
+                subentry_type="cheap_hour",
+                title="Boiler",
+                unique_id=None,
+            )
+        ],
+    )
+    entry.add_to_hass(hass)
+    return entry, next(iter(entry.subentries))
+
+
+async def _reconfigure_starten(
+    hass: HomeAssistant, entry: MockConfigEntry, subentry_id: str
+):
+    """Startet den Bearbeiten-Flow für einen bestehenden Untereintrag."""
+    return await hass.config_entries.subentries.async_init(
+        (entry.entry_id, "cheap_hour"),
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "subentry_id": subentry_id,
+        },
+    )
+
+
+async def test_subentry_reconfigure_ist_vorbefuellt(
+    hass: HomeAssistant, enable_custom_integrations
+):
+    """Das Formular zeigt die gespeicherten Werte und den bisherigen Namen.
+
+    Der Name steht im *Titel* des Untereintrags, nicht in dessen ``data`` – ohne
+    die ausdrückliche Vorbefüllung stünde dort ein leeres Feld, und wer nur die
+    Stundenzahl ändern will, müsste den Namen neu tippen.
+    """
+    entry, subentry_id = _eintrag_mit_untereintrag(hass)
+
+    result = await _reconfigure_starten(hass, entry, subentry_id)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+    # Voluptuous füllt bei leerer Eingabe die im Schema hinterlegten Vorgaben ein
+    # – das ist genau die Vorbefüllung, die der Nutzer im Formular sieht.
+    assert result["data_schema"]({}) == {"name": "Boiler", **BESTAND}
+
+
+async def test_subentry_reconfigure_speichert_aenderungen(
+    hass: HomeAssistant, enable_custom_integrations
+):
+    """Geänderte Werte landen im Untereintrag, der Titel folgt dem neuen Namen."""
+    entry, subentry_id = _eintrag_mit_untereintrag(hass)
+
+    result = await _reconfigure_starten(hass, entry, subentry_id)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Wallbox",
+            "cheap_hours": 6.0,
+            "cheap_mode": "consecutive",
+            "exact_hours": False,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+
+    subentry = entry.subentries[subentry_id]
+    assert subentry.title == "Wallbox"
+    assert subentry.data == {
+        "cheap_hours": 6.0,
+        "cheap_mode": "consecutive",
+        "exact_hours": False,
+    }
+    # Derselbe Untereintrag, kein zweiter daneben: Sonst verlöre der zugehörige
+    # Sensor seine Identität (unique_id und Jitter-Phase hängen an dieser ID).
+    assert list(entry.subentries) == [subentry_id]
+
+
+async def test_subentry_reconfigure_name_required(
+    hass: HomeAssistant, enable_custom_integrations
+):
+    """Ein leerer Name wird abgewiesen und nichts gespeichert.
+
+    Dieselbe Zusage wie beim Anlegen (``test_subentry_name_required``) – hier ist
+    sie wichtiger, weil ein Fehlschlag sonst einen bereits benannten Sensor
+    entnennen würde.
+    """
+    entry, subentry_id = _eintrag_mit_untereintrag(hass)
+
+    result = await _reconfigure_starten(hass, entry, subentry_id)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "   ",
+            "cheap_hours": 6.0,
+            "cheap_mode": "consecutive",
+            "exact_hours": False,
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"name": "name_required"}
+    # Der Untereintrag ist unangetastet geblieben.
+    assert entry.subentries[subentry_id].title == "Boiler"
+    assert entry.subentries[subentry_id].data == BESTAND
+
+
+async def test_subentry_reconfigure_haelt_die_eingaben_bei_fehler(
+    hass: HomeAssistant, enable_custom_integrations
+):
+    """Nach dem Namensfehler bleiben die übrigen Eingaben im Formular stehen.
+
+    Sonst fiele das Formular auf die gespeicherten Werte zurück und die soeben
+    getroffene Auswahl wäre weg – der Nutzer müsste alles erneut einstellen.
+    """
+    entry, subentry_id = _eintrag_mit_untereintrag(hass)
+
+    result = await _reconfigure_starten(hass, entry, subentry_id)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "",
+            "cheap_hours": 6.0,
+            "cheap_mode": "consecutive",
+            "exact_hours": False,
+        },
+    )
+
+    assert result["data_schema"]({}) == {
+        "name": "",
+        "cheap_hours": 6.0,
+        "cheap_mode": "consecutive",
+        "exact_hours": False,
+    }
