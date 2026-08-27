@@ -18,7 +18,10 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient
-from custom_components.smartenergy.const import JITTER_SPAN_SECONDS
+from custom_components.smartenergy.const import (
+    JITTER_SPAN_SECONDS,
+    SMARTCONTROL_HANDLING_FEE_NET,
+)
 
 from tests.conftest import VIENNA
 
@@ -288,11 +291,13 @@ def test_preissensoren_fuehren_langzeitstatistik():
 # Gesamtpreis = (Arbeitspreis netto + Abgaben netto + Netz netto) * 1,2
 #   Abgaben netto  = 0,10 (Elektrizitätsabgabe) + 0,62 (Förderbeitrag) = 0,72
 #   Wien NE 7 netto = 6,98 Netznutzung + 0,700 Netzverlust
-#   SNAP (Apr-Sep, 10-16 Uhr) senkt die Netznutzung um 20 % -> 5,584
+#   SNAP (Apr-Sep, 10-16 Uhr) senkt die Netznutzung um 20 % -> 5,58 (die
+#   Netzbetreiber weisen den Satz auf zwei Nachkommastellen aus, grid_fees.py
+#   führt ihn genauso)
 #
 # Damit für die günstigste Stufe (netto 11,316 / 1,2 = 9,43):
-#   Stunden 10-15 (SNAP):   (9,43 + 0,72 + 5,584 + 0,700) * 1,2 = 19,7208
-#   Stunden 02-03 (regulär):(9,43 + 0,72 + 6,980 + 0,700) * 1,2 = 21,3960
+#   Stunden 10-15 (SNAP):   (9,43 + 0,72 + 5,58 + 0,700) * 1,2 = 19,7160
+#   Stunden 02-03 (regulär):(9,43 + 0,72 + 6,98 + 0,700) * 1,2 = 21,3960
 #
 # Günstigste Intervalle sind also die 24 Viertelstunden 10:00-15:45. Bei
 # cheap_hours = 4,0 werden ceil(4 * 60 / 15) = 16 gewählt; sortiert nach
@@ -354,21 +359,6 @@ async def _richte_mit_untereintrag_ein(
         await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
     return entry, next(iter(entry.subentries))
-
-
-@pytest.fixture
-def ohne_jitter():
-    """Setzt die Last-Glättung auf 0, damit Sollzeiten exakt prüfbar sind.
-
-    Die Jitter-Phase leitet sich aus der Subentry-ID ab, die je Testlauf neu
-    vergeben wird – ohne diesen Eingriff wäre nur ein Intervall prüfbar.
-    Gepatcht wird die Bindung in ``entity``, nicht die in ``jitter``: Sonst
-    verstellte der Test zugleich den Abruf-Jitter des Koordinators.
-    """
-    with patch(
-        "custom_components.smartenergy.entity.cheap_phase", return_value=0.0
-    ):
-        yield
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
@@ -524,3 +514,223 @@ async def test_prices_tomorrow_valid_an_beiden_preissensoren(
     assert attribute["prices_tomorrow_valid"] is erwartet
     # Gegenprobe: Der Wert deckt sich mit der Liste, die er beschreibt.
     assert attribute["prices_tomorrow_valid"] is bool(attribute["prices_tomorrow"])
+
+
+# --- Abwicklungsgebühr: von der Tarifwahl bis zum Sensor --------------------- #
+#
+# Die 1,2 ct/kWh netto wurden bisher ausschließlich dort geprüft, wo der Test sie
+# selbst hineinreichte (`make_data(..., handling_fee_net=1.2)`). Ob die
+# Tarifwahl im Config-Eintrag sie überhaupt an den Koordinator weiterreicht, war
+# von keinem Test gedeckt – ausgerechnet beim geldrelevantesten Schalter des
+# Tarifs.
+#
+# Sollwerte von Hand, smartCONTROL ohne Netzgebiet, brutto, 05.06.2026 12:00
+# Ortszeit (Arbeitspreis laut tests/fixtures/smartcontrol.json: 6,446 ct brutto):
+#   netto AP        = round(6,446 / 1,2, 4)            = 5,3717
+#   Nebenkosten netto = 0,10 + 0,62 + 1,20             = 1,92
+#   Summe netto     = 5,3717 + 1,92                    = 7,2917
+#   brutto          = round(7,2917 * 1,2, 4)           = 8,7500 ct  -> 0,0875 EUR
+# Einzelpositionen brutto (USt. je Position, Summe bleibt dieselbe):
+#   Elektrizitätsabgabe 0,10 * 1,2 = 0,12   ct -> 0,0012  EUR
+#   Förderbeitrag       0,62 * 1,2 = 0,744  ct -> 0,00744 EUR
+#   Abwicklungsgebühr   1,20 * 1,2 = 1,44   ct -> 0,0144  EUR
+#   Summe                              2,304 ct -> 0,02304 EUR
+SMARTCONTROL_GESAMT_EUR = 0.0875
+SMARTCONTROL_GEBUEHR_EUR = 0.0144
+
+
+@pytest.mark.parametrize(
+    ("tarif", "payload_name", "erwartet"),
+    [
+        ("smartcontrol", "smartcontrol_payload", SMARTCONTROL_HANDLING_FEE_NET),
+        ("smarttimes", "smarttimes_payload", 0.0),
+    ],
+)
+async def test_abwicklungsgebuehr_haengt_am_gewaehlten_tarif(
+    hass: HomeAssistant,
+    enable_custom_integrations,
+    request: pytest.FixtureRequest,
+    tarif: str,
+    payload_name: str,
+    erwartet: float,
+):
+    """Nur smartCONTROL bekommt die Abwicklungsgebühr, smartTIMES nicht.
+
+    Prüft die Verdrahtung in ``__init__.async_setup_entry`` selbst: Ohne diesen
+    Test bliebe unbemerkt, wenn die Fallunterscheidung wegfiele oder sich
+    umdrehte – die Preis-Mathematik dahinter rechnete weiterhin fehlerfrei, nur
+    eben mit dem falschen Satz.
+    """
+    entry = await _richte_ein(hass, request.getfixturevalue(payload_name), tarif)
+
+    assert entry.runtime_data.data.handling_fee_net == pytest.approx(erwartet)
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_abwicklungsgebuehr_erreicht_den_gesamtpreis_sensor(
+    hass: HomeAssistant, enable_custom_integrations, smartcontrol_payload
+):
+    """Der Gesamtpreis-Sensor weist die Gebühr aus und rechnet sie mit ein.
+
+    Sollwerte siehe Herleitung oben. Geprüft wird beides: die eigene Position in
+    der Aufschlüsselung *und* ihr Beitrag zum Sensorwert – eine Gebühr, die nur
+    im Attribut steht, wäre für die Kostenrechnung wertlos.
+    """
+    await _richte_ein(hass, smartcontrol_payload, "smartcontrol")
+
+    zustand = hass.states.get("sensor.smartcontrol_strompreishelfer_total_price")
+    assert float(zustand.state) == pytest.approx(SMARTCONTROL_GESAMT_EUR)
+
+    aufschluesselung = zustand.attributes["surcharges_eur_kwh"]
+    assert aufschluesselung["handling_fee"] == pytest.approx(SMARTCONTROL_GEBUEHR_EUR)
+    assert aufschluesselung == pytest.approx(
+        {
+            "electricity_tax": 0.0012,
+            "renewable_support": 0.00744,
+            "handling_fee": SMARTCONTROL_GEBUEHR_EUR,
+        }
+    )
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_smarttimes_weist_keine_abwicklungsgebuehr_aus(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Gegenprobe: Bei smartTIMES fehlt die Position in der Aufschlüsselung."""
+    await _richte_ein(hass, smarttimes_payload, "smarttimes")
+
+    aufschluesselung = hass.states.get(
+        "sensor.smarttimes_strompreishelfer_total_price"
+    ).attributes["surcharges_eur_kwh"]
+
+    assert "handling_fee" not in aufschluesselung
+    # Ohne Netzgebiet bleiben genau die beiden bundeseinheitlichen Abgaben.
+    assert set(aufschluesselung) == {"electricity_tax", "renewable_support"}
+
+
+# --- Attributwerte der Preissensoren ---------------------------------------- #
+#
+# Bisher wurden die Attribute zwar durchlaufen (Namensprüfung, Recorder-
+# Ausschluss), ihre *Werte* aber nirgends geprüft. Genau deshalb lag die
+# Zeilenabdeckung hoch, während der Inhalt ungesichert war.
+#
+# Sollwerte von Hand, smartTIMES + Netzgebiet Wien, brutto, 05.06.2026 12:00
+# Ortszeit (Herleitung der Preisstufen und Netzsätze siehe Kopf dieses
+# Abschnitts weiter oben). 12:00 liegt im SNAP-Fenster, Arbeitspreis 11,316:
+#   Nebenkosten netto = 0,72 Abgaben + 5,58 Netznutzung + 0,700 Netzverlust = 7,00
+#   Summe brutto      = round(7,00 * 1,2, 4)                    = 8,4000 ct
+#   Gesamtpreis       = (11,316/1,2 gerundet 9,43 + 7,00) * 1,2 = 19,7160 ct
+#
+# Einzelpositionen brutto:
+#   Elektrizitätsabgabe 0,10  * 1,2 = 0,12  ct -> 0,0012  EUR
+#   Förderbeitrag       0,62  * 1,2 = 0,744 ct -> 0,00744 EUR
+#   Netznutzung (SNAP)  5,58  * 1,2 = 6,696 ct -> 0,06696 EUR
+#   Netzverlust         0,700 * 1,2 = 0,84  ct -> 0,0084  EUR
+#
+# Tageskennzahlen Gesamtpreis am 05.06. mit Wien (96 Viertelstunden):
+#   19,716 ct x 24 (11,316 in den SNAP-Stunden 10-15)
+#   21,396 ct x  8 (11,316 in den Stunden 02-03, regulär)
+#   23,100 ct x 32 (13,020: (10,85 + 0,72 + 7,68) * 1,2)
+#   25,932 ct x 32 (15,852: (13,21 + 0,72 + 7,68) * 1,2)
+#   Summe = 473,184 + 171,168 + 739,200 + 829,824 = 2213,376
+#   Ø = 2213,376 / 96 = 23,056 ct    min = 19,716 ct    max = 25,932 ct
+GESAMTPREIS_WIEN = {
+    "aktuell": 0.19716,
+    "nebenkosten_summe": 0.084,
+    "arbeitspreis": 0.11316,
+    "avg": 0.23056,
+    "min": 0.19716,
+    "max": 0.25932,
+}
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit, im SNAP-Fenster
+async def test_gesamtpreis_attribute_tragen_die_erwarteten_werte(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Die Aufschlüsselung des Gesamtpreis-Sensors stimmt Position für Position.
+
+    Die Summe allein genügt nicht: Ein Vorzeichen- oder Zuordnungsfehler
+    zwischen Netznutzung und Netzverlust bliebe darin unsichtbar.
+    """
+    await _richte_ein_wien(hass, smarttimes_payload)
+
+    zustand = hass.states.get("sensor.smarttimes_strompreishelfer_total_price")
+    attribute = zustand.attributes
+
+    assert float(zustand.state) == pytest.approx(GESAMTPREIS_WIEN["aktuell"])
+    assert attribute["vat_included"] is True
+    assert attribute["vat_rate"] == pytest.approx(0.20)
+    assert attribute["grid_zone"] == "Wien"
+    assert attribute["snap_active"] is True
+    assert attribute["working_price_eur_kwh"] == pytest.approx(
+        GESAMTPREIS_WIEN["arbeitspreis"]
+    )
+    assert attribute["surcharges_eur_kwh"] == pytest.approx(
+        {
+            "electricity_tax": 0.0012,
+            "renewable_support": 0.00744,
+            "grid_usage": 0.06696,
+            "grid_loss": 0.0084,
+        }
+    )
+    assert attribute["surcharges_total_eur_kwh"] == pytest.approx(
+        GESAMTPREIS_WIEN["nebenkosten_summe"]
+    )
+    assert attribute["total_eur_kwh"] == pytest.approx(GESAMTPREIS_WIEN["aktuell"])
+    assert attribute["average_today"] == pytest.approx(GESAMTPREIS_WIEN["avg"])
+    assert attribute["lowest_today"] == pytest.approx(GESAMTPREIS_WIEN["min"])
+    assert attribute["highest_today"] == pytest.approx(GESAMTPREIS_WIEN["max"])
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_gesamtpreis_attribut_deckt_sich_mit_dem_sensorwert(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """``total_eur_kwh`` und der Zustand entstehen aus zwei verschiedenen Rechnungen.
+
+    Der Zustand summiert netto und wendet die USt. einmal am Ende an
+    (``all_in_value``); das Attribut addiert den bereits brutto gelieferten
+    Arbeitspreis zur brutto ausgewiesenen Nebenkostensumme. In exakter Arithmetik
+    ist das dasselbe – zwei getrennt gerundete Wege können aber auseinander
+    laufen, und ein Nutzer, der beides nebeneinander sieht, hielte das für einen
+    Fehler.
+    """
+    await _richte_ein_wien(hass, smarttimes_payload)
+
+    zustand = hass.states.get("sensor.smarttimes_strompreishelfer_total_price")
+    assert float(zustand.state) == zustand.attributes["total_eur_kwh"]
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_arbeitspreis_attribute_tragen_die_erwarteten_werte(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Der Arbeitspreis-Sensor weist Intervall, Folgepreis und Grundgebühr aus.
+
+    Ergänzt ``test_arbeitspreis_kennzahlen_heissen_eindeutig``, das bisher nur
+    die *Namen* der Kennzahlen prüfte.
+    """
+    await _richte_ein_wien(hass, smarttimes_payload)
+
+    attribute = hass.states.get(
+        "sensor.smarttimes_strompreishelfer_energy_price"
+    ).attributes
+
+    assert attribute["tariff"] == "smartTIMES"
+    assert attribute["interval_minutes"] == 15
+    assert attribute["vat_included"] is True
+    # Laufendes Viertelstundenintervall 12:00-12:15 (Fixture-Raster).
+    assert attribute["current_start"] == "2026-06-05T12:00:00+02:00"
+    assert attribute["current_end"] == "2026-06-05T12:15:00+02:00"
+    # Das direkt folgende Intervall liegt in derselben Preisstufe (11,316).
+    assert attribute["next_working_price_start"] == "2026-06-05T12:15:00+02:00"
+    assert attribute["next_working_price"] == pytest.approx(0.11316)
+    # Grundgebühr wie geliefert (brutto), samt Einheit der API.
+    assert attribute["basic_fee"] == pytest.approx(2.988)
+    assert attribute["basic_fee_unit"] == "EUR/month"
+    # Der Arbeitspreis kennt keine Netzentgelte – die Kennzahlen bleiben also
+    # dieselben wie ohne Netzgebiet.
+    assert attribute["average_working_price_today"] == pytest.approx(
+        ARBEITSPREIS["avg"]
+    )
