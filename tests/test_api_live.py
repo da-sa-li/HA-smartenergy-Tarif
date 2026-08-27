@@ -254,7 +254,7 @@ async def hole_rohantwort(
     client = erzeuge_client(session, erwartung.api_url)
     async with asyncio.timeout(API_TIMEOUT):
         response = await session.get(
-            erwartung.api_url, headers=client._headers  # noqa: SLF001
+            erwartung.api_url, headers=client._headers
         )
         text = await response.text()
     lege_antwort_ab(erwartung.tarif, text)

@@ -45,6 +45,33 @@ jobs:
         with:
           category: integration
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      # Nur Ruff installieren, nicht die ganze Testumgebung – der Linter braucht
+      # kein Home Assistant. Die Version kommt trotzdem aus
+      # requirements_test.txt, damit es genau einen Pin gibt, den Dependabot
+      # pflegt. Fehlt die Zeile dort, bekommt pip kein Argument und der Schritt
+      # schlägt fehl, statt still eine beliebige Version zu ziehen.
+      - name: Install Ruff
+        run: grep '^ruff==' requirements_test.txt | xargs pip install
+
+      # --output-format=github hängt die Befunde als Annotationen direkt an die
+      # betroffenen Zeilen im PR.
+      - name: Ruff
+        run: ruff check --output-format=github .
+
   tests:
     name: Tests
     runs-on: ubuntu-latest

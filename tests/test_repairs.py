@@ -21,6 +21,12 @@ from custom_components.smartenergy.repairs import (
     async_check_tariff_data_year,
     async_update_fetch_issue,
 )
+from tests.conftest import VIENNA
+
+# Zeitstempel mit Zeitzone, wie in der ganzen Suite (CLAUDE.md). Die geprüfte
+# Funktion liest zwar nur das Kalenderjahr, ihr Vorgabewert ist aber
+# ``dt_util.now()`` – ein zeitzonenbewusster Zeitpunkt. Der Test reicht damit
+# dieselbe Art von Objekt hinein wie der produktive Pfad.
 
 
 def _issue(hass: HomeAssistant, issue_id: str) -> ir.IssueEntry | None:
@@ -30,7 +36,7 @@ def _issue(hass: HomeAssistant, issue_id: str) -> ir.IssueEntry | None:
 
 async def test_veraltete_tarifdaten_erzeugen_ein_issue(hass: HomeAssistant):
     """Im Folgejahr des Datenjahrs entsteht das WARNING-Issue (nicht behebbar)."""
-    now = datetime(TARIFF_DATA_YEAR + 1, 1, 1)
+    now = datetime(TARIFF_DATA_YEAR + 1, 1, 1, tzinfo=VIENNA)
     async_check_tariff_data_year(hass, now)
 
     issue = _issue(hass, ISSUE_TARIFF_DATA_OUTDATED)
@@ -43,7 +49,7 @@ async def test_veraltete_tarifdaten_erzeugen_ein_issue(hass: HomeAssistant):
 
 async def test_im_datenjahr_entsteht_kein_issue(hass: HomeAssistant):
     """Im (oder vor dem) Datenjahr selbst entsteht kein Issue."""
-    async_check_tariff_data_year(hass, datetime(TARIFF_DATA_YEAR, 12, 31))
+    async_check_tariff_data_year(hass, datetime(TARIFF_DATA_YEAR, 12, 31, tzinfo=VIENNA))
     assert _issue(hass, ISSUE_TARIFF_DATA_OUTDATED) is None
 
 
@@ -53,10 +59,10 @@ async def test_tarifdaten_issue_schliesst_sich_wieder(hass: HomeAssistant):
     Praxisfall: Nutzer aktualisiert die Integration auf eine Version mit neuem
     ``TARIFF_DATA_YEAR`` – das alte Issue soll dann automatisch verschwinden.
     """
-    async_check_tariff_data_year(hass, datetime(TARIFF_DATA_YEAR + 1, 1, 1))
+    async_check_tariff_data_year(hass, datetime(TARIFF_DATA_YEAR + 1, 1, 1, tzinfo=VIENNA))
     assert _issue(hass, ISSUE_TARIFF_DATA_OUTDATED) is not None
 
-    async_check_tariff_data_year(hass, datetime(TARIFF_DATA_YEAR, 6, 1))
+    async_check_tariff_data_year(hass, datetime(TARIFF_DATA_YEAR, 6, 1, tzinfo=VIENNA))
     assert _issue(hass, ISSUE_TARIFF_DATA_OUTDATED) is None
 
 
@@ -65,7 +71,9 @@ async def test_tarifdaten_issue_gilt_auch_in_spaeteren_jahren(
     hass: HomeAssistant, year_offset: int
 ):
     """Auch mehrere Jahre nach dem Datenjahr bleibt das Issue aktiv."""
-    async_check_tariff_data_year(hass, datetime(TARIFF_DATA_YEAR + year_offset, 3, 1))
+    async_check_tariff_data_year(
+        hass, datetime(TARIFF_DATA_YEAR + year_offset, 3, 1, tzinfo=VIENNA)
+    )
     assert _issue(hass, ISSUE_TARIFF_DATA_OUTDATED) is not None
 
 

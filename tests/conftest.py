@@ -79,7 +79,7 @@ def _vienna_default_tz():
 
 
 @pytest.fixture
-async def hass(hass):  # noqa: F811 – Absicht: überschreibt die Plugin-Fixture
+async def hass(hass):  # Absicht: überschreibt die Fixture des Plugins
     """HA-Instanz auf ``Europe/Vienna`` statt auf der Vorgabe des Harness.
 
     ``pytest-homeassistant-custom-component`` setzt beim Hochfahren fest

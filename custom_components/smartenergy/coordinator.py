@@ -14,13 +14,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import (
+    FeeEntry,
     MarketPrice,
     SmartTimesApiClient,
     SmartTimesApiError,
     SmartTimesApiPermanentError,
     SmartTimesResult,
 )
-from .api import FeeEntry
 from .const import (
     CHEAP_MODE_CONSECUTIVE,
     DEFAULT_CHEAP_MODE,

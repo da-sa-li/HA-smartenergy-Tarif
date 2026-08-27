@@ -30,7 +30,7 @@ from .const import (
     to_eur,
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
-from .entity import CheapHourEntity, hub_device_info, hub_device_id
+from .entity import CheapHourEntity, hub_device_id, hub_device_info
 from .grid_fees import is_snap
 
 _LOGGER = logging.getLogger(__name__)

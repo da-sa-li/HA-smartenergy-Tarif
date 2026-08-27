@@ -203,7 +203,7 @@ class SmartTimesApiClient:
                 )
                 text = await response.text()
                 response.raise_for_status()
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             raise SmartTimesApiTimeoutError(
                 f"Zeitüberschreitung beim Abruf der smartENERGY-API ({self._api_url})"
             ) from err

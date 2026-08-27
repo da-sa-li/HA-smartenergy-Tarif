@@ -16,8 +16,8 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import selector
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
     SmartTimesApiClient,
@@ -27,7 +27,6 @@ from .api import (
     SmartTimesApiTimeoutError,
 )
 from .const import (
-    CONFIG_ENTRY_VERSION,
     CHEAP_MODE_CONSECUTIVE,
     CHEAP_MODE_INDIVIDUAL,
     CONF_CHEAP_HOURS,
@@ -36,6 +35,7 @@ from .const import (
     CONF_GRID_ZONE,
     CONF_INCLUDE_VAT,
     CONF_TARIFF,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_CHEAP_HOURS,
     DEFAULT_CHEAP_MODE,
     DEFAULT_EXACT_HOURS,

@@ -37,9 +37,7 @@ class DatedRate:
         """Ob der Satz an einem bestimmten Kalendertag gilt."""
         if self.since is not None and day < self.since:
             return False
-        if self.until is not None and day > self.until:
-            return False
-        return True
+        return self.until is None or day <= self.until
 
 
 @dataclass(frozen=True)
