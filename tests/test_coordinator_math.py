@@ -13,12 +13,14 @@ Bezugszahlen (alle netto, ct/kWh):
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
 from custom_components.smartenergy.api import MarketPrice
 from custom_components.smartenergy.coordinator import SmartTimesData
+from custom_components.smartenergy.grid_fees import GridZone, get_zone
+from tests.conftest import VIENNA
 
 
 def _iso(value: str) -> datetime:
@@ -271,3 +273,171 @@ def test_preisrang_smartcontrol_ohne_ausgepraegten_gleichstand(
     assert (einordnung.rank, einordnung.cheaper, einordnung.equal) == (13, 12, 4)
     assert einordnung.count == 96
     assert einordnung.quantile == pytest.approx(14.58)
+
+
+# --- Sechs Preiszonen: die Rechnung kennt keine Stufenzahl ------------------ #
+#
+# Die Fixture hat vier Gesamtpreis-Stufen, weil dort das gesamte SNAP-Fenster
+# (10-16 Uhr) in der günstigsten Arbeitspreis-Stufe liegt. Der Tarif gibt das
+# aber nicht her: Jede der drei Arbeitspreis-Stufen kann innerhalb *und*
+# außerhalb des SNAP-Fensters vorkommen, macht bis zu sechs Gesamtpreis-Stufen.
+# Welche auftreten, hängt am Zonenplan des Tages – und der kommt je Tag aus der
+# API, ist also nichts, worauf sich die Rechnung verlassen darf.
+#
+# Der Tag hier ist deshalb von Hand gebaut (Muster wie ``_synthetic`` in
+# tests/test_cheap_selection.py: für Fälle, die sich in den echten Fixtures
+# nicht ergeben). Arbeitspreise wie in der Fixture, Netzgebiet Wien:
+#
+#   Nebenkosten netto:  SNAP    = 0,72 + 5,58 + 0,700 = 7,00
+#                       regulär = 0,72 + 6,98 + 0,700 = 8,40
+#   Arbeitspreis netto: Off-Peak 9,43 | Shoulder 10,85 | Peak 13,21
+#
+#   Off-Peak  SNAP    ( 9,43 + 7,00) * 1,2 = 19,716  x  8 -> Rang  1,  4,17 %
+#   Off-Peak  regulär ( 9,43 + 8,40) * 1,2 = 21,396  x 24 -> Rang  9, 20,83 %
+#   Shoulder  SNAP    (10,85 + 7,00) * 1,2 = 21,420  x  8 -> Rang 33, 37,50 %
+#   Shoulder  regulär (10,85 + 8,40) * 1,2 = 23,100  x 24 -> Rang 41, 54,17 %
+#   Peak      SNAP    (13,21 + 7,00) * 1,2 = 24,252  x  8 -> Rang 65, 70,83 %
+#   Peak      regulär (13,21 + 8,40) * 1,2 = 25,932  x 24 -> Rang 73, 87,50 %
+#
+# Quantil jeweils (cheaper + equal/2) / 96 * 100.
+OFF_PEAK, SHOULDER, PEAK = 11.316, 13.020, 15.852
+
+# Stundenplan: jede Stufe zweimal im SNAP-Fenster (10-16) und sechsmal außerhalb.
+STUNDENPLAN = {
+    **{h: OFF_PEAK for h in (10, 11)},
+    **{h: SHOULDER for h in (12, 13)},
+    **{h: PEAK for h in (14, 15)},
+    **{h: OFF_PEAK for h in (0, 1, 2, 3, 16, 17)},
+    **{h: SHOULDER for h in (4, 5, 6, 7, 18, 19)},
+    **{h: PEAK for h in (8, 9, 20, 21, 22, 23)},
+}
+
+# (Stunde eines Intervalls der Zone, Gesamtpreis, Anzahl, Rang, Quantil)
+SECHS_ZONEN = (
+    (10, 19.716, 8, 1, 4.17),
+    (0, 21.396, 24, 9, 20.83),
+    (12, 21.420, 8, 33, 37.50),
+    (4, 23.100, 24, 41, 54.17),
+    (14, 24.252, 8, 65, 70.83),
+    (8, 25.932, 24, 73, 87.50),
+)
+
+
+def _sechs_zonen_tag() -> SmartTimesData:
+    """Ein 05.06.2026 mit allen sechs Kombinationen aus Stufe und SNAP-Zustand."""
+    beginn = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA)
+    prices = []
+    for slot in range(96):
+        start = beginn + timedelta(minutes=15 * slot)
+        prices.append(
+            MarketPrice(
+                start=start,
+                end=start + timedelta(minutes=15),
+                gross_ct_per_kwh=STUNDENPLAN[start.hour],
+            )
+        )
+    return SmartTimesData(
+        tariff="smartTIMES",
+        unit="ct/kWh",
+        interval_minutes=15,
+        include_vat=True,
+        prices=prices,
+        grid_zone=get_zone("wien"),
+    )
+
+
+@pytest.mark.parametrize(("stunde", "preis", "anzahl", "rang", "quantil"), SECHS_ZONEN)
+def test_preisrang_kommt_mit_sechs_preiszonen_zurecht(
+    stunde, preis, anzahl, rang, quantil
+):
+    """Auch sechs Gesamtpreis-Stufen werden richtig eingeordnet.
+
+    Die Rechnung zählt nur günstigere und gleich teure Intervalle, kennt also
+    gar keine Stufenzahl. Dass die Fixture zufällig vier Stufen hat, darf sich
+    nirgends festgesetzt haben – ändert smartENERGY den Zonenplan, muss der
+    Sensor weiterhin stimmen.
+    """
+    data = _sechs_zonen_tag()
+    zeitpunkt = datetime(2026, 6, 5, stunde, 0, tzinfo=VIENNA)
+
+    einordnung = data.price_rank(zeitpunkt)
+
+    assert data.all_in_value(data.current(zeitpunkt)) == pytest.approx(preis)
+    assert einordnung.rank == rang
+    assert einordnung.equal == anzahl
+    assert einordnung.count == 96
+    assert einordnung.quantile == pytest.approx(quantil)
+
+
+def test_preisrang_trennt_knapp_benachbarte_gesamtpreise():
+    """0,024 ct/kWh Unterschied trennen zwei Zonen – und das ist Absicht.
+
+    „Off-Peak außerhalb SNAP“ (21,396) ist in Wien hauchdünn günstiger als
+    „Shoulder im SNAP“ (21,420), weil die SNAP-Ersparnis (1,40 netto) die Lücke
+    zwischen den Arbeitspreis-Stufen (1,42 netto) fast genau ausgleicht. Ein
+    toleranzbehafteter Vergleich würde beide zu einer Zone verschmelzen und
+    damit den günstigeren Zeitpunkt verschenken.
+
+    Der Test ist die Gegenprobe zum exakten Float-Vergleich in ``price_rank``:
+    Ersetzt man dort ``==`` durch eine Toleranz oberhalb dieser 0,024 ct, fällt
+    er (nachgeprüft mit 0,05 – Rang 9 für beide statt 9 und 33). Eine kleinere
+    Toleranz träfe ihn nicht, was den Abstand hier zur eigentlichen Zusage
+    macht: Er ist die Obergrenze für jede Unschärfe, die sich die Rechnung
+    leisten dürfte.
+    """
+    data = _sechs_zonen_tag()
+
+    guenstiger = data.price_rank(datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA))
+    teurer = data.price_rank(datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA))
+
+    abstand = 21.420 - 21.396
+    assert abstand == pytest.approx(0.024)
+    # Getrennte Ränge, nicht eine gemeinsame Zone.
+    assert guenstiger.rank < teurer.rank
+    assert guenstiger.equal == 24
+    assert teurer.equal == 8
+
+
+def test_preisrang_gibt_exakt_gleich_teuren_zonen_denselben_rang():
+    """Heben sich Stufenlücke und SNAP-Ersparnis exakt auf, zählt eine Zone.
+
+    Die Kehrseite des Tests darüber: Kosten zwei Intervalle wirklich dasselbe,
+    gehören sie auf denselben Rang – auch wenn die Summe über verschiedene Wege
+    zustande kam (andere Arbeitspreis-Stufe *und* anderer SNAP-Zustand). Genau
+    deshalb trägt die Rundung auf vier Nachkommastellen den Vergleich und nicht
+    die Gleichheit des Rechenwegs.
+
+    Bei keinem der 14 echten Netzgebiete fallen die Werte heute exakt zusammen
+    (Wien kommt mit 0,02 netto am nächsten), deshalb hier ein eigens gebautes.
+    """
+    # Netto-Lücke Off-Peak -> Shoulder: 10,85 - 9,43 = 1,42
+    zone = GridZone("test", "Testgebiet", usage_ap=7.00, usage_snap=5.58, loss=0.700)
+    assert round(zone.usage_ap - zone.usage_snap, 4) == pytest.approx(1.42)
+
+    beginn = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA)
+    mach = lambda stunde, brutto: MarketPrice(  # noqa: E731
+        start=beginn.replace(hour=stunde),
+        end=beginn.replace(hour=stunde) + timedelta(minutes=15),
+        gross_ct_per_kwh=brutto,
+    )
+    # 12 Uhr: SNAP aktiv, teurere Stufe. 20 Uhr: kein SNAP, günstigere Stufe.
+    shoulder_im_snap = mach(12, SHOULDER)
+    off_peak_regulaer = mach(20, OFF_PEAK)
+    data = SmartTimesData(
+        tariff="smartTIMES",
+        unit="ct/kWh",
+        interval_minutes=15,
+        include_vat=True,
+        prices=[shoulder_im_snap, off_peak_regulaer],
+        grid_zone=zone,
+    )
+
+    # (10,85 + 0,72 + 5,58 + 0,700) * 1,2 = (9,43 + 0,72 + 7,00 + 0,700) * 1,2
+    assert data.all_in_value(shoulder_im_snap) == pytest.approx(21.42)
+    assert data.all_in_value(off_peak_regulaer) == pytest.approx(21.42)
+
+    for zeitpunkt in (shoulder_im_snap.start, off_peak_regulaer.start):
+        einordnung = data.price_rank(zeitpunkt)
+        assert einordnung.rank == 1
+        assert einordnung.equal == 2
+        assert einordnung.quantile == pytest.approx(50.0)

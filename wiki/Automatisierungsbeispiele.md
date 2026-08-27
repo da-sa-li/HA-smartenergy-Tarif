@@ -115,8 +115,8 @@ automation:
 > vorausschauend für den ganzen Tag und glättet die Last. Das Quantil eignet
 > sich für Verbraucher, die jederzeit mitlaufen können, wenn es gerade billig
 > ist. Bei **smartTIMES** ist zu bedenken, dass es als Zeittarif nur wenige
-> Preisstufen gibt – das Quantil nimmt dort nur drei bis vier verschiedene
-> Werte am Tag an, siehe
+> Preisstufen gibt – das Quantil nimmt dort nur wenige verschiedene Werte am
+> Tag an (höchstens sechs), siehe
 > [Sensoren und Attribute](Sensoren-und-Attribute#preisrang-und-preisquantil).
 
 # Gesamtpreis im Energie-Dashboard hinterlegen

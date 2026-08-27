@@ -71,7 +71,9 @@ Ohne gewähltes Netzgebiet ergibt ein smartTIMES-Tag damit genau drei Werte:
 | teuerste | 32 | 65 | 83,33 % |
 
 > [!NOTE]
-> **Mit** Netzgebiet sind es im Sommer **vier** Stufen statt drei – das ist kein Fehler. Der [SNAP](Netzentgelte-und-Nebenkosten) senkt von April bis September zwischen 10 und 16 Uhr den Netz-Arbeitspreis und verbilligt damit nur *einen Teil* der günstigsten Arbeitspreis-Stufe. Beispiel: Netzgebiet Wien an einem Sommertag, dessen günstigste Arbeitspreis-Stufe die Stunden 02–03 und 10–15 umfasst:
+> **Mit** Netzgebiet werden im Sommer mehr Stufen daraus – das ist kein Fehler. Der [SNAP](Netzentgelte-und-Nebenkosten) senkt von April bis September zwischen 10 und 16 Uhr den Netz-Arbeitspreis. Jede der drei Arbeitspreis-Stufen kann innerhalb *und* außerhalb dieses Fensters liegen, es sind also **bis zu sechs** verschiedene Gesamtpreise am Tag möglich. Welche tatsächlich auftreten, hängt am Zonenplan des jeweiligen Tages, den die API liefert – eine feste Zahl gibt es nicht.
+>
+> Ein Beispiel: Netzgebiet Wien an einem Sommertag, dessen günstigste Arbeitspreis-Stufe die Stunden 02–03 und 10–15 umfasst. Hier fällt das ganze SNAP-Fenster in diese eine Stufe, also entstehen vier Gesamtpreise:
 >
 > | Gesamtpreis | Intervalle | Rang | Quantil |
 > |---|---|---|---|
@@ -81,6 +83,9 @@ Ohne gewähltes Netzgebiet ergibt ein smartTIMES-Tag damit genau drei Werte:
 > | 0,25932 EUR/kWh | 32 | 65 | 83,33 % |
 >
 > Nach dem reinen Arbeitspreis wären die ersten beiden Zeilen dieselbe Stufe. Genau darin liegt der Nutzen: Der Rang zeigt, was der Strom *tatsächlich* kostet.
+
+> [!TIP]
+> Die Abstände zwischen den Stufen können sehr klein werden, weil sich die SNAP-Ersparnis und der Abstand zweier Arbeitspreis-Stufen fast aufheben können: In Wien liegt „Shoulder im SNAP“ nur 0,00024 EUR/kWh über „Off-Peak außerhalb“ – ein Unterschied in der fünften Nachkommastelle. Rang und Quantil trennen die beiden trotzdem sauber, der Sprung im Rang kann an so einer Stelle also groß sein, obwohl sich am Preis kaum etwas ändert. Wer nach dem Rang schaltet, sollte deshalb im Blick behalten, was ein Rangplatz tatsächlich wert ist; der Gesamtpreis-Sensor sagt das direkt.
 
 Bei **smartCONTROL** stellt sich die Frage kaum – der börsengekoppelte Tarif hat pro Tag fast durchweg verschiedene Preise, üblicherweise vier preisgleiche Viertelstunden je Stunde.
 

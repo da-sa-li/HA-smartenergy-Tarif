@@ -62,9 +62,10 @@ class PriceRank:
     rank: int
     """Rangplatz, 1 = günstigstes Intervall des Tages.
 
-    Gleich teure Intervalle tragen denselben Rang (Wettkampfregel „1224“):
-    Sind die 32 günstigsten Viertelstunden preisgleich, tragen alle Rang 1 und
-    die nächste Preisstufe beginnt bei 33.
+    Gleich teure Intervalle tragen denselben Rang (Wettkampfregel „1224“); die
+    nächste Preisstufe überspringt die dabei verbrauchten Plätze. Sind etwa die
+    n günstigsten Intervalle preisgleich, tragen alle Rang 1 und die nächste
+    Stufe beginnt bei n + 1.
     """
 
     count: int
@@ -272,11 +273,17 @@ class SmartTimesData:
         value = self.all_in_value(price)
         values = [self.all_in_value(entry) for entry in prices]
 
-        # Exakter Vergleich ist hier richtig: `_compute_all_in_value` rundet auf
-        # vier Nachkommastellen und durchläuft für gleich teure Intervalle
-        # desselben Tages denselben Rechenweg, gleiche Eingaben ergeben also
-        # bitgleiche Ergebnisse. Eine Toleranz verschmölze Preisstufen, die der
-        # Tarif bewusst trennt.
+        # Exakter Vergleich ist hier richtig, weil `_compute_all_in_value` jedes
+        # Ergebnis auf vier Nachkommastellen rundet: Zwei gleich teure
+        # Intervalle landen damit auf demselben Float, auch wenn die Summe auf
+        # verschiedenen Wegen zustande kam. Auf den Rechenweg allein wäre kein
+        # Verlass – zwei Intervalle können denselben Preis über eine andere
+        # Tarifstufe *und* einen anderen SNAP-Zustand erreichen, die sich
+        # gegenseitig aufheben. In Wien liegt "Shoulder im SNAP" nur
+        # 0,024 ct/kWh über "Off-Peak außerhalb", weil die SNAP-Ersparnis (1,40
+        # netto) die Stufenlücke (1,42 netto) fast genau ausgleicht. Eine
+        # Toleranz verschmölze umgekehrt Preisstufen, die der Tarif bewusst
+        # trennt – und verschenkte den günstigeren Zeitpunkt.
         cheaper = sum(1 for other in values if other < value)
         equal = sum(1 for other in values if other == value)
 
