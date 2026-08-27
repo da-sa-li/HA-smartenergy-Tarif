@@ -89,8 +89,17 @@ def test_breakdown_uses_snap_rate():
 #    gegen die Preisblätter des jeweiligen Netzbetreibers gegenlesen.
 #
 # 2. Die SNAP-Invariante darunter ist dagegen aus der Spezifikation abgeleitet
-#    (Modul-Docstring von `grid_fees.py`: SNAP = -20 % auf den Netz-Arbeitspreis)
-#    und prüft die Tabelle unabhängig von jeder Abschrift.
+#    (Modul-Docstring von `grid_fees.py`: SNAP = -20 % auf den Netz-Arbeitspreis).
+#    Sie prüft aber nur das *Verhältnis* der beiden Sätze zueinander, nicht ihre
+#    Höhe: Der Sollwert entsteht aus `usage_ap` selbst, ein falscher
+#    Arbeitspreis mit passend nachgezogenem SNAP-Satz besteht sie also.
+#
+# Damit bleibt eine Lücke, die keine der beiden Prüfungen schließt: ein Wert,
+# der in Produktivtabelle UND Zweitschrift gleich falsch steht. Nachgestellt und
+# bestätigt (Graz 5,17 -> 5,71 mit konsistentem SNAP 4,57 an beiden Stellen:
+# alle Tests grün; nur einseitig eingebracht: zwei Fehlschläge). Dagegen hilft
+# allein ein Abgleich mit den Preisblättern der Netzbetreiber – eine Aufgabe für
+# die jährliche Aktualisierung, die diese Datei nicht leisten kann.
 ERWARTETE_ZONEN = {
     # Schlüssel: (Anzeigename, usage_ap, usage_snap, loss)
     "burgenland": ("Burgenland", 8.46, 6.77, 0.000),
