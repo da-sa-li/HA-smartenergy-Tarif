@@ -34,6 +34,12 @@ jobs:
       # Nur Lesezugriff aufs Repo. Das Melden erledigt der Job "bericht", damit
       # Checkout, Setup und Testlauf ohne Schreibrechte auskommen.
       contents: read
+    outputs:
+      # URL des Artefakts mit den Rohantworten, damit der Bericht direkt darauf
+      # zeigen kann. Wird auch von einem fehlgeschlagenen Job übergeben – genau
+      # dann läuft der Upload-Schritt ja (siehe "if: failure()" unten). Bleibt
+      # leer, wenn er übersprungen wurde.
+      antworten_url: ${{ steps.antworten.outputs.artifact-url }}
     steps:
       - name: Checkout the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,7 +57,33 @@ jobs:
           pip install -r requirements_test.txt
 
       - name: Run live tests
+        env:
+          # Weist die Live-Tests an, die abgerufenen Antworten hier abzulegen
+          # (siehe lege_antwort_ab in tests/test_api_live.py). Schrittbezogen,
+          # damit der Geltungsbereich sichtbar bleibt.
+          LIVE_ANTWORT_DIR: ${{ runner.temp }}/live-antworten
         run: pytest -m live --live
+
+      # Ohne diesen Schritt stirbt die Antwort mit dem Runner – und damit das
+      # Belegmaterial für die wahrscheinlichste Ursache eines Fehlschlags. Nur im
+      # Fehlerfall: Bei einem grünen Lauf belegt die Fixture im Repo bereits, wie
+      # die API antwortet. Das "if" hebt zugleich die Vorgabe auf, dass Schritte
+      # nach einem Fehlschlag übersprungen werden.
+      #
+      # Braucht keine zusätzlichen "permissions": upload-artifact nutzt den
+      # Runtime-Token des Laufs, nicht GITHUB_TOKEN.
+      - name: Rohantworten der API sichern
+        if: failure()
+        id: antworten
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: live-antworten
+          # Muss mit LIVE_ANTWORT_DIR im Schritt darüber übereinstimmen.
+          path: ${{ runner.temp }}/live-antworten
+          # Kein zweiter roter Schritt, wenn nichts abgelegt wurde – etwa weil
+          # die API gar nicht erreichbar war und es keine Antwort gab. Der
+          # eigentliche Fehlschlag steht schon im Testlauf.
+          if-no-files-found: warn
 
   # Bewusst kein Verlass auf die E-Mail-Benachrichtigung von GitHub: Die geht
   # bei geplanten Läufen nur an die Person, die den cron-Ausdruck zuletzt
@@ -72,6 +104,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           LAUF_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Leer, wenn der Testlauf keine Antwort erhalten und daher nichts
+          # abgelegt hat.
+          ANTWORTEN_URL: ${{ needs.live.outputs.antworten_url }}
         run: |
           set -euo pipefail
 
@@ -89,8 +124,16 @@ jobs:
             --json number --jq '.[0].number // empty')"
 
           if [ -n "$nummer" ]; then
-            gh issue comment "$nummer" --body \
-              "Erneut fehlgeschlagen am $(date -u '+%d.%m.%Y %H:%M UTC'): $LAUF_URL"
+            # Über eine Datei statt --body, weil der Hinweis auf das Artefakt nur
+            # bedingt dazukommt – jeder Fehlschlag hat sein eigenes.
+            {
+              printf 'Erneut fehlgeschlagen am %s: %s\n' \
+                "$(date -u '+%d.%m.%Y %H:%M UTC')" "$LAUF_URL"
+              if [ -n "$ANTWORTEN_URL" ]; then
+                printf '\n**Rohantworten der API:** %s\n' "$ANTWORTEN_URL"
+              fi
+            } > "$RUNNER_TEMP/kommentar.md"
+            gh issue comment "$nummer" --body-file "$RUNNER_TEMP/kommentar.md"
             echo "Issue #$nummer kommentiert."
             exit 0
           fi
@@ -102,6 +145,10 @@ jobs:
             echo "Der nächtliche Vertragstest gegen die smartENERGY-API ist fehlgeschlagen."
             echo
             echo "**Fehlgeschlagener Lauf:** $LAUF_URL"
+            if [ -n "$ANTWORTEN_URL" ]; then
+              echo
+              echo "**Rohantworten der API:** $ANTWORTEN_URL"
+            fi
             echo
             cat <<'MARKDOWN'
           Mögliche Ursachen, absteigend nach Wahrscheinlichkeit:
@@ -109,7 +156,11 @@ jobs:
           - Die API war vorübergehend nicht erreichbar. Dann ist der nächste Lauf wieder
             grün und dieses Issue kann geschlossen werden.
           - smartENERGY hat das Antwortformat geändert: `api.py` anpassen und die Fixtures
-            in `tests/fixtures/` aktualisieren.
+            in `tests/fixtures/` aktualisieren. Das Artefakt `live-antworten` am Lauf
+            enthält die abgerufenen Antworten, formatiert wie die Fixtures – ein `diff`
+            zeigt daher nur echte Unterschiede. Davon die **Feldänderung** übernehmen und
+            die Fixture nicht überschreiben: Die handgerechneten Sollwerte der übrigen
+            Tests hängen an ihren eingefrorenen Tagen und Preisen.
           - Die API liefert kein Viertelstundenraster mehr oder keine Daten für den
             aktuellen Zeitpunkt. Das betrifft die Preis-Mathematik im Koordinator.
 
