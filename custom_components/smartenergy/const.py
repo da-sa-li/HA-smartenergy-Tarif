@@ -233,6 +233,12 @@ def documentation_url(tariff_display_name: str) -> str:
 # `suggested_display_precision` in `sensor.py`.
 EUR_DECIMALS: Final = 6
 
+# Nachkommastellen des Preisquantils (in Prozent). Zwei Stellen reichen: Bei 96
+# Viertelstunden je Tag ist die feinste überhaupt unterscheidbare Stufe ein
+# halbes Intervall, also 1/192 = rund 0,52 %. Die *Anzeige* regelt davon
+# unabhängig `suggested_display_precision` in `sensor.py`.
+QUANTILE_DECIMALS: Final = 2
+
 
 def to_eur(ct_value: float | None) -> float | None:
     """Rechnet einen Preis von ct/kWh in EUR/kWh um.

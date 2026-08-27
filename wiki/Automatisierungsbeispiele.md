@@ -79,6 +79,46 @@ automation:
 > Preise“ unterscheiden: Das Attribut `prices_tomorrow` ist in beiden Fällen
 > eine leere Liste.
 
+# Verbraucher starten, wenn der Preis im günstigsten Viertel liegt
+
+Das **Preisquantil** ordnet den laufenden Preis in den heutigen Tag ein, mit
+0 % für das günstigste Intervall. Damit reicht ein numerischer Trigger, wo
+sonst ein Template-Sensor den aktuellen Preis erst gegen die Tageskennzahlen
+rechnen müsste:
+
+```yaml
+automation:
+  - triggers:
+      - trigger: numeric_state
+        entity_id: sensor.smarttimes_strompreishelfer_preisquantil_heute
+        below: 25
+    actions:
+      - action: switch.turn_on
+        target: { entity_id: switch.boiler }
+```
+
+> Die Schwelle ist frei wählbar: `below: 25` heißt „im günstigsten Viertel des
+> Tages“, `below: 10` entsprechend strenger. Weil das Quantil normiert ist,
+> bedeutet derselbe Wert bei jedem Tarif dasselbe – anders als eine Schwelle in
+> EUR/kWh, die bei jeder Preisänderung nachgezogen werden müsste.
+
+> [!IMPORTANT]
+> Liegt für den aktuellen Zeitpunkt kein Preis vor, steht der Sensor auf
+> `unknown`. Ein `numeric_state`-Trigger feuert darauf nicht – anders als ein
+> Zustands-Trigger, der ohne `to:`-Filter auch auf `unknown` anspringen würde.
+> Wer den Verbraucher am Ende des günstigen Fensters wieder abschalten will,
+> nimmt einen zweiten Trigger mit `above: 25`.
+
+> [!NOTE]
+> Für einen Verbraucher mit einer festen Laufzeit („vier Stunden am Tag“) ist
+> der **Günstige Stunde**-Binary-Sensor die bessere Wahl: Er wählt die Fenster
+> vorausschauend für den ganzen Tag und glättet die Last. Das Quantil eignet
+> sich für Verbraucher, die jederzeit mitlaufen können, wenn es gerade billig
+> ist. Bei **smartTIMES** ist zu bedenken, dass es als Zeittarif nur wenige
+> Preisstufen gibt – das Quantil nimmt dort nur drei bis vier verschiedene
+> Werte am Tag an, siehe
+> [Sensoren und Attribute](Sensoren-und-Attribute#preisrang-und-preisquantil).
+
 # Gesamtpreis im Energie-Dashboard hinterlegen
 
 Der `…_gesamtpreis`-Sensor liefert den Preis bereits in **EUR/kWh**

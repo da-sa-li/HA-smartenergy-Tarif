@@ -13,16 +13,30 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient
-from custom_components.smartenergy.const import JITTER_SPAN_SECONDS
+from custom_components.smartenergy.const import (
+    JITTER_SPAN_SECONDS,
+    UNIT_EUR_PER_MONTH,
+)
 
 from tests.conftest import VIENNA
 
 DOMAIN = "smartenergy"
+
+# Sensoren, die bewusst keine EUR/kWh melden – mit ihrer jeweils erwarteten
+# Einheit. Als Zuordnung statt als Sonderfall im Testkörper: Ein künftiger
+# Sensor, der die Einheit schlicht vergisst, steht hier nicht und fällt damit
+# weiterhin auf.
+KEINE_EUR_PRO_KWH = {
+    "basic_fee": UNIT_EUR_PER_MONTH,        # monatliche Pauschale
+    "price_rank_today": None,               # Ordnungszahl, dimensionslos
+    "price_quantile_today": PERCENTAGE,     # normiert auf 0-100 %
+}
 
 
 async def _richte_ein(hass: HomeAssistant, payload: dict, tarif: str) -> MockConfigEntry:
@@ -93,6 +107,8 @@ async def test_smartcontrol_hat_keinen_grundgebuehr_sensor(
         "average_today",
         "lowest_today",
         "highest_today",
+        "price_rank_today",
+        "price_quantile_today",
     }
 
 
@@ -206,19 +222,19 @@ def test_alle_preissensoren_melden_eur_pro_kwh():
     """Kein Preissensor fällt auf ct/kWh zurück.
 
     Als Invariante über SENSORS formuliert: Ein künftig ergänzter Sensor, der
-    die Einheit vergisst oder ct setzt, fällt damit auf.
+    die Einheit vergisst oder ct setzt, fällt damit auf. Die begründeten
+    Ausnahmen stehen als Zuordnung in KEINE_EUR_PRO_KWH – jede mit der Einheit,
+    die sie stattdessen führen muss. Sprachneutral, weil Home Assistant
+    Einheiten nicht übersetzt.
     """
-    from custom_components.smartenergy.const import (
-        UNIT_EUR_PER_KWH,
-        UNIT_EUR_PER_MONTH,
-    )
+    from custom_components.smartenergy.const import UNIT_EUR_PER_KWH
     from custom_components.smartenergy.sensor import SENSORS
 
     for beschreibung in SENSORS:
-        if beschreibung.key == "basic_fee":
-            # Begründete Ausnahme: eine monatliche Pauschale, kein Arbeitspreis.
-            # Sprachneutral, weil Home Assistant Einheiten nicht übersetzt.
-            assert beschreibung.unit == UNIT_EUR_PER_MONTH == "EUR/month"
+        if beschreibung.key in KEINE_EUR_PRO_KWH:
+            assert beschreibung.unit == KEINE_EUR_PRO_KWH[beschreibung.key], (
+                f"{beschreibung.key} meldet {beschreibung.unit!r}"
+            )
             continue
         assert beschreibung.unit == UNIT_EUR_PER_KWH, (
             f"{beschreibung.key} meldet {beschreibung.unit!r} statt EUR/kWh"
@@ -236,9 +252,14 @@ async def test_keine_ct_attribute_mehr(
     """
     await _richte_ein(hass, smarttimes_payload, "smarttimes")
 
+    # Die Namensprüfung gilt für jeden Sensor, der überhaupt Attribute führt –
+    # auch für die beiden Kennzahl-Sensoren, deren Attribute (quantile_percent,
+    # interval_count) bewusst kein ct im Namen tragen.
     for entity_id in (
         "sensor.smarttimes_strompreishelfer_energy_price",
         "sensor.smarttimes_strompreishelfer_total_price",
+        "sensor.smarttimes_strompreishelfer_price_rank_today",
+        "sensor.smarttimes_strompreishelfer_price_quantile_today",
     ):
         attribute = hass.states.get(entity_id).attributes
         uebrig = [
@@ -248,9 +269,15 @@ async def test_keine_ct_attribute_mehr(
         ]
         assert not uebrig, f"{entity_id} hat noch ct-Attribute: {uebrig}"
 
-        # Die Einheit wird ausgewiesen, und zwar als EUR/kWh. source_unit gibt
-        # den Einheiten-String der API wieder – die smartTIMES-Fixture meldet
-        # "cent/kWh", gleichbedeutend mit ct/kWh.
+    # Die Einheit wird ausgewiesen, und zwar als EUR/kWh. source_unit gibt den
+    # Einheiten-String der API wieder – die smartTIMES-Fixture meldet
+    # "cent/kWh", gleichbedeutend mit ct/kWh. Beides führen nur die beiden
+    # Preissensoren; Rang und Quantil sind keine Preise.
+    for entity_id in (
+        "sensor.smarttimes_strompreishelfer_energy_price",
+        "sensor.smarttimes_strompreishelfer_total_price",
+    ):
+        attribute = hass.states.get(entity_id).attributes
         assert attribute["unit"] == "EUR/kWh"
         assert attribute["source_unit"] == "cent/kWh"
 
@@ -735,3 +762,83 @@ async def test_arbeitspreis_attribute_tragen_die_erwarteten_werte(
     assert attribute["average_working_price_today"] == pytest.approx(
         ARBEITSPREIS["avg"]
     )
+
+
+# --- Preisrang und Preisquantil --------------------------------------------- #
+#
+# Sollwerte von Hand, smartTIMES + Netzgebiet Wien, brutto, 05.06.2026 12:00
+# Ortszeit. Die Tagesverteilung ist dieselbe wie oben bei GESAMTPREIS_WIEN
+# hergeleitet – vier Gesamtpreis-Stufen, weil das SNAP-Fenster die günstigste
+# Arbeitspreis-Stufe (11,316) in zwei verschieden teure Hälften spaltet:
+#   19,716 ct x 24 (SNAP-Stunden 10-15)  -> cheaper= 0, equal=24
+#   21,396 ct x  8 (Stunden 02-03)       -> cheaper=24, equal= 8
+#   23,100 ct x 32
+#   25,932 ct x 32
+#
+# 12:00 liegt im SNAP-Fenster, gehört also zur günstigsten Stufe:
+#   Rang    = cheaper + 1        =  0 + 1        = 1
+#   Quantil = (cheaper + equal/2) / count * 100
+#           = ( 0 + 12) / 96 * 100                = 12,5 %
+#
+# Ohne Netzgebiet wären es Rang 1 und 16,67 % (equal = 32) – die Wiener Zahlen
+# sind die aussagekräftigeren, weil nur sie belegen, dass der Gesamtpreis und
+# nicht der Arbeitspreis die Bezugsgröße ist.
+PREISRANG_WIEN = {"rang": 1, "quantil": 12.5, "gleich": 24}
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit, im SNAP-Fenster
+async def test_preisrang_und_quantil_tragen_die_erwarteten_werte(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Beide Kennzahl-Sensoren melden Zustand und Attribute wie hergeleitet.
+
+    Geprüft wird die ganze Kette bis zur Entität: Rechnung im Koordinator,
+    Einheit, und die Attribute, die beide Sensoren gemeinsam tragen – damit
+    jeder für sich verständlich ist, auch allein im Dashboard.
+    """
+    await _richte_ein_wien(hass, smarttimes_payload)
+
+    rang = hass.states.get("sensor.smarttimes_strompreishelfer_price_rank_today")
+    quantil = hass.states.get(
+        "sensor.smarttimes_strompreishelfer_price_quantile_today"
+    )
+
+    assert int(rang.state) == PREISRANG_WIEN["rang"]
+    assert float(quantil.state) == pytest.approx(PREISRANG_WIEN["quantil"])
+
+    # Der Rang ist dimensionslos, das Quantil eine Prozentangabe.
+    assert "unit_of_measurement" not in rang.attributes
+    assert quantil.attributes["unit_of_measurement"] == PERCENTAGE
+
+    # Beide tragen dieselbe Einordnung als Attribute.
+    for zustand in (rang, quantil):
+        assert zustand.attributes["rank"] == PREISRANG_WIEN["rang"]
+        assert zustand.attributes["quantile_percent"] == pytest.approx(
+            PREISRANG_WIEN["quantil"]
+        )
+        assert zustand.attributes["interval_count"] == 96
+        assert zustand.attributes["cheaper_intervals"] == 0
+        assert zustand.attributes["equal_intervals"] == PREISRANG_WIEN["gleich"]
+        assert zustand.attributes["quantile_method"] == "midrank"
+        assert zustand.attributes["reference"] == "total_price"
+
+
+@pytest.mark.freeze_time("2026-06-07 10:00:00")  # jenseits der Fixture-Tage
+async def test_preisrang_ohne_preise_ist_unbekannt(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Ohne laufendes Intervall stehen beide Sensoren auf ``unknown``.
+
+    Und zwar ohne Attribute: Ein Attributsatz voller ``None`` sähe aus wie eine
+    Einordnung, wäre aber keine. In der Praxis ist das der Zustand nach einem
+    länger ausgefallenen Abruf.
+    """
+    await _richte_ein_wien(hass, smarttimes_payload)
+
+    for entity_id in (
+        "sensor.smarttimes_strompreishelfer_price_rank_today",
+        "sensor.smarttimes_strompreishelfer_price_quantile_today",
+    ):
+        zustand = hass.states.get(entity_id)
+        assert zustand.state == "unknown"
+        assert "rank" not in zustand.attributes

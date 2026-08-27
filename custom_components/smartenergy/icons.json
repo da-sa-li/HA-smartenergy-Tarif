@@ -16,6 +16,12 @@
       "highest_today": {
         "default": "mdi:trending-up"
       },
+      "price_rank_today": {
+        "default": "mdi:podium"
+      },
+      "price_quantile_today": {
+        "default": "mdi:chart-bell-curve-cumulative"
+      },
       "basic_fee": {
         "default": "mdi:cash"
       },

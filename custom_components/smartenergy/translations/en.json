@@ -153,6 +153,12 @@
       "highest_today": {
         "name": "Highest total price today"
       },
+      "price_rank_today": {
+        "name": "Price rank today"
+      },
+      "price_quantile_today": {
+        "name": "Price quantile today"
+      },
       "basic_fee": {
         "name": "Basic fee"
       },

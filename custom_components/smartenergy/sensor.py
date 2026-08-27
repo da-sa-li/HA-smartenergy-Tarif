@@ -14,6 +14,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigSubentry
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -94,6 +95,18 @@ def _highest_today(data: SmartTimesData) -> StateType:
     return to_eur(_stats(_today_allin_values(data))[2])
 
 
+def _price_rank_today(data: SmartTimesData) -> StateType:
+    """Rang des laufenden Intervalls unter den Gesamtpreisen des Tages."""
+    einordnung = data.price_rank()
+    return einordnung.rank if einordnung else None
+
+
+def _price_quantile_today(data: SmartTimesData) -> StateType:
+    """Quantil des laufenden Intervalls (Prozent) unter den Tagespreisen."""
+    einordnung = data.price_rank()
+    return einordnung.quantile if einordnung else None
+
+
 def _basic_fee(data: SmartTimesData) -> StateType:
     """Aktuelle monatliche Grundgebühr (gemäß Brutto-/Netto-Einstellung)."""
     return data.basic_fee()
@@ -135,6 +148,24 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=5,
         value_fn=_highest_today,
+    ),
+    SmartTimesSensorDescription(
+        key="price_rank_today",
+        translation_key="price_rank_today",
+        # Eine dimensionslose Ordnungszahl – `unit` wird ausdrücklich auf None
+        # gesetzt, weil die Vorgabe der Beschreibung EUR/kWh lautet.
+        unit=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=_price_rank_today,
+    ),
+    SmartTimesSensorDescription(
+        key="price_quantile_today",
+        translation_key="price_quantile_today",
+        unit=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=_price_quantile_today,
     ),
     SmartTimesSensorDescription(
         key="basic_fee",
@@ -290,6 +321,8 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             return self._all_in_attributes()
         if self.entity_description.key == "working_price":
             return self._working_price_attributes()
+        if self.entity_description.key in ("price_rank_today", "price_quantile_today"):
+            return self._rank_attributes()
         return None
 
     def _working_price_attributes(self) -> dict:
@@ -418,4 +451,31 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             # wird dieser Wert vom Recorder mitgeschrieben, taugt also auch
             # zur Frage "ab wann waren die Preise da".
             "prices_tomorrow_valid": data.has_prices_for(tomorrow),
+        }
+
+    def _rank_attributes(self) -> dict | None:
+        """Einordnung des laufenden Intervalls, für beide Kennzahl-Sensoren.
+
+        Beide tragen dieselben Attribute, damit jeder für sich verständlich ist:
+        Wer nur das Quantil im Dashboard hat, sieht den Rang trotzdem, und
+        umgekehrt. ``None``, solange kein Intervall läuft – ein Wörterbuch
+        voller ``None`` sähe aus wie eine Aussage, ist aber keine.
+        """
+        einordnung = self.coordinator.data.price_rank()
+        if einordnung is None:
+            return None
+
+        return {
+            "rank": einordnung.rank,
+            # Nenner der Einordnung: 96 an einem vollständigen Viertelstundentag.
+            "interval_count": einordnung.count,
+            "cheaper_intervals": einordnung.cheaper,
+            # Das eigene Intervall eingeschlossen, also mindestens 1.
+            "equal_intervals": einordnung.equal,
+            "quantile_percent": einordnung.quantile,
+            # Gleichstandsregel am Objekt dokumentiert: Ein Gleichstand wird
+            # hälftig geteilt (Mittelrang), nicht einer Seite zugeschlagen.
+            "quantile_method": "midrank",
+            # Bezugsgröße ist der Gesamtpreis, nicht der reine Arbeitspreis.
+            "reference": "total_price",
         }
