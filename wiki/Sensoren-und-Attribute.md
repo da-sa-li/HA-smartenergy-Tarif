@@ -14,7 +14,7 @@
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute` | Teuerster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_preisrang_heute` | Der wievielt-günstigste ist das laufende Intervall unter den heutigen **Gesamtpreisen** (1 = günstigstes) |
 | `sensor.smarttimes_strompreishelfer_preisquantil_heute` | Dieselbe Einordnung normiert auf 0–100 % (je niedriger, desto günstiger) |
-| `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**) |
+| `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**). Meldet die API eine andere Einheit, steht der Sensor auf `unknown`: Seine Einheit ist fest hinterlegt, ein Jahreswert erschiene darunter als Monatswert |
 | `binary_sensor.smarttimes_strompreishelfer_preise_fur_morgen_verfugbar` | `on`, sobald die Preise für den Folgetag vorliegen (Diagnose) |
 
 Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis. Der **Gesamtpreis**-Sensor addiert Steuern, Abgaben und Netzentgelte (siehe [Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)) und ist die richtige Wahl fürs Energie-Dashboard und zum Schalten. Tageskennzahlen und der Günstige-Stunde-Sensor beziehen sich auf den **Gesamtpreis**.
@@ -37,7 +37,7 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 | `prices_tomorrow_valid` | `true`, sobald die Preise für morgen vorliegen. Trennt „noch nicht veröffentlicht“ von „keine Preise“ – `prices_tomorrow` ist in beiden Fällen leer |
 | `unit` | Einheit der Preisangaben in diesen Attributen (`EUR/kWh`) |
 | `source_unit` | Einheit, in der die API liefert – smartTIMES meldet `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
-| `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz |
+| `vat_included` / `vat_rate` | Ob brutto gerechnet wird – und der österreichische USt.-Satz (`0.2`). Der Satz ist **konstant**: Er nennt den geltenden Satz, nicht ob er im Preis schon steckt. Bei `vat_included: false` steht er also weiterhin auf `0.2`; der Bruttopreis ergibt sich daraus als `netto × (1 + vat_rate)`, also das 1,2-Fache – `vat_rate` selbst ist der Satz, nicht der Faktor |
 
 > [!NOTE]
 > `prices_tomorrow` ist leer, solange die Preise für den nächsten Tag noch nicht veröffentlicht sind – laut API-Zusage ab 17 Uhr. Eine leere Liste bedeutet also nicht zwingend „keine Preise“, sondern meist „noch nicht verfügbar“.
@@ -137,7 +137,7 @@ Damit nicht alle Verbraucher gleichzeitig schalten und Lastspitzen erzeugen, ver
 
 Läuft ein günstiger Zeitraum über Mitternacht, werden die Blöcke beider Tage für den Jitter zu **einem** zusammengefasst – sonst risse der Versatz am Tageswechsel eine Schaltlücke auf. Ein Fenster in `cheap_windows` kann deshalb vor dem heutigen Tag beginnen oder nach ihm enden.
 
-Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist genau dieser Versatz und kein Fehler. Der eigene Wert steht in `jitter_offset_seconds`.
+Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist genau dieser Versatz und kein Fehler. Der eigene Wert steht in `jitter_offset_seconds`. Auf die Sekunde genau lässt er sich am Sensor allerdings nicht ablesen: Ausgewertet wird nur, wenn der Koordinator rechnet – einmal je Minute –, der Sensor schaltet also bis zu einer Minute nach dem ausgewiesenen Versatz.
 
 ## Attribute
 
@@ -161,7 +161,9 @@ Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist gen
 
 Je Untereintrag entsteht neben dem Binary-Sensor ein **Zeitstempel-Sensor** mit dem Beginn des nächsten günstigen Fensters. Er trägt `device_class: timestamp`, und genau darum geht es: Der `time`-Trigger von Home Assistant nimmt unter `at:` nur Entitäten mit dieser Geräteklasse. Ein Attribut – auch `next_cheap_start` am Binary-Sensor – lässt sich dort nicht referenzieren, weshalb „30 Minuten vor dem günstigen Fenster vorheizen“ bislang einen Template-Sensor brauchte. Ein Beispiel steht unter [Automatisierungsbeispiele](Automatisierungsbeispiele).
 
-Der Wert **enthält die Last-Glättung bereits** und stimmt damit sekundengenau mit dem Zeitpunkt überein, zu dem der zugehörige Binary-Sensor auf `on` geht.
+Der Wert **enthält die Last-Glättung bereits** und ist sekundengenau – in dieser Auflösung nimmt ihn der `time`-Trigger entgegen.
+
+Der zugehörige Binary-Sensor **Günstige Stunde** erreicht diese Auflösung nicht: Er wird nur ausgewertet, wenn der Koordinator rechnet, und das ist einmal je Minute. Er geht deshalb bis zu einer Minute *nach* diesem Zeitstempel auf `on`. Für die Last-Glättung genügt das – eine Streuung über zehn Minuten bleibt auch auf einem Minutenraster eine Streuung über zehn Minuten. Wer beides verknüpft, darf den Binary-Sensor zum Zeitpunkt des Zeitstempels aber noch nicht als `on` voraussetzen: Eine `condition` darauf ließe die Automatisierung ins Leere laufen.
 
 > [!NOTE]
 > Der Sensor steht auf `unknown`, wenn kein nächstes Fenster bekannt ist – typischerweise spät abends, bevor die Preise für den Folgetag veröffentlicht sind. Das ist Absicht und kein Fehler: Ein `time`-Trigger feuert dann schlicht nicht, statt eine falsche Zeit zu verwenden.

@@ -269,6 +269,13 @@ class SmartTimesData:
         :meth:`for_day` und :meth:`all_in_value` – sind bereits gecacht; was
         bleibt, ist ein Durchlauf über die Tageswerte, den die Sensoren wenige
         Male je Minute anstoßen.
+
+        Nachgemessen an einem vollen smartCONTROL-Tag (96 Viertelstunden,
+        Netzgebiet Wien, jeweils frischer Cache): Alles, was die Sensoren je
+        Minute an Kennzahlen anfordern – dreimal die Tageskennzahlen für
+        ``average``/``lowest``/``highest`` und viermal diese Methode für Rang
+        und Quantil – kostet zusammen rund 0,6 ms. Das ist ein Tausendstel
+        Prozent der Minute; ein weiterer Cache verdiente seine Zeilen nicht.
         """
         price = self.current(moment)
         if price is None:
@@ -814,6 +821,10 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         # zuletzt vom Server per Retry-After angeforderte Pause.
         self._failed_attempts: int = 0
         self._retry_after: timedelta | None = None
+        # Zuletzt von der API gemeldete Einheit der Grundgebühr – die letzte
+        # *vorhandene*, nicht die des vorigen Abrufs (siehe
+        # `_pruefe_grundgebuehr_einheit`).
+        self._letzte_grundgebuehr_einheit: str | None = None
         # Seed des täglichen Abruf-Jitters (siehe `_jitter_minutes`).
         self._entry_id = entry.entry_id
 
@@ -968,11 +979,81 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             return False
         return now - self._last_success >= timedelta(hours=FETCH_FAILURE_REPAIR_HOURS)
 
+    def _pruefe_grundgebuehr_einheit(self, bisherige_einheit: str | None) -> None:
+        """Meldet, wenn die API die Einheit der Grundgebühr gewechselt hat.
+
+        Die Anzeige-Einheit des Grundgebühr-Sensors ist fest hinterlegt;
+        ``sensor.async_setup_entry`` gleicht sie beim Einrichten einmal gegen
+        die der API ab. Nur einmal – wechselt die API sie im laufenden Betrieb,
+        zeigte der Sensor bis zum nächsten Neustart stillschweigend eine
+        falsche Einheit an. Home Assistant läuft bei vielen Nutzern wochenlang
+        durch; das ist keine kurze Lücke.
+
+        Gemeldet wird der **Wechsel**, nicht der Abgleich mit der
+        Anzeige-Einheit: Beim Einrichten stimmten beide überein, jede spätere
+        Änderung heißt also, dass sie es nicht mehr tun. Der Koordinator muss
+        die Anzeige-Einheit dafür nicht kennen – er sieht ohnehin nur, was die
+        API liefert.
+
+        Läuft nur nach einem **erfolgreichen** Abruf und damit höchstens
+        täglich; die minütliche Neuberechnung berührt sie nicht.
+
+        Verglichen wird gegen die zuletzt *vorhandene* Einheit
+        (``_letzte_grundgebuehr_einheit``) und nicht gegen die des vorigen
+        Abrufs. Sonst risse eine Lücke die Kette: Entfiele die Grundgebühr
+        vorübergehend und käme mit einer **anderen** Einheit zurück, wäre die
+        Vergleichsgröße beim Wiederauftauchen ``None`` – der Wechsel bliebe
+        unbemerkt, und der Sensor zeigte einen Jahreswert weiter als
+        Monatswert. Genau der Fall, den diese Methode verhindern soll.
+
+        ``bisherige_einheit`` (der Wert des vorigen Abrufs) wird trotzdem
+        gebraucht, aber nur für den **Übergang** in den Entfall: Ohne ihn
+        stünde die Entfall-Meldung bei jedem weiteren Abruf erneut im Log.
+        """
+        if self._last_result is None:
+            return
+
+        neue_einheit = self._last_result.basic_fee_unit
+
+        if neue_einheit is None:
+            # Nur den Übergang melden, nicht jeden Abruf danach. Die zuletzt
+            # bekannte Einheit bleibt bewusst gemerkt – kommt die Grundgebühr
+            # mit einer anderen zurück, ist das ein Wechsel.
+            if bisherige_einheit is not None:
+                _LOGGER.warning(
+                    "Die smartENERGY-API liefert keine Grundgebühr mehr "
+                    "(zuletzt in '%s'). Der zugehörige Sensor bleibt ohne "
+                    "Wert, bis sie wieder erscheint.",
+                    bisherige_einheit,
+                )
+            return
+
+        zuletzt_gemeldet = self._letzte_grundgebuehr_einheit
+        self._letzte_grundgebuehr_einheit = neue_einheit
+        if zuletzt_gemeldet is None or neue_einheit == zuletzt_gemeldet:
+            # Erster Abruf mit Grundgebühr – es gibt nichts zu vergleichen.
+            return
+
+        _LOGGER.warning(
+            "Die smartENERGY-API meldet die Grundgebühr jetzt in '%s' statt in "
+            "'%s'. Der Sensor führt weiterhin die beim Einrichten geprüfte "
+            "Einheit – sein Wert passt damit möglicherweise nicht mehr.",
+            neue_einheit,
+            zuletzt_gemeldet,
+        )
+
     async def _async_update_data(self) -> SmartTimesData:
         """Berechnet die Entitätsdaten neu und ruft bei Bedarf die API ab."""
         now = dt_util.now()
 
         if self._needs_fetch(now) and self._fetch_allowed(now):
+            # Vor dem Überschreiben sichern: `_pruefe_grundgebuehr_einheit`
+            # vergleicht die Einheit dieses Abrufs mit der des vorigen.
+            bisherige_einheit = (
+                self._last_result.basic_fee_unit
+                if self._last_result is not None
+                else None
+            )
             try:
                 self._last_result = await self._client.async_get_prices()
             except SmartTimesApiError as err:
@@ -985,7 +1066,13 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
                     self._note_failed_attempt(err.retry_after)
                 if self._last_result is None:
                     raise UpdateFailed(str(err)) from err
-                # Frühere Daten behalten, falls ein einzelner Abruf scheitert.
+                # Frühere Daten behalten, falls ein einzelner Abruf
+                # scheitert. `last_update_success` bleibt damit wahr und die
+                # Entitäten bleiben *verfügbar*: Decken die gecachten Preise den
+                # aktuellen Zeitpunkt nicht mehr ab, melden sie „unbekannt“
+                # statt „nicht verfügbar“. Das ist gewollt – ein Preisplan
+                # bleibt brauchbar, solange er reicht – und ab
+                # FETCH_FAILURE_REPAIR_HOURS weist ein Repair-Issue darauf hin.
                 _LOGGER.warning(
                     "Aktualisierung der smartENERGY-Preise fehlgeschlagen, "
                     "verwende zwischengespeicherte Daten (nächster Versuch in "
@@ -995,6 +1082,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
                 )
             else:
                 self._last_success = now
+                self._pruefe_grundgebuehr_einheit(bisherige_einheit)
                 if self._next_day_prices_due(now) and not self._has_tomorrow_prices(
                     now
                 ):

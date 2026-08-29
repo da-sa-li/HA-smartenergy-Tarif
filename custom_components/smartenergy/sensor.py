@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -56,16 +56,26 @@ def _stats(values: list[float]) -> tuple[StateType, StateType, StateType]:
     return round(sum(values) / len(values), 4), min(values), max(values)
 
 
-def _today_allin_values(data: SmartTimesData) -> list[float]:
-    """Gesamtkosten (ct/kWh) aller heutigen Intervalle."""
-    today = dt_util.now().date()
-    return [data.all_in_value(p) for p in data.for_day(today)]
+def _tagesbezug(day: date | None) -> date:
+    """Der übergebene Kalendertag, sonst der heutige.
+
+    ``day`` durchzureichen ist wichtig, wo der Aufrufer seinen Tag bereits
+    erfasst hat: Ein zweiter Blick auf die Uhr kann auf die andere Seite des
+    Tageswechsels fallen, und dann beschriebe ``average_today`` einen anderen
+    Tag als die Preisvorschau daneben. Die eigenständigen Kennzahl-Sensoren
+    haben keinen solchen Bezugspunkt und fragen weiterhin selbst.
+    """
+    return day if day is not None else dt_util.now().date()
 
 
-def _today_energy_values(data: SmartTimesData) -> list[float]:
-    """Arbeitspreise (ct/kWh) aller heutigen Intervalle."""
-    today = dt_util.now().date()
-    return [data.value(p) for p in data.for_day(today)]
+def _today_allin_values(data: SmartTimesData, day: date | None = None) -> list[float]:
+    """Gesamtkosten (ct/kWh) aller Intervalle eines Tages (Standard: heute)."""
+    return [data.all_in_value(p) for p in data.for_day(_tagesbezug(day))]
+
+
+def _today_energy_values(data: SmartTimesData, day: date | None = None) -> list[float]:
+    """Arbeitspreise (ct/kWh) aller Intervalle eines Tages (Standard: heute)."""
+    return [data.value(p) for p in data.for_day(_tagesbezug(day))]
 
 
 def _current_value(data: SmartTimesData) -> StateType:
@@ -108,7 +118,25 @@ def _price_quantile_today(data: SmartTimesData) -> StateType:
 
 
 def _basic_fee(data: SmartTimesData) -> StateType:
-    """Aktuelle monatliche Grundgebühr (gemäß Brutto-/Netto-Einstellung)."""
+    """Aktuelle monatliche Grundgebühr (gemäß Brutto-/Netto-Einstellung).
+
+    ``None``, sobald die API eine **andere** Einheit meldet als der Sensor
+    führt. Dessen Anzeige-Einheit ist fest hinterlegt
+    (``UNIT_EUR_PER_MONTH``) und kann einem Wechsel nicht folgen – ein
+    Jahreswert erschiene darunter als Monatswert. Die Warnung dazu steht im Log
+    (``coordinator._pruefe_grundgebuehr_einheit``), im Dashboard stünde aber
+    weiterhin eine Zahl, der man nichts ansieht. Lieber keine Aussage als eine
+    falsche: Der Sensor geht auf „unbekannt“.
+
+    Meldet die API **gar keine** Einheit, bleibt es beim Wert – dann gibt es
+    nichts, was widersprechen könnte.
+
+    Das Attribut ``basic_fee`` am Arbeitspreis-Sensor ist bewusst **nicht** so
+    abgesichert: Es steht direkt neben ``basic_fee_unit``, trägt seine Einheit
+    also mit sich und ist damit auch nach einem Wechsel eindeutig.
+    """
+    if data.basic_fee_unit is not None and data.basic_fee_unit != UNIT_EUR_PER_MONTH:
+        return None
     return data.basic_fee()
 
 
@@ -177,12 +205,22 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
 )
 
 
-def _is_available(description: SmartTimesSensorDescription, data: SmartTimesData) -> bool:
+def _hat_datengrundlage(
+    description: SmartTimesSensorDescription, data: SmartTimesData
+) -> bool:
     """Ob der Tarif die Datengrundlage für diesen Sensor überhaupt liefert.
 
     Betrifft bislang nur die Grundgebühr: smartTIMES liefert den optionalen
     ``basicFee``-Block der API, smartCONTROL nicht. Ohne ihn stünde der Sensor
     dauerhaft auf „unbekannt“ und sähe aus wie ein Defekt.
+
+    Entscheidet über das **Anlegen** der Entität, nicht über ihre
+    Verfügbarkeit zur Laufzeit – deshalb nicht ``_is_available``: Der frühere
+    Name legte ein ``available``-Property nahe, das minütlich mitliefe. Die
+    Auswertung geschieht stattdessen genau einmal, in ``async_setup_entry``.
+    Liefert die API die Grundgebühr erst später, erscheint der Sensor daher
+    erst nach einem Neuladen des Eintrags; verschwindet sie, bleibt er stehen
+    und meldet ``unbekannt``.
     """
     if description.key == "basic_fee":
         return bool(data.basic_fees)
@@ -219,7 +257,7 @@ async def async_setup_entry(
     async_add_entities(
         SmartTimesSensor(coordinator, entry, description)
         for description in SENSORS
-        if _is_available(description, data)
+        if _hat_datengrundlage(description, data)
     )
 
     # Gerät, an dem die Untereintrags-Geräte als „verbunden über“ hängen.
@@ -271,9 +309,18 @@ class NextCheapStartSensor(CheapHourEntity, SensorEntity):
     def native_value(self) -> datetime | None:
         """Nächster Einschaltzeitpunkt (zeitzonenbewusst) oder ``None``.
 
-        Der Wert enthält den Last-Glättungs-Versatz dieses Untereintrags bereits,
-        stimmt also sekundengenau mit dem Schaltzeitpunkt des zugehörigen
-        „Günstige Stunde“-Binary-Sensors überein.
+        Der Wert enthält den Last-Glättungs-Versatz dieses Untereintrags bereits
+        und ist sekundengenau – in dieser Auflösung nimmt ihn der ``time``-Trigger
+        unter ``at:`` entgegen.
+
+        Der zugehörige „Günstige Stunde“-Binary-Sensor erreicht diese Auflösung
+        **nicht**: Er wird nur ausgewertet, wenn der Koordinator rechnet, und der
+        tickt im Minutentakt (``RECALC_INTERVAL_MINUTES``). Er geht also bis zu
+        einer Minute *nach* diesem Zeitstempel auf ``on``. Für die Last-Glättung
+        genügt das – eine Streuung über ``JITTER_SPAN_SECONDS`` bleibt auch auf
+        einem Minutenraster eine Streuung über zehn Minuten. Wer beides in einer
+        Automatisierung verknüpft, darf den Binary-Sensor zum Zeitpunkt dieses
+        Zeitstempels aber noch nicht als ``on`` voraussetzen.
         """
         return self.coordinator.data.next_cheap_on(
             dt_util.now(),
@@ -345,7 +392,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         current = data.current(now)
         future = [p for p in data.prices if p.start > now]
         next_price = future[0] if future else None
-        avg, low, high = _stats(_today_energy_values(data))
+        avg, low, high = _stats(_today_energy_values(data, today))
 
         # Achtung, bewusste Namensgebung: Sämtliche Kennzahlen dieses Sensors
         # beziehen sich auf den reinen ARBEITSPREIS. Die gleichnamigen Sensoren
@@ -394,7 +441,12 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         today = now.date()
         tomorrow = today + timedelta(days=1)
 
-        price = data.current()
+        # Ein einziger Blick auf die Uhr für den ganzen Attributsatz – oben
+        # `now`, hier und bei den Tageskennzahlen durchgereicht. Jeder eigene
+        # `dt_util.now()`-Aufruf könnte auf die andere Seite eines Intervall-
+        # oder Tageswechsels fallen, und dann beschriebe die Aufschlüsselung ein
+        # anderes Intervall als die Vorschau daneben.
+        price = data.current(now)
         # Nebenkosten anhand des aktuellen Intervalls bestimmen, damit die
         # Aufschlüsselung exakt zum Sensorwert passt.
         moment = price.start if price else now
@@ -414,7 +466,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
 
         future = [p for p in data.prices if p.start > now]
         next_price = future[0] if future else None
-        avg, low, high = _stats(_today_allin_values(data))
+        avg, low, high = _stats(_today_allin_values(data, today))
 
         return {
             "vat_included": data.include_vat,
@@ -428,11 +480,16 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
                 for key, wert in data.surcharge_breakdown(moment).items()
             },
             "surcharges_total_eur_kwh": to_eur(surcharges_total),
-            "total_eur_kwh": (
-                to_eur(round(working_price + surcharges_total, 4))
-                if working_price is not None
-                else None
-            ),
+            # Dieselbe Rechnung wie der Sensorwert (`native_value`), nicht die
+            # Summe der beiden Attribute darüber: Jene addierte zwei bereits
+            # gerundete Bruttowerte, während der Zustand netto summiert und die
+            # USt. einmal am Ende anwendet. In exakter Arithmetik ist das
+            # dasselbe, in gerundeter nicht – bei einem Bruttopreis mit vier
+            # Nachkommastellen (die API rundet auf vier, siehe `api.py`) gingen
+            # die beiden Wege in rund jedem sechsten Fall um 0,0001 ct/kWh
+            # auseinander. Das Wiki sagt zu, dass dieses Attribut dem Sensorwert
+            # entspricht; über `all_in_value` gilt das per Konstruktion.
+            "total_eur_kwh": to_eur(data.all_in_value(price)) if price else None,
             "grid_zone": zone.name if zone else None,
             "snap_active": is_snap(moment) if zone else False,
             "average_today": to_eur(avg),

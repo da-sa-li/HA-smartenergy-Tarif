@@ -8,6 +8,7 @@ smartTIMES liefert den ``basicFee``-Block der API, smartCONTROL nicht.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -38,14 +39,16 @@ KEINE_EUR_PRO_KWH = {
 }
 
 
-async def _richte_ein(hass: HomeAssistant, payload: dict, tarif: str) -> MockConfigEntry:
+async def _richte_ein(
+    hass: HomeAssistant, payload: dict, tarif: str, netzgebiet: str = "none"
+) -> MockConfigEntry:
     """Richtet einen Eintrag mit der übergebenen API-Antwort ein."""
     parsed = SmartTimesApiClient._parse(payload)
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
         data={},
-        options={"tariff": tarif, "include_vat": True, "grid_zone": "none"},
+        options={"tariff": tarif, "include_vat": True, "grid_zone": netzgebiet},
     )
     entry.add_to_hass(hass)
     with patch(
@@ -126,6 +129,53 @@ async def test_warnung_bei_abweichender_grundgebuehr_einheit(
 
     assert "EUR/year" in caplog.text
     assert "EUR/month" in caplog.text
+
+
+async def test_grundgebuehr_bei_fremder_einheit_bleibt_unbekannt(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Passt die Einheit nicht, zeigt der Sensor keinen Wert mehr.
+
+    Die Anzeige-Einheit ist fest hinterlegt und kann einem Wechsel nicht folgen.
+    Ein Jahreswert erschiene darunter als Monatswert – im Dashboard eine Zahl,
+    der man nichts ansieht, während die Warnung nur im Log steht. Lieber keine
+    Aussage als eine falsche.
+
+    Die Entität entsteht weiterhin: Ihre Datengrundlage (der ``basicFee``-Block)
+    ist ja da, nur nicht mehr in der Einheit, die der Sensor führt.
+    """
+    payload = dict(smarttimes_payload)
+    payload["basicFee"] = dict(payload["basicFee"], unit="EUR/year")
+
+    await _richte_ein(hass, payload, "smarttimes")
+
+    zustand = hass.states.get("sensor.smarttimes_strompreishelfer_basic_fee")
+    assert zustand is not None, "Der Sensor soll bleiben – nur ohne Wert."
+    assert zustand.state == "unknown"
+
+
+async def test_grundgebuehr_ohne_einheitsangabe_zeigt_den_wert(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Nennt die API gar keine Einheit, bleibt es beim Wert.
+
+    Gegenprobe zur Absicherung darüber: Sie greift nur bei einem *Widerspruch*,
+    nicht schon bei einer fehlenden Angabe – sonst verschwände der Sensorwert
+    bei einer API, die die Einheit einfach nicht mitliefert.
+    """
+    payload = dict(smarttimes_payload)
+    ohne_einheit = {
+        schluessel: wert
+        for schluessel, wert in payload["basicFee"].items()
+        if schluessel != "unit"
+    }
+    payload["basicFee"] = ohne_einheit
+
+    await _richte_ein(hass, payload, "smarttimes")
+
+    zustand = hass.states.get("sensor.smarttimes_strompreishelfer_basic_fee")
+    # Erster basicFee-Eintrag der Fixture, brutto wie geliefert.
+    assert float(zustand.state) == pytest.approx(2.988)
 
 
 # Sollwerte von Hand aus tests/fixtures/smarttimes.json abgeleitet.
@@ -332,22 +382,7 @@ BLOCKBEGINN_6 = datetime(2026, 6, 6, 10, 0, tzinfo=VIENNA)
 
 async def _richte_ein_wien(hass: HomeAssistant, payload: dict) -> MockConfigEntry:
     """Richtet einen smartTIMES-Eintrag ohne Untereintrag ein (Netzgebiet Wien)."""
-    parsed = SmartTimesApiClient._parse(payload)
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        unique_id=DOMAIN,
-        data={},
-        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
-    )
-    entry.add_to_hass(hass)
-    with patch(
-        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
-        AsyncMock(return_value=parsed),
-    ):
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-    assert entry.state is ConfigEntryState.LOADED
-    return entry
+    return await _richte_ein(hass, payload, "smarttimes", netzgebiet="wien")
 
 
 async def _richte_mit_untereintrag_ein(
@@ -727,6 +762,139 @@ async def test_gesamtpreis_attribut_deckt_sich_mit_dem_sensorwert(
 
     zustand = hass.states.get("sensor.smarttimes_strompreishelfer_total_price")
     assert float(zustand.state) == zustand.attributes["total_eur_kwh"]
+
+
+# Sollwerte von Hand, smartCONTROL ohne Netzgebiet, brutto, mit einem
+# Bruttopreis von 8,0001 ct/kWh – vier Nachkommastellen, so viele lässt
+# ``api.py`` zu (``round(value, 4)``):
+#   netto AP          = round(8,0001 / 1,2, 4) = round(6,66675, 4) = 6,6668
+#   Nebenkosten netto = 0,10 + 0,62 + 1,20                        = 1,92
+#   Summe netto       = 6,6668 + 1,92                             = 8,5868
+#   Zustand           = round(8,5868 * 1,2, 4) = 10,3042 ct -> 0,103042 EUR
+#
+# Der frühere Attributweg addierte stattdessen zwei bereits gerundete
+# Bruttowerte und kam auf einen anderen Wert:
+#   8,0001 + round(1,92 * 1,2, 4) = 8,0001 + 2,304 = 10,3041 ct -> 0,103041 EUR
+VIERSTELLIGER_BRUTTOPREIS = 8.0001
+VIERSTELLIGER_GESAMT_EUR = 0.103042
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_gesamtpreis_attribut_deckt_sich_bei_vier_nachkommastellen(
+    hass: HomeAssistant, enable_custom_integrations, smartcontrol_payload
+):
+    """Auch ein vierstelliger Bruttopreis führt auf denselben Wert.
+
+    Der Test darüber prüft dieselbe Zusage an den Fixture-Preisen. Die sind aber
+    durchweg dreistellig und damit exakte Vielfache von 1,2, sodass beide
+    Rechenwege dort zwangsläufig übereinstimmen – die Zusage galt aus Versehen,
+    nicht aus Konstruktion. Erst die vierte Nachkommastelle trennt sie.
+    """
+    payload = dict(smartcontrol_payload)
+    payload["data"] = [
+        dict(eintrag, value=VIERSTELLIGER_BRUTTOPREIS)
+        for eintrag in smartcontrol_payload["data"]
+    ]
+
+    await _richte_ein(hass, payload, "smartcontrol")
+
+    zustand = hass.states.get("sensor.smartcontrol_strompreishelfer_total_price")
+    assert float(zustand.state) == pytest.approx(VIERSTELLIGER_GESAMT_EUR)
+    assert zustand.attributes["total_eur_kwh"] == float(zustand.state)
+
+
+# Sollwerte von Hand, brutto, 05.06.2026 12:00 Ortszeit (im SNAP-Fenster).
+# Sätze aus surcharges.py und grid_fees.py, Stand 2026; Konvention: netto
+# summieren, USt. einmal am Ende.
+#
+# smartTIMES + Netzgebiet Wien – vier Positionen:
+#   Abgaben netto   0,10 Elektrizitätsabgabe + 0,62 Förderbeitrag = 0,72
+#   Wien NE 7 netto 5,58 Netznutzung (SNAP)  + 0,700 Netzverlust  = 6,28
+#   Summe netto     0,72 + 6,28                                   = 7,00
+#   brutto          7,00 * 1,2 = 8,400 ct/kWh -> 0,084 EUR/kWh
+#
+# smartCONTROL ohne Netzgebiet – dafür mit Abwicklungsgebühr, drei Positionen:
+#   Summe netto     0,72 Abgaben + 1,20 Abwicklungsgebühr         = 1,92
+#   brutto          1,92 * 1,2 = 2,304 ct/kWh -> 0,02304 EUR/kWh
+@pytest.mark.parametrize(
+    ("tarif", "payload_name", "netzgebiet", "erwartet_eur"),
+    [
+        ("smarttimes", "smarttimes_payload", "wien", 0.084),
+        ("smartcontrol", "smartcontrol_payload", "none", 0.02304),
+    ],
+)
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_nebenkosten_positionen_ergeben_die_ausgewiesene_summe(
+    hass: HomeAssistant,
+    enable_custom_integrations,
+    request: pytest.FixtureRequest,
+    tarif: str,
+    payload_name: str,
+    netzgebiet: str,
+    erwartet_eur: float,
+):
+    """Aufschlüsselung und ausgewiesene Summe treffen beide den Sollwert.
+
+    Sie entstehen auf verschiedenen Wegen: Die Positionen tragen die USt. je
+    einzeln (``surcharge_breakdown``), die Summe erst auf dem Nettobetrag
+    (``surcharges_total``). Wer die Aufschlüsselung im Dashboard nachrechnet,
+    erwartet dieselbe Zahl – und liest sonst einen Fehler hinein, wo keiner ist.
+
+    Geprüft wird deshalb **jede Seite einzeln gegen den von Hand hergeleiteten
+    Sollwert** und nicht bloß eine gegen die andere: Ein gemeinsamer
+    Rechenfehler – ein falscher USt.-Satz etwa – verschöbe beide Seiten gleich
+    und bliebe bei einem reinen Quervergleich unsichtbar.
+    """
+    await _richte_ein(
+        hass, request.getfixturevalue(payload_name), tarif, netzgebiet=netzgebiet
+    )
+
+    attribute = hass.states.get(
+        f"sensor.{tarif}_strompreishelfer_total_price"
+    ).attributes
+
+    positionen = attribute["surcharges_eur_kwh"]
+    assert len(positionen) >= 3, (
+        "Erwartet werden mehrere Positionen – sonst prüft der Test keine Summe."
+    )
+    assert sum(positionen.values()) == pytest.approx(erwartet_eur)
+    assert attribute["surcharges_total_eur_kwh"] == pytest.approx(erwartet_eur)
+
+
+@pytest.mark.parametrize("schluessel", ["total_price", "working_price"])
+def test_attributsatz_liest_die_uhr_nur_einmal(
+    make_data, smarttimes_payload, schluessel: str
+):
+    """Ein einziger Blick auf die Uhr trägt den ganzen Attributsatz.
+
+    Jeder zusätzliche Aufruf kann auf die andere Seite eines Intervall- oder
+    Tageswechsels fallen. Dann beschriebe ``average_today`` einen anderen
+    Kalendertag als die Vorschau daneben, oder die Nebenkosten-Aufschlüsselung
+    ein anderes Intervall als der Preis, zu dem sie gehört.
+
+    Gezählt wird der Zugriff selbst und nicht das Ergebnis: Der Fehlerfall hängt
+    gerade daran, dass sich die Uhr *zwischen* zwei Aufrufen weiterdreht – mit
+    eingefrorener Uhr ist er nicht herstellbar, und ohne sie träfe er nur an
+    zwei Augenblicken des Tages zu.
+    """
+    from custom_components.smartenergy.sensor import SENSORS, SmartTimesSensor
+
+    daten = make_data(smarttimes_payload, grid_zone="wien")
+    beschreibung = next(b for b in SENSORS if b.key == schluessel)
+    sensor = SmartTimesSensor(
+        SimpleNamespace(data=daten),
+        SimpleNamespace(entry_id="eintrag"),
+        beschreibung,
+    )
+
+    with patch("custom_components.smartenergy.sensor.dt_util") as uhr:
+        uhr.now.return_value = datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)
+        attribute = sensor.extra_state_attributes
+
+    assert uhr.now.call_count == 1
+    # Gegenprobe, dass der Satz überhaupt gefüllt ist – sonst zählte der Test
+    # die Uhrzugriffe eines leeren Durchlaufs.
+    assert attribute["prices_today"]
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit

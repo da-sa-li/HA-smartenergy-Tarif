@@ -474,7 +474,7 @@ def test_grundgebuehr_ueberspringt_kaputte_eintraege():
 def test_grundgebuehr_falscher_form_wird_ignoriert():
     """Ist ``basicFee`` gar kein Objekt, gibt es schlicht keine Grundgebühr.
 
-    Der Sensor entfällt dann (siehe ``sensor._is_available``), statt dauerhaft
+    Der Sensor entfällt dann (siehe ``sensor._hat_datengrundlage``), statt dauerhaft
     auf „unbekannt“ zu stehen.
     """
     result = SmartTimesApiClient._parse(
