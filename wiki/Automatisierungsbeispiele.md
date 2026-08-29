@@ -81,10 +81,10 @@ automation:
 
 # Verbraucher starten, wenn der Preis günstig ist
 
-Das **Preisquantil** ordnet den laufenden Preis in den heutigen Tag ein, mit
-0 % für das günstigste Intervall. Damit reicht ein numerischer Trigger, wo
-sonst ein Template-Sensor den aktuellen Preis erst gegen die Tageskennzahlen
-rechnen müsste:
+Das **Preisquantil** ordnet den laufenden Preis in den heutigen Tag ein – je
+niedriger, desto günstiger. Damit reicht ein numerischer Trigger, wo sonst ein
+Template-Sensor den aktuellen Preis erst gegen die Tageskennzahlen rechnen
+müsste:
 
 ```yaml
 automation:
@@ -97,10 +97,15 @@ automation:
         target: { entity_id: switch.boiler }
 ```
 
-> Die Schwelle ist frei wählbar, `below: 10` ist entsprechend strenger. Weil
-> das Quantil normiert ist, ist derselbe Wert über Tarife hinweg vergleichbar –
-> anders als eine Schwelle in EUR/kWh, die bei jeder Preisänderung nachgezogen
-> werden müsste.
+> Die Schwelle ist frei wählbar, muss aber zum Tarif passen: **0 % kommt nie
+> vor.** Preisgleiche Intervalle tragen denselben Quantilwert, das günstigste
+> Preisniveau liegt deshalb bei der halben Breite seiner Gleichstandsgruppe –
+> bei smartTIMES ohne Netzgebiet bei 16,67 %, mit Netzgebiet Wien im Sommer bei
+> 12,50 %. Ein `below: 10` löst dort also **nie** aus, ohne dass es auffiele.
+> Bei smartCONTROL greifen auch kleine Schwellen, weil der Tarif pro Tag fast
+> durchweg verschiedene Preise hat. Die Skala selbst ist normiert und damit über
+> Tarife hinweg dieselbe – anders als eine Schwelle in EUR/kWh, die bei jeder
+> Preisänderung nachgezogen werden müsste.
 
 > [!NOTE]
 > Für einen Verbraucher mit einer festen Laufzeit („vier Stunden am Tag“) ist

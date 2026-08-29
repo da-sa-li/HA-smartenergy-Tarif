@@ -38,14 +38,16 @@ KEINE_EUR_PRO_KWH = {
 }
 
 
-async def _richte_ein(hass: HomeAssistant, payload: dict, tarif: str) -> MockConfigEntry:
+async def _richte_ein(
+    hass: HomeAssistant, payload: dict, tarif: str, netzgebiet: str = "none"
+) -> MockConfigEntry:
     """Richtet einen Eintrag mit der übergebenen API-Antwort ein."""
     parsed = SmartTimesApiClient._parse(payload)
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
         data={},
-        options={"tariff": tarif, "include_vat": True, "grid_zone": "none"},
+        options={"tariff": tarif, "include_vat": True, "grid_zone": netzgebiet},
     )
     entry.add_to_hass(hass)
     with patch(
@@ -332,22 +334,7 @@ BLOCKBEGINN_6 = datetime(2026, 6, 6, 10, 0, tzinfo=VIENNA)
 
 async def _richte_ein_wien(hass: HomeAssistant, payload: dict) -> MockConfigEntry:
     """Richtet einen smartTIMES-Eintrag ohne Untereintrag ein (Netzgebiet Wien)."""
-    parsed = SmartTimesApiClient._parse(payload)
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        unique_id=DOMAIN,
-        data={},
-        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
-    )
-    entry.add_to_hass(hass)
-    with patch(
-        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
-        AsyncMock(return_value=parsed),
-    ):
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-    assert entry.state is ConfigEntryState.LOADED
-    return entry
+    return await _richte_ein(hass, payload, "smarttimes", netzgebiet="wien")
 
 
 async def _richte_mit_untereintrag_ein(
@@ -727,6 +714,89 @@ async def test_gesamtpreis_attribut_deckt_sich_mit_dem_sensorwert(
 
     zustand = hass.states.get("sensor.smarttimes_strompreishelfer_total_price")
     assert float(zustand.state) == zustand.attributes["total_eur_kwh"]
+
+
+# Sollwerte von Hand, smartCONTROL ohne Netzgebiet, brutto, mit einem
+# Bruttopreis von 8,0001 ct/kWh – vier Nachkommastellen, so viele lässt
+# ``api.py`` zu (``round(value, 4)``):
+#   netto AP          = round(8,0001 / 1,2, 4) = round(6,66675, 4) = 6,6668
+#   Nebenkosten netto = 0,10 + 0,62 + 1,20                        = 1,92
+#   Summe netto       = 6,6668 + 1,92                             = 8,5868
+#   Zustand           = round(8,5868 * 1,2, 4) = 10,3042 ct -> 0,103042 EUR
+#
+# Der frühere Attributweg addierte stattdessen zwei bereits gerundete
+# Bruttowerte und kam auf einen anderen Wert:
+#   8,0001 + round(1,92 * 1,2, 4) = 8,0001 + 2,304 = 10,3041 ct -> 0,103041 EUR
+VIERSTELLIGER_BRUTTOPREIS = 8.0001
+VIERSTELLIGER_GESAMT_EUR = 0.103042
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_gesamtpreis_attribut_deckt_sich_bei_vier_nachkommastellen(
+    hass: HomeAssistant, enable_custom_integrations, smartcontrol_payload
+):
+    """Auch ein vierstelliger Bruttopreis führt auf denselben Wert.
+
+    Der Test darüber prüft dieselbe Zusage an den Fixture-Preisen. Die sind aber
+    durchweg dreistellig und damit exakte Vielfache von 1,2, sodass beide
+    Rechenwege dort zwangsläufig übereinstimmen – die Zusage galt aus Versehen,
+    nicht aus Konstruktion. Erst die vierte Nachkommastelle trennt sie.
+    """
+    payload = dict(smartcontrol_payload)
+    payload["data"] = [
+        dict(eintrag, value=VIERSTELLIGER_BRUTTOPREIS)
+        for eintrag in smartcontrol_payload["data"]
+    ]
+
+    await _richte_ein(hass, payload, "smartcontrol")
+
+    zustand = hass.states.get("sensor.smartcontrol_strompreishelfer_total_price")
+    assert float(zustand.state) == pytest.approx(VIERSTELLIGER_GESAMT_EUR)
+    assert zustand.attributes["total_eur_kwh"] == float(zustand.state)
+
+
+@pytest.mark.parametrize(
+    ("tarif", "payload_name", "netzgebiet"),
+    [
+        # Mit Netzgebiet sind es vier Positionen, ohne zwei – smartCONTROL bringt
+        # dafür die Abwicklungsgebühr als dritte mit.
+        ("smarttimes", "smarttimes_payload", "wien"),
+        ("smartcontrol", "smartcontrol_payload", "none"),
+    ],
+)
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_nebenkosten_positionen_ergeben_die_ausgewiesene_summe(
+    hass: HomeAssistant,
+    enable_custom_integrations,
+    request: pytest.FixtureRequest,
+    tarif: str,
+    payload_name: str,
+    netzgebiet: str,
+):
+    """Die Aufschlüsselung addiert sich auf die daneben ausgewiesene Summe.
+
+    Beide Werte wurden bisher nur je einzeln gegen feste Sollwerte geprüft, nie
+    gegeneinander. Sie entstehen aber auf verschiedenen Wegen: Die Positionen
+    tragen die USt. je einzeln (``surcharge_breakdown``), die Summe erst auf dem
+    Nettobetrag (``surcharges_total``). Wer die Aufschlüsselung im Dashboard
+    nachrechnet, erwartet dieselbe Zahl – und liest sonst einen Fehler hinein,
+    wo keiner ist.
+    """
+    await _richte_ein(
+        hass, request.getfixturevalue(payload_name), tarif, netzgebiet=netzgebiet
+    )
+
+    attribute = hass.states.get(
+        f"sensor.{tarif}_strompreishelfer_total_price"
+    ).attributes
+
+    positionen = attribute["surcharges_eur_kwh"]
+    assert len(positionen) >= 3, (
+        "Erwartet werden mehrere Positionen – sonst prüft der Test keine Summe."
+    )
+    assert sum(positionen.values()) == pytest.approx(
+        attribute["surcharges_total_eur_kwh"]
+    )
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit

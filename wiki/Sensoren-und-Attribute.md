@@ -137,7 +137,7 @@ Damit nicht alle Verbraucher gleichzeitig schalten und Lastspitzen erzeugen, ver
 
 Läuft ein günstiger Zeitraum über Mitternacht, werden die Blöcke beider Tage für den Jitter zu **einem** zusammengefasst – sonst risse der Versatz am Tageswechsel eine Schaltlücke auf. Ein Fenster in `cheap_windows` kann deshalb vor dem heutigen Tag beginnen oder nach ihm enden.
 
-Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist genau dieser Versatz und kein Fehler. Der eigene Wert steht in `jitter_offset_seconds`.
+Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist genau dieser Versatz und kein Fehler. Der eigene Wert steht in `jitter_offset_seconds`. Auf die Sekunde genau lässt er sich am Sensor allerdings nicht ablesen: Ausgewertet wird nur, wenn der Koordinator rechnet – einmal je Minute –, der Sensor schaltet also bis zu eine Minute nach dem ausgewiesenen Versatz.
 
 ## Attribute
 
@@ -161,7 +161,9 @@ Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist gen
 
 Je Untereintrag entsteht neben dem Binary-Sensor ein **Zeitstempel-Sensor** mit dem Beginn des nächsten günstigen Fensters. Er trägt `device_class: timestamp`, und genau darum geht es: Der `time`-Trigger von Home Assistant nimmt unter `at:` nur Entitäten mit dieser Geräteklasse. Ein Attribut – auch `next_cheap_start` am Binary-Sensor – lässt sich dort nicht referenzieren, weshalb „30 Minuten vor dem günstigen Fenster vorheizen“ bislang einen Template-Sensor brauchte. Ein Beispiel steht unter [Automatisierungsbeispiele](Automatisierungsbeispiele).
 
-Der Wert **enthält die Last-Glättung bereits** und stimmt damit sekundengenau mit dem Zeitpunkt überein, zu dem der zugehörige Binary-Sensor auf `on` geht.
+Der Wert **enthält die Last-Glättung bereits** und ist sekundengenau – in dieser Auflösung nimmt ihn der `time`-Trigger entgegen.
+
+Der zugehörige Binary-Sensor **Günstige Stunde** erreicht diese Auflösung nicht: Er wird nur ausgewertet, wenn der Koordinator rechnet, und das ist einmal je Minute. Er geht deshalb bis zu eine Minute *nach* diesem Zeitstempel auf `on`. Für die Last-Glättung genügt das – eine Streuung über zehn Minuten bleibt auch auf einem Minutenraster eine Streuung über zehn Minuten. Wer beides verknüpft, darf den Binary-Sensor zum Zeitpunkt des Zeitstempels aber noch nicht als `on` voraussetzen: Eine `condition` darauf ließe die Automatisierung ins Leere laufen.
 
 > [!NOTE]
 > Der Sensor steht auf `unknown`, wenn kein nächstes Fenster bekannt ist – typischerweise spät abends, bevor die Preise für den Folgetag veröffentlicht sind. Das ist Absicht und kein Fehler: Ein `time`-Trigger feuert dann schlicht nicht, statt eine falsche Zeit zu verwenden.

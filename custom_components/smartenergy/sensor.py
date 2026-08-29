@@ -271,9 +271,18 @@ class NextCheapStartSensor(CheapHourEntity, SensorEntity):
     def native_value(self) -> datetime | None:
         """Nächster Einschaltzeitpunkt (zeitzonenbewusst) oder ``None``.
 
-        Der Wert enthält den Last-Glättungs-Versatz dieses Untereintrags bereits,
-        stimmt also sekundengenau mit dem Schaltzeitpunkt des zugehörigen
-        „Günstige Stunde“-Binary-Sensors überein.
+        Der Wert enthält den Last-Glättungs-Versatz dieses Untereintrags bereits
+        und ist sekundengenau – in dieser Auflösung nimmt ihn der ``time``-Trigger
+        unter ``at:`` entgegen.
+
+        Der zugehörige „Günstige Stunde“-Binary-Sensor erreicht diese Auflösung
+        **nicht**: Er wird nur ausgewertet, wenn der Koordinator rechnet, und der
+        tickt im Minutentakt (``RECALC_INTERVAL_MINUTES``). Er geht also bis zu
+        eine Minute *nach* diesem Zeitstempel auf ``on``. Für die Last-Glättung
+        genügt das – eine Streuung über ``JITTER_SPAN_SECONDS`` bleibt auch auf
+        einem Minutenraster eine Streuung über zehn Minuten. Wer beides in einer
+        Automatisierung verknüpft, darf den Binary-Sensor zum Zeitpunkt dieses
+        Zeitstempels aber noch nicht als ``on`` voraussetzen.
         """
         return self.coordinator.data.next_cheap_on(
             dt_util.now(),
@@ -394,7 +403,11 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         today = now.date()
         tomorrow = today + timedelta(days=1)
 
-        price = data.current()
+        # Dieselbe Uhrzeit wie für die übrigen Attribute: Ein eigener
+        # `dt_util.now()`-Aufruf könnte auf die andere Seite eines
+        # Viertelstundenwechsels fallen, und die Aufschlüsselung beschriebe dann
+        # ein anderes Intervall als die Preisvorschau daneben.
+        price = data.current(now)
         # Nebenkosten anhand des aktuellen Intervalls bestimmen, damit die
         # Aufschlüsselung exakt zum Sensorwert passt.
         moment = price.start if price else now
@@ -428,11 +441,16 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
                 for key, wert in data.surcharge_breakdown(moment).items()
             },
             "surcharges_total_eur_kwh": to_eur(surcharges_total),
-            "total_eur_kwh": (
-                to_eur(round(working_price + surcharges_total, 4))
-                if working_price is not None
-                else None
-            ),
+            # Dieselbe Rechnung wie der Sensorwert (`native_value`), nicht die
+            # Summe der beiden Attribute darüber: Jene addierte zwei bereits
+            # gerundete Bruttowerte, während der Zustand netto summiert und die
+            # USt. einmal am Ende anwendet. In exakter Arithmetik ist das
+            # dasselbe, in gerundeter nicht – bei einem Bruttopreis mit vier
+            # Nachkommastellen (die API rundet auf vier, siehe `api.py`) gingen
+            # die beiden Wege in rund jedem sechsten Fall um 0,0001 ct/kWh
+            # auseinander. Das Wiki sagt zu, dass dieses Attribut dem Sensorwert
+            # entspricht; über `all_in_value` gilt das per Konstruktion.
+            "total_eur_kwh": to_eur(data.all_in_value(price)) if price else None,
             "grid_zone": zone.name if zone else None,
             "snap_active": is_snap(moment) if zone else False,
             "average_today": to_eur(avg),
