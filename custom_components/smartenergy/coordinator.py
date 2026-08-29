@@ -821,6 +821,10 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         # zuletzt vom Server per Retry-After angeforderte Pause.
         self._failed_attempts: int = 0
         self._retry_after: timedelta | None = None
+        # Zuletzt von der API gemeldete Einheit der Grundgebühr – die letzte
+        # *vorhandene*, nicht die des vorigen Abrufs (siehe
+        # `_pruefe_grundgebuehr_einheit`).
+        self._letzte_grundgebuehr_einheit: str | None = None
         # Seed des täglichen Abruf-Jitters (siehe `_jitter_minutes`).
         self._entry_id = entry.entry_id
 
@@ -993,23 +997,41 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
 
         Läuft nur nach einem **erfolgreichen** Abruf und damit höchstens
         täglich; die minütliche Neuberechnung berührt sie nicht.
+
+        Verglichen wird gegen die zuletzt *vorhandene* Einheit
+        (``_letzte_grundgebuehr_einheit``) und nicht gegen die des vorigen
+        Abrufs. Sonst risse eine Lücke die Kette: Entfiele die Grundgebühr
+        vorübergehend und käme mit einer **anderen** Einheit zurück, wäre die
+        Vergleichsgröße beim Wiederauftauchen ``None`` – der Wechsel bliebe
+        unbemerkt, und der Sensor zeigte einen Jahreswert weiter als
+        Monatswert. Genau der Fall, den diese Methode verhindern soll.
+
+        ``bisherige_einheit`` (der Wert des vorigen Abrufs) wird trotzdem
+        gebraucht, aber nur für den **Übergang** in den Entfall: Ohne ihn
+        stünde die Entfall-Meldung bei jedem weiteren Abruf erneut im Log.
         """
-        if self._last_result is None or bisherige_einheit is None:
-            # Erster Abruf (oder ein Tarif ohne Grundgebühr): Es gibt nichts,
-            # womit sich vergleichen ließe.
+        if self._last_result is None:
             return
 
         neue_einheit = self._last_result.basic_fee_unit
-        if neue_einheit == bisherige_einheit:
-            return
 
         if neue_einheit is None:
-            _LOGGER.warning(
-                "Die smartENERGY-API liefert keine Grundgebühr mehr (zuletzt "
-                "in '%s'). Der zugehörige Sensor bleibt ohne Wert, bis sie "
-                "wieder erscheint.",
-                bisherige_einheit,
-            )
+            # Nur den Übergang melden, nicht jeden Abruf danach. Die zuletzt
+            # bekannte Einheit bleibt bewusst gemerkt – kommt die Grundgebühr
+            # mit einer anderen zurück, ist das ein Wechsel.
+            if bisherige_einheit is not None:
+                _LOGGER.warning(
+                    "Die smartENERGY-API liefert keine Grundgebühr mehr "
+                    "(zuletzt in '%s'). Der zugehörige Sensor bleibt ohne "
+                    "Wert, bis sie wieder erscheint.",
+                    bisherige_einheit,
+                )
+            return
+
+        zuletzt_gemeldet = self._letzte_grundgebuehr_einheit
+        self._letzte_grundgebuehr_einheit = neue_einheit
+        if zuletzt_gemeldet is None or neue_einheit == zuletzt_gemeldet:
+            # Erster Abruf mit Grundgebühr – es gibt nichts zu vergleichen.
             return
 
         _LOGGER.warning(
@@ -1017,7 +1039,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             "'%s'. Der Sensor führt weiterhin die beim Einrichten geprüfte "
             "Einheit – sein Wert passt damit möglicherweise nicht mehr.",
             neue_einheit,
-            bisherige_einheit,
+            zuletzt_gemeldet,
         )
 
     async def _async_update_data(self) -> SmartTimesData:

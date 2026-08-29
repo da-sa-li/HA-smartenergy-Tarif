@@ -37,7 +37,7 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 | `prices_tomorrow_valid` | `true`, sobald die Preise für morgen vorliegen. Trennt „noch nicht veröffentlicht“ von „keine Preise“ – `prices_tomorrow` ist in beiden Fällen leer |
 | `unit` | Einheit der Preisangaben in diesen Attributen (`EUR/kWh`) |
 | `source_unit` | Einheit, in der die API liefert – smartTIMES meldet `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
-| `vat_included` / `vat_rate` | Ob brutto gerechnet wird – und der österreichische USt.-Satz (`0.2`). Der Satz ist **konstant**: Er nennt den geltenden Satz, nicht ob er im Preis schon steckt. Bei `vat_included: false` steht er also weiterhin auf `0.2` und ist genau der Faktor, mit dem sich aus dem Netto- der Bruttopreis rechnen lässt |
+| `vat_included` / `vat_rate` | Ob brutto gerechnet wird – und der österreichische USt.-Satz (`0.2`). Der Satz ist **konstant**: Er nennt den geltenden Satz, nicht ob er im Preis schon steckt. Bei `vat_included: false` steht er also weiterhin auf `0.2`; der Bruttopreis ergibt sich daraus als `netto × (1 + vat_rate)`, also das 1,2-Fache – `vat_rate` selbst ist der Satz, nicht der Faktor |
 
 > [!NOTE]
 > `prices_tomorrow` ist leer, solange die Preise für den nächsten Tag noch nicht veröffentlicht sind – laut API-Zusage ab 17 Uhr. Eine leere Liste bedeutet also nicht zwingend „keine Preise“, sondern meist „noch nicht verfügbar“.

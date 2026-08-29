@@ -54,6 +54,14 @@ async def _coordinator(
     coordinator = SmartTimesCoordinator(hass, entry, client, include_vat=True)
     if payload is not None:
         coordinator._last_result = SmartTimesApiClient._parse(payload)
+        # Wie nach einem echten Abruf: Dessen Einheit der Grundgebühr gilt
+        # damit als gesehen. Ohne das stünde der Koordinator auf „noch nie eine
+        # Einheit gemeldet bekommen“, obwohl der Cache eine trägt – und
+        # `_pruefe_grundgebuehr_einheit` hätte beim nächsten Abruf nichts, womit
+        # sie vergleichen könnte.
+        coordinator._letzte_grundgebuehr_einheit = (
+            coordinator._last_result.basic_fee_unit
+        )
     coordinator._last_fetch = last_fetch
     return coordinator, client
 
@@ -535,6 +543,79 @@ async def test_erster_abruf_meldet_keinen_einheitenwechsel(
         return_value=SmartTimesApiClient._parse(smarttimes_payload)
     )
 
+    await coordinator._async_update_data()
+
+    assert _grundgebuehr_warnungen(caplog) == []
+
+
+async def test_einheitenwechsel_ueber_eine_luecke_hinweg_wird_gemeldet(
+    hass: HomeAssistant, smarttimes_payload, caplog
+):
+    """Auch nach einem vorübergehenden Entfall wird ein Wechsel noch erkannt.
+
+    Verglichen wird gegen die zuletzt *vorhandene* Einheit, nicht gegen die des
+    vorigen Abrufs. Sonst risse eine Lücke die Kette: Entfällt die Grundgebühr
+    und kommt mit einer anderen Einheit zurück, wäre die Vergleichsgröße beim
+    Wiederauftauchen ``None`` – der Wechsel bliebe unbemerkt und der Sensor
+    zeigte einen Jahreswert stillschweigend weiter als Monatswert. Genau der
+    Fall, den die Prüfung verhindern soll.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda _: True
+    # Ohne das bremste die Mindestwartezeit den zweiten Abruf aus.
+    coordinator._fetch_allowed = lambda _: True
+
+    ohne_gebuehr = {
+        schluessel: wert
+        for schluessel, wert in smarttimes_payload.items()
+        if schluessel != "basicFee"
+    }
+    zurueck_in_jahren = dict(smarttimes_payload)
+    zurueck_in_jahren["basicFee"] = dict(
+        smarttimes_payload["basicFee"], unit="EUR/year"
+    )
+
+    # Erster Abruf: Die Grundgebühr entfällt.
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(ohne_gebuehr)
+    )
+    await coordinator._async_update_data()
+    assert len(_grundgebuehr_warnungen(caplog)) == 1  # der Entfall
+
+    # Zweiter Abruf: Sie kommt mit einer anderen Einheit zurück.
+    caplog.clear()
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(zurueck_in_jahren)
+    )
+    await coordinator._async_update_data()
+
+    warnungen = _grundgebuehr_warnungen(caplog)
+    assert len(warnungen) == 1
+    assert "EUR/year" in warnungen[0]
+    assert "EUR/month" in warnungen[0]
+
+
+async def test_anhaltender_entfall_meldet_nur_einmal(
+    hass: HomeAssistant, smarttimes_payload, caplog
+):
+    """Der Entfall wird beim Übergang gemeldet, nicht bei jedem Abruf danach.
+
+    Sonst stünde dieselbe Warnung ab dann täglich im Log.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda _: True
+    coordinator._fetch_allowed = lambda _: True
+    ohne_gebuehr = {
+        schluessel: wert
+        for schluessel, wert in smarttimes_payload.items()
+        if schluessel != "basicFee"
+    }
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(ohne_gebuehr)
+    )
+
+    await coordinator._async_update_data()
+    caplog.clear()
     await coordinator._async_update_data()
 
     assert _grundgebuehr_warnungen(caplog) == []
