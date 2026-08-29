@@ -756,13 +756,24 @@ async def test_gesamtpreis_attribut_deckt_sich_bei_vier_nachkommastellen(
     assert zustand.attributes["total_eur_kwh"] == float(zustand.state)
 
 
+# Sollwerte von Hand, brutto, 05.06.2026 12:00 Ortszeit (im SNAP-Fenster).
+# Sätze aus surcharges.py und grid_fees.py, Stand 2026; Konvention: netto
+# summieren, USt. einmal am Ende.
+#
+# smartTIMES + Netzgebiet Wien – vier Positionen:
+#   Abgaben netto   0,10 Elektrizitätsabgabe + 0,62 Förderbeitrag = 0,72
+#   Wien NE 7 netto 5,58 Netznutzung (SNAP)  + 0,700 Netzverlust  = 6,28
+#   Summe netto     0,72 + 6,28                                   = 7,00
+#   brutto          7,00 * 1,2 = 8,400 ct/kWh -> 0,084 EUR/kWh
+#
+# smartCONTROL ohne Netzgebiet – dafür mit Abwicklungsgebühr, drei Positionen:
+#   Summe netto     0,72 Abgaben + 1,20 Abwicklungsgebühr         = 1,92
+#   brutto          1,92 * 1,2 = 2,304 ct/kWh -> 0,02304 EUR/kWh
 @pytest.mark.parametrize(
-    ("tarif", "payload_name", "netzgebiet"),
+    ("tarif", "payload_name", "netzgebiet", "erwartet_eur"),
     [
-        # Mit Netzgebiet sind es vier Positionen, ohne zwei – smartCONTROL bringt
-        # dafür die Abwicklungsgebühr als dritte mit.
-        ("smarttimes", "smarttimes_payload", "wien"),
-        ("smartcontrol", "smartcontrol_payload", "none"),
+        ("smarttimes", "smarttimes_payload", "wien", 0.084),
+        ("smartcontrol", "smartcontrol_payload", "none", 0.02304),
     ],
 )
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
@@ -773,15 +784,19 @@ async def test_nebenkosten_positionen_ergeben_die_ausgewiesene_summe(
     tarif: str,
     payload_name: str,
     netzgebiet: str,
+    erwartet_eur: float,
 ):
-    """Die Aufschlüsselung addiert sich auf die daneben ausgewiesene Summe.
+    """Aufschlüsselung und ausgewiesene Summe treffen beide den Sollwert.
 
-    Beide Werte wurden bisher nur je einzeln gegen feste Sollwerte geprüft, nie
-    gegeneinander. Sie entstehen aber auf verschiedenen Wegen: Die Positionen
-    tragen die USt. je einzeln (``surcharge_breakdown``), die Summe erst auf dem
-    Nettobetrag (``surcharges_total``). Wer die Aufschlüsselung im Dashboard
-    nachrechnet, erwartet dieselbe Zahl – und liest sonst einen Fehler hinein,
-    wo keiner ist.
+    Sie entstehen auf verschiedenen Wegen: Die Positionen tragen die USt. je
+    einzeln (``surcharge_breakdown``), die Summe erst auf dem Nettobetrag
+    (``surcharges_total``). Wer die Aufschlüsselung im Dashboard nachrechnet,
+    erwartet dieselbe Zahl – und liest sonst einen Fehler hinein, wo keiner ist.
+
+    Geprüft wird deshalb **jede Seite einzeln gegen den von Hand hergeleiteten
+    Sollwert** und nicht bloß eine gegen die andere: Ein gemeinsamer
+    Rechenfehler – ein falscher USt.-Satz etwa – verschöbe beide Seiten gleich
+    und bliebe bei einem reinen Quervergleich unsichtbar.
     """
     await _richte_ein(
         hass, request.getfixturevalue(payload_name), tarif, netzgebiet=netzgebiet
@@ -795,9 +810,8 @@ async def test_nebenkosten_positionen_ergeben_die_ausgewiesene_summe(
     assert len(positionen) >= 3, (
         "Erwartet werden mehrere Positionen – sonst prüft der Test keine Summe."
     )
-    assert sum(positionen.values()) == pytest.approx(
-        attribute["surcharges_total_eur_kwh"]
-    )
+    assert sum(positionen.values()) == pytest.approx(erwartet_eur)
+    assert attribute["surcharges_total_eur_kwh"] == pytest.approx(erwartet_eur)
 
 
 @pytest.mark.parametrize("schluessel", ["total_price", "working_price"])

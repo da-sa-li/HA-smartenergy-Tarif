@@ -298,7 +298,7 @@ class NextCheapStartSensor(CheapHourEntity, SensorEntity):
         Der zugehörige „Günstige Stunde“-Binary-Sensor erreicht diese Auflösung
         **nicht**: Er wird nur ausgewertet, wenn der Koordinator rechnet, und der
         tickt im Minutentakt (``RECALC_INTERVAL_MINUTES``). Er geht also bis zu
-        eine Minute *nach* diesem Zeitstempel auf ``on``. Für die Last-Glättung
+        einer Minute *nach* diesem Zeitstempel auf ``on``. Für die Last-Glättung
         genügt das – eine Streuung über ``JITTER_SPAN_SECONDS`` bleibt auch auf
         einem Minutenraster eine Streuung über zehn Minuten. Wer beides in einer
         Automatisierung verknüpft, darf den Binary-Sensor zum Zeitpunkt dieses
