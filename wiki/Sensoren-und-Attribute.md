@@ -14,7 +14,7 @@
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute` | Teuerster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_preisrang_heute` | Der wievielt-günstigste ist das laufende Intervall unter den heutigen **Gesamtpreisen** (1 = günstigstes) |
 | `sensor.smarttimes_strompreishelfer_preisquantil_heute` | Dieselbe Einordnung normiert auf 0–100 % (je niedriger, desto günstiger) |
-| `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**) |
+| `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**). Meldet die API eine andere Einheit, steht der Sensor auf `unknown`: Seine Einheit ist fest hinterlegt, ein Jahreswert erschiene darunter als Monatswert |
 | `binary_sensor.smarttimes_strompreishelfer_preise_fur_morgen_verfugbar` | `on`, sobald die Preise für den Folgetag vorliegen (Diagnose) |
 
 Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis. Der **Gesamtpreis**-Sensor addiert Steuern, Abgaben und Netzentgelte (siehe [Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)) und ist die richtige Wahl fürs Energie-Dashboard und zum Schalten. Tageskennzahlen und der Günstige-Stunde-Sensor beziehen sich auf den **Gesamtpreis**.

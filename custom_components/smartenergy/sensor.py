@@ -118,7 +118,25 @@ def _price_quantile_today(data: SmartTimesData) -> StateType:
 
 
 def _basic_fee(data: SmartTimesData) -> StateType:
-    """Aktuelle monatliche Grundgebühr (gemäß Brutto-/Netto-Einstellung)."""
+    """Aktuelle monatliche Grundgebühr (gemäß Brutto-/Netto-Einstellung).
+
+    ``None``, sobald die API eine **andere** Einheit meldet als der Sensor
+    führt. Dessen Anzeige-Einheit ist fest hinterlegt
+    (``UNIT_EUR_PER_MONTH``) und kann einem Wechsel nicht folgen – ein
+    Jahreswert erschiene darunter als Monatswert. Die Warnung dazu steht im Log
+    (``coordinator._pruefe_grundgebuehr_einheit``), im Dashboard stünde aber
+    weiterhin eine Zahl, der man nichts ansieht. Lieber keine Aussage als eine
+    falsche: Der Sensor geht auf „unbekannt“.
+
+    Meldet die API **gar keine** Einheit, bleibt es beim Wert – dann gibt es
+    nichts, was widersprechen könnte.
+
+    Das Attribut ``basic_fee`` am Arbeitspreis-Sensor ist bewusst **nicht** so
+    abgesichert: Es steht direkt neben ``basic_fee_unit``, trägt seine Einheit
+    also mit sich und ist damit auch nach einem Wechsel eindeutig.
+    """
+    if data.basic_fee_unit is not None and data.basic_fee_unit != UNIT_EUR_PER_MONTH:
+        return None
     return data.basic_fee()
 
 

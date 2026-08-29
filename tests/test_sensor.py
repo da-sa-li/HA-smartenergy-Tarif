@@ -131,6 +131,53 @@ async def test_warnung_bei_abweichender_grundgebuehr_einheit(
     assert "EUR/month" in caplog.text
 
 
+async def test_grundgebuehr_bei_fremder_einheit_bleibt_unbekannt(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Passt die Einheit nicht, zeigt der Sensor keinen Wert mehr.
+
+    Die Anzeige-Einheit ist fest hinterlegt und kann einem Wechsel nicht folgen.
+    Ein Jahreswert erschiene darunter als Monatswert – im Dashboard eine Zahl,
+    der man nichts ansieht, während die Warnung nur im Log steht. Lieber keine
+    Aussage als eine falsche.
+
+    Die Entität entsteht weiterhin: Ihre Datengrundlage (der ``basicFee``-Block)
+    ist ja da, nur nicht mehr in der Einheit, die der Sensor führt.
+    """
+    payload = dict(smarttimes_payload)
+    payload["basicFee"] = dict(payload["basicFee"], unit="EUR/year")
+
+    await _richte_ein(hass, payload, "smarttimes")
+
+    zustand = hass.states.get("sensor.smarttimes_strompreishelfer_basic_fee")
+    assert zustand is not None, "Der Sensor soll bleiben – nur ohne Wert."
+    assert zustand.state == "unknown"
+
+
+async def test_grundgebuehr_ohne_einheitsangabe_zeigt_den_wert(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Nennt die API gar keine Einheit, bleibt es beim Wert.
+
+    Gegenprobe zur Absicherung darüber: Sie greift nur bei einem *Widerspruch*,
+    nicht schon bei einer fehlenden Angabe – sonst verschwände der Sensorwert
+    bei einer API, die die Einheit einfach nicht mitliefert.
+    """
+    payload = dict(smarttimes_payload)
+    ohne_einheit = {
+        schluessel: wert
+        for schluessel, wert in payload["basicFee"].items()
+        if schluessel != "unit"
+    }
+    payload["basicFee"] = ohne_einheit
+
+    await _richte_ein(hass, payload, "smarttimes")
+
+    zustand = hass.states.get("sensor.smarttimes_strompreishelfer_basic_fee")
+    # Erster basicFee-Eintrag der Fixture, brutto wie geliefert.
+    assert float(zustand.state) == pytest.approx(2.988)
+
+
 # Sollwerte von Hand aus tests/fixtures/smarttimes.json abgeleitet.
 #
 # Der 05.06.2026 hat als Zeittarif genau drei Preisstufen zu je 32
