@@ -435,3 +435,106 @@ async def test_veraltetes_datenjahr_meldet_ein_issue(
     assert issue.is_fixable is False
     assert issue.severity is ir.IssueSeverity.WARNING
     assert issue.translation_placeholders == {"data_year": str(TARIFF_DATA_YEAR)}
+
+
+# --- Einheitenwechsel der Grundgebühr ---------------------------------------- #
+#
+# Die Anzeige-Einheit des Grundgebühr-Sensors ist fest hinterlegt und wird beim
+# Einrichten einmal gegen die der API abgeglichen (``sensor.async_setup_entry``,
+# geprüft in ``tests/test_sensor.py``). Wechselte die API sie danach, blieb das
+# bis zum nächsten Neustart unbemerkt – bei einer Instanz, die wochenlang
+# durchläuft, ist das keine kurze Lücke. Der Koordinator vergleicht die Einheit
+# deshalb bei jedem gelungenen Abruf mit der des vorigen.
+
+
+def _grundgebuehr_warnungen(caplog) -> list[str]:
+    """Die Warnungen, die die Grundgebühr betreffen – ohne fremdes Log-Rauschen."""
+    return [
+        eintrag.getMessage()
+        for eintrag in caplog.records
+        if eintrag.levelname == "WARNING" and "Grundgebühr" in eintrag.getMessage()
+    ]
+
+
+async def test_einheitenwechsel_der_grundgebuehr_wird_gemeldet(
+    hass: HomeAssistant, smarttimes_payload, caplog
+):
+    """Ein Wechsel gegenüber dem vorigen Abruf wird mit beiden Einheiten gemeldet.
+
+    Die Fixture meldet ``EUR/month``; der zweite Abruf liefert ``EUR/year``. Der
+    Sensor führt weiter die beim Einrichten geprüfte Einheit – ohne diese
+    Meldung zeigte er den neuen Wert stillschweigend unter der alten Einheit an.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda _: True
+    geaendert = dict(smarttimes_payload)
+    geaendert["basicFee"] = dict(geaendert["basicFee"], unit="EUR/year")
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(geaendert)
+    )
+
+    await coordinator._async_update_data()
+
+    warnungen = _grundgebuehr_warnungen(caplog)
+    assert len(warnungen) == 1
+    assert "EUR/year" in warnungen[0]
+    assert "EUR/month" in warnungen[0]
+
+
+async def test_entfallene_grundgebuehr_wird_gemeldet(
+    hass: HomeAssistant, smarttimes_payload, caplog
+):
+    """Lässt die API den ``basicFee``-Block weg, wird das eigens gemeldet.
+
+    Der Sensor bleibt dann ohne Wert und stünde sonst wortlos auf „unbekannt“ –
+    ununterscheidbar von einem Abruf-Fehler.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda _: True
+    ohne_gebuehr = {
+        schluessel: wert
+        for schluessel, wert in smarttimes_payload.items()
+        if schluessel != "basicFee"
+    }
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(ohne_gebuehr)
+    )
+
+    await coordinator._async_update_data()
+
+    warnungen = _grundgebuehr_warnungen(caplog)
+    assert len(warnungen) == 1
+    assert "EUR/month" in warnungen[0]
+
+
+async def test_unveraenderte_einheit_meldet_nichts(
+    hass: HomeAssistant, smarttimes_payload, caplog
+):
+    """Der Normalfall bleibt still – sonst stünde die Warnung bei jedem Abruf im Log."""
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda _: True
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(smarttimes_payload)
+    )
+
+    await coordinator._async_update_data()
+
+    assert _grundgebuehr_warnungen(caplog) == []
+
+
+async def test_erster_abruf_meldet_keinen_einheitenwechsel(
+    hass: HomeAssistant, smarttimes_payload, caplog
+):
+    """Ohne vorigen Abruf gibt es nichts zu vergleichen.
+
+    Sonst meldete jede frisch eingerichtete Instanz beim allerersten Abruf einen
+    Wechsel, den es nie gab.
+    """
+    coordinator, client = await _coordinator(hass)  # kein Cache
+    client.async_get_prices = AsyncMock(
+        return_value=SmartTimesApiClient._parse(smarttimes_payload)
+    )
+
+    await coordinator._async_update_data()
+
+    assert _grundgebuehr_warnungen(caplog) == []

@@ -177,12 +177,22 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
 )
 
 
-def _is_available(description: SmartTimesSensorDescription, data: SmartTimesData) -> bool:
+def _hat_datengrundlage(
+    description: SmartTimesSensorDescription, data: SmartTimesData
+) -> bool:
     """Ob der Tarif die Datengrundlage für diesen Sensor überhaupt liefert.
 
     Betrifft bislang nur die Grundgebühr: smartTIMES liefert den optionalen
     ``basicFee``-Block der API, smartCONTROL nicht. Ohne ihn stünde der Sensor
     dauerhaft auf „unbekannt“ und sähe aus wie ein Defekt.
+
+    Entscheidet über das **Anlegen** der Entität, nicht über ihre
+    Verfügbarkeit zur Laufzeit – deshalb nicht ``_is_available``: Der frühere
+    Name legte ein ``available``-Property nahe, das minütlich mitliefe. Die
+    Auswertung geschieht stattdessen genau einmal, in ``async_setup_entry``.
+    Liefert die API die Grundgebühr erst später, erscheint der Sensor daher
+    erst nach einem Neuladen des Eintrags; verschwindet sie, bleibt er stehen
+    und meldet ``unbekannt``.
     """
     if description.key == "basic_fee":
         return bool(data.basic_fees)
@@ -219,7 +229,7 @@ async def async_setup_entry(
     async_add_entities(
         SmartTimesSensor(coordinator, entry, description)
         for description in SENSORS
-        if _is_available(description, data)
+        if _hat_datengrundlage(description, data)
     )
 
     # Gerät, an dem die Untereintrags-Geräte als „verbunden über“ hängen.

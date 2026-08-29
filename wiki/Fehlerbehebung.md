@@ -8,6 +8,13 @@ Die Integration ruft die Preis-API nur etwa **einmal täglich** ab (die Morgen-P
 
 - **Direkt nach der Einrichtung** kann es einen Moment dauern, bis der erste erfolgreiche Abruf erfolgt ist – danach füllt sich der Sensor.
 - **Bleibt der Sensor länger `unknown`**, die Internet-Verbindung prüfen und ggf. Home Assistant neu starten. Details stehen im HA-Protokoll (**Einstellungen → System → Protokolle**).
+- **Die Sensoren werden dabei nicht `unavailable`.** Solange der Cache Preise
+  enthält, gelten sie als verfügbar; erst wenn die gecachten Preise den
+  aktuellen Zeitpunkt nicht mehr abdecken, melden sie `unknown`. Das ist
+  Absicht – ein Preisplan bleibt brauchbar, solange er reicht. Eine
+  Automatisierung, die auf `unavailable` prüft, greift hier also nicht; sie
+  muss auf `unknown` prüfen. Hält die Störung an, erscheint nach 36 Stunden
+  zusätzlich eine Meldung unter „Reparaturen“.
 - **Sofort neu abrufen**, ohne auf den nächsten geplanten Abruf zu warten: beim Eintrag der Integration das **Drei-Punkte-Menü → Neu laden** wählen. Das baut die Integration neu auf und holt die Preise unmittelbar. Ein eigener Dienst dafür fehlt bewusst – er müsste genau die Drosselung umgehen, die die kostenlos bereitgestellte API schont.
 
 # Der Sensor schaltet nicht zur vollen Stunde
