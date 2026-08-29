@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -56,16 +56,26 @@ def _stats(values: list[float]) -> tuple[StateType, StateType, StateType]:
     return round(sum(values) / len(values), 4), min(values), max(values)
 
 
-def _today_allin_values(data: SmartTimesData) -> list[float]:
-    """Gesamtkosten (ct/kWh) aller heutigen Intervalle."""
-    today = dt_util.now().date()
-    return [data.all_in_value(p) for p in data.for_day(today)]
+def _tagesbezug(day: date | None) -> date:
+    """Der übergebene Kalendertag, sonst der heutige.
+
+    ``day`` durchzureichen ist wichtig, wo der Aufrufer seinen Tag bereits
+    erfasst hat: Ein zweiter Blick auf die Uhr kann auf die andere Seite des
+    Tageswechsels fallen, und dann beschriebe ``average_today`` einen anderen
+    Tag als die Preisvorschau daneben. Die eigenständigen Kennzahl-Sensoren
+    haben keinen solchen Bezugspunkt und fragen weiterhin selbst.
+    """
+    return day if day is not None else dt_util.now().date()
 
 
-def _today_energy_values(data: SmartTimesData) -> list[float]:
-    """Arbeitspreise (ct/kWh) aller heutigen Intervalle."""
-    today = dt_util.now().date()
-    return [data.value(p) for p in data.for_day(today)]
+def _today_allin_values(data: SmartTimesData, day: date | None = None) -> list[float]:
+    """Gesamtkosten (ct/kWh) aller Intervalle eines Tages (Standard: heute)."""
+    return [data.all_in_value(p) for p in data.for_day(_tagesbezug(day))]
+
+
+def _today_energy_values(data: SmartTimesData, day: date | None = None) -> list[float]:
+    """Arbeitspreise (ct/kWh) aller Intervalle eines Tages (Standard: heute)."""
+    return [data.value(p) for p in data.for_day(_tagesbezug(day))]
 
 
 def _current_value(data: SmartTimesData) -> StateType:
@@ -364,7 +374,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         current = data.current(now)
         future = [p for p in data.prices if p.start > now]
         next_price = future[0] if future else None
-        avg, low, high = _stats(_today_energy_values(data))
+        avg, low, high = _stats(_today_energy_values(data, today))
 
         # Achtung, bewusste Namensgebung: Sämtliche Kennzahlen dieses Sensors
         # beziehen sich auf den reinen ARBEITSPREIS. Die gleichnamigen Sensoren
@@ -413,10 +423,11 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         today = now.date()
         tomorrow = today + timedelta(days=1)
 
-        # Dieselbe Uhrzeit wie für die übrigen Attribute: Ein eigener
-        # `dt_util.now()`-Aufruf könnte auf die andere Seite eines
-        # Viertelstundenwechsels fallen, und die Aufschlüsselung beschriebe dann
-        # ein anderes Intervall als die Preisvorschau daneben.
+        # Ein einziger Blick auf die Uhr für den ganzen Attributsatz – oben
+        # `now`, hier und bei den Tageskennzahlen durchgereicht. Jeder eigene
+        # `dt_util.now()`-Aufruf könnte auf die andere Seite eines Intervall-
+        # oder Tageswechsels fallen, und dann beschriebe die Aufschlüsselung ein
+        # anderes Intervall als die Vorschau daneben.
         price = data.current(now)
         # Nebenkosten anhand des aktuellen Intervalls bestimmen, damit die
         # Aufschlüsselung exakt zum Sensorwert passt.
@@ -437,7 +448,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
 
         future = [p for p in data.prices if p.start > now]
         next_price = future[0] if future else None
-        avg, low, high = _stats(_today_allin_values(data))
+        avg, low, high = _stats(_today_allin_values(data, today))
 
         return {
             "vat_included": data.include_vat,

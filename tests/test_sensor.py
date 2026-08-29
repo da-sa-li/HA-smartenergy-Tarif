@@ -8,6 +8,7 @@ smartTIMES liefert den ``basicFee``-Block der API, smartCONTROL nicht.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -797,6 +798,42 @@ async def test_nebenkosten_positionen_ergeben_die_ausgewiesene_summe(
     assert sum(positionen.values()) == pytest.approx(
         attribute["surcharges_total_eur_kwh"]
     )
+
+
+@pytest.mark.parametrize("schluessel", ["total_price", "working_price"])
+def test_attributsatz_liest_die_uhr_nur_einmal(
+    make_data, smarttimes_payload, schluessel: str
+):
+    """Ein einziger Blick auf die Uhr trägt den ganzen Attributsatz.
+
+    Jeder zusätzliche Aufruf kann auf die andere Seite eines Intervall- oder
+    Tageswechsels fallen. Dann beschriebe ``average_today`` einen anderen
+    Kalendertag als die Vorschau daneben, oder die Nebenkosten-Aufschlüsselung
+    ein anderes Intervall als der Preis, zu dem sie gehört.
+
+    Gezählt wird der Zugriff selbst und nicht das Ergebnis: Der Fehlerfall hängt
+    gerade daran, dass sich die Uhr *zwischen* zwei Aufrufen weiterdreht – mit
+    eingefrorener Uhr ist er nicht herstellbar, und ohne sie träfe er nur an
+    zwei Augenblicken des Tages zu.
+    """
+    from custom_components.smartenergy.sensor import SENSORS, SmartTimesSensor
+
+    daten = make_data(smarttimes_payload, grid_zone="wien")
+    beschreibung = next(b for b in SENSORS if b.key == schluessel)
+    sensor = SmartTimesSensor(
+        SimpleNamespace(data=daten),
+        SimpleNamespace(entry_id="eintrag"),
+        beschreibung,
+    )
+
+    with patch("custom_components.smartenergy.sensor.dt_util") as uhr:
+        uhr.now.return_value = datetime(2026, 6, 5, 12, 0, tzinfo=VIENNA)
+        attribute = sensor.extra_state_attributes
+
+    assert uhr.now.call_count == 1
+    # Gegenprobe, dass der Satz überhaupt gefüllt ist – sonst zählte der Test
+    # die Uhrzugriffe eines leeren Durchlaufs.
+    assert attribute["prices_today"]
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
