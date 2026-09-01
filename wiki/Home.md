@@ -1,6 +1,6 @@
 # smartENERGY Strompreishelfer – Wiki
 
-Willkommen im Wiki der Home-Assistant-Integration **smartENERGY Strompreishelfer** für die dynamischen österreichischen Stromtarife **smartTIMES** und **smartCONTROL** von [smartENERGY](https://www.smartenergy.at/).
+Willkommen im Wiki der Home-Assistant-Integration **smartENERGY Strompreishelfer** für die dynamischen österreichischen Stromtarife **smartTIMES**, **smartCONTROL** und **smartNIGHT** von [smartENERGY](https://www.smartenergy.at/).
 
 Installation, Ersteinrichtung und eine kurze Sensor-Übersicht stehen im **[README](https://github.com/da-sa-li/HA-smartenergy-Tarif#readme)**. Dieses Wiki ergänzt das README um vertiefende Informationen:
 

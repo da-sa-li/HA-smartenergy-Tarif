@@ -5,12 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Was das ist
 
 Eine **Home-Assistant-Custom-Integration** (über HACS installierbar) für die dynamischen
-österreichischen Stromtarife von smartENERGY: **smartTIMES** (zeitabhängig) und **smartCONTROL**
-(an den EPEX-Spot-Börsenpreis gekoppelt). Der Tarif wird bei der Einrichtung gewählt. Sie ruft
-die öffentliche Tarifpreis-API ab (kein API-Key) und stellt stündliche/viertelstündliche Preise
-als Sensoren bereit – inklusive aller variablen Nebenkosten (Steuern, Abgaben, Netzentgelte; bei
-smartCONTROL zusätzlich die Abwicklungsgebühr) und eines Binary-Sensors, der die günstigsten
-Stunden des Tages markiert.
+österreichischen Stromtarife von smartENERGY: **smartTIMES** (zeitabhängig), **smartCONTROL**
+(an den EPEX-Spot-Börsenpreis gekoppelt) und **smartNIGHT** (zwei Preiszonen, Peak 07:00–23:00).
+Der Tarif wird bei der Einrichtung gewählt. Sie ruft die öffentliche Tarifpreis-API ab (kein
+API-Key) und stellt stündliche/viertelstündliche Preise als Sensoren bereit – inklusive aller
+variablen Nebenkosten (Steuern, Abgaben, Netzentgelte; bei smartCONTROL zusätzlich die
+Abwicklungsgebühr) und eines Binary-Sensors, der die günstigsten Stunden des Tages markiert.
 
 Der gesamte Code, **alle Kommentare, Docstrings und Commit-Messages sind auf Deutsch** – diese
 Konvention beibehalten.
@@ -94,7 +94,9 @@ nicht: Er würde 28 Dateien umbrechen, ohne dass jemand darum gebeten hätte.
 **Testkonvention:** Die erwarteten Werte (Sollergebnisse) werden **von Hand aus der
 Spezifikation** abgeleitet und als Kommentar dokumentiert – nie aus dem zu testenden
 Code erzeugt, sonst wäre der Test eine Tautologie. Fixtures (echte API-Antworten) liegen
-in `tests/fixtures/`.
+in `tests/fixtures/`. Für smartNIGHT gibt es **keine eigene Fixture**, weil es keine eigene API
+gibt: Der Tarif entsteht aus `smarttimes.json`; `make_data(..., smartnight=True)` in
+`conftest.py` legt dafür dieselbe Ableitung darüber wie der Client im Betrieb.
 
 **Testnamen sind deutsch – repository-weit.** Eine Testfunktion beschreibt in
 deutscher Prosa, was sie zusagt: `test_blockmodus_behaelt_die_laenge_bei_gleichstand`,
@@ -149,6 +151,11 @@ plausible Werte), **nie** konkrete Preise, und vergleichen die **Feldstruktur** 
 Live-Antwort mit den Fixtures – schlägt der Vergleich an, hat die API ihr Format geändert
 und die Fixtures gehören aktualisiert. Da das HA-Test-Harness Sockets und DNS pro Test
 sperrt, hebt die Fixture `netzwerk_freigeben` diese Sperre gezielt nur für diese Tests auf.
+
+smartNIGHT steht **nicht** in `ERWARTUNGEN` – jene Tabelle hängt an Endpunkt und Fixture,
+und beide wären dieselben wie bei smartTIMES. Stattdessen prüft ein eigener Live-Test, dass
+sich aus der Live-Antwort weiterhin genau zwei Preisstufen je Kalendertag im Verhältnis 1,3
+ergeben; auch das ist eine Invariante, kein konkreter Preis.
 
 CI läuft bei jedem Push auf `main`, bei jedem PR und manuell (`validate.yml`); die
 Live-Tests laufen getrennt davon nächtlich und manuell (`live-api.yml`). Schlägt ein
@@ -284,9 +291,24 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   Typ-Hinweise nutzen dort `ConfigEntry` statt des Alias `SmartTimesConfigEntry` – `__init__.py`
   bezieht `hub_device_info` von hier, ein Rückimport wäre zur Laufzeit ein Zyklus.
 
+- **`smartnight.py`** – die Tarifregeln von **smartNIGHT** und der ableitende API-Client.
+  smartNIGHT hat **keinen eigenen Endpunkt**: Sein Off-Peak-Arbeitspreis *ist* der von
+  smartTIMES, deshalb wird er aus derselben Antwort **berechnet** – Off-Peak übernimmt den
+  günstigsten Preis des jeweiligen Kalendertages, von 07:00 bis 23:00 Uhr Ortszeit kommen
+  30 % darauf (`SMARTNIGHT_PEAK_FACTOR`). Der Aufschlag trifft **nur den Arbeitspreis**;
+  Abgaben, Netzentgelte und SNAP gelten unverändert, eine Abwicklungsgebühr gibt es nicht.
+  Bewusst das **Tagesminimum** statt nachgebauter smartTIMES-Fenster: Verschiebt smartENERGY
+  seine Zonen, bleibt die Regel richtig. Der Einstiegspunkt ist `SmartNightApiClient`, ein
+  Untertyp von `SmartTimesApiClient`, der allein `async_get_prices` überschreibt – dadurch
+  gelten Raster, Grundgebühr, Morgen-Preise, Cache, Drosselung, Retry und Diagnose Wort für
+  Wort wie bei smartTIMES, statt in einem zweiten Datenpfad noch einmal geschrieben zu werden.
+  Gebaut wird der Client über `__init__.erzeuge_preis_client`, die einzige Stelle, die Tarif
+  auf Client abbildet (auch der Config-Flow prüft die Verbindung darüber).
+
 - **`config_flow.py`** – UI-Einrichtung (kein YAML): Haupteintrag (Tarif, USt., Netzgebiet) +
   Options-Flow + Subentry-Flow für die Günstige-Stunde-Sensoren. Der **Tarif** (`CONF_TARIFF`:
-  `smarttimes`/`smartcontrol`) bestimmt API-URL, Anzeigenamen und die Abwicklungsgebühr.
+  `smarttimes`/`smartcontrol`/`smartnight`) bestimmt API-URL, Client, Anzeigenamen und die
+  Abwicklungsgebühr.
   `single_config_entry: true` → nur **eine** Instanz. Schemas müssen frontend-serialisierbar
   bleiben (keine Lambdas/`vol.All` mit Callable; Validierung stattdessen im Flow-Schritt).
 
@@ -313,10 +335,13 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
 
 - **Zeitzone**: HA sollte auf `Europe/Vienna` stehen. smartTIMES liefert **lokale** Zeitstempel
   **ohne** Offset, smartCONTROL **mit** Offset (`+02:00`); `api.py` (`_parse_date`) übernimmt
-  einen vorhandenen Offset und fällt sonst auf `dt_util.DEFAULT_TIME_ZONE` zurück.
+  einen vorhandenen Offset und fällt sonst auf `dt_util.DEFAULT_TIME_ZONE` zurück. Zonen-Fenster
+  werden durchweg über die **lokale Stunde** bestimmt (`grid_fees.is_snap`,
+  `smartnight.ist_peak`) – der Tarif nennt Wanduhrzeiten, also gelten sie auch an den
+  Umstellungstagen der Sommerzeit unverändert.
 - **Domain** ist `smartenergy` (siehe `const.py`/`manifest.json`); das Integrationsverzeichnis
   heißt entsprechend `custom_components/smartenergy/`. Die Tarif-**Schlüssel** `smarttimes`/
-  `smartcontrol` (Config-Werte) sind davon unabhängig.
+  `smartcontrol`/`smartnight` (Config-Werte) sind davon unabhängig.
 - **Docstring-Konvention**: Module, Klassen, Funktionen und Methoden (inkl. `__init__`) tragen
   knappe deutsche Docstrings; verschachtelte lokale Closures brauchen keine.
 

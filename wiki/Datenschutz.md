@@ -2,7 +2,7 @@ Der Abruf ist **rein lesend** und kommt ohne Konto und API-Schlüssel aus.
 
 # Was die Integration abruft
 
-Sie ruft ausschließlich die öffentliche Tarifpreis-API von smartENERGY ab – je nach gewähltem Tarif [smartTIMES](https://www.smartenergy.at/api-schnittstellen-smarttimes) oder [smartCONTROL](https://www.smartenergy.at/api-schnittstellen). Das geschieht etwa **einmal täglich** (Details zur Abruf-Frequenz und Retry-Logik siehe [Fehlerbehebung](Fehlerbehebung)).
+Sie ruft ausschließlich die öffentliche Tarifpreis-API von smartENERGY ab – je nach gewähltem Tarif [smartTIMES](https://www.smartenergy.at/api-schnittstellen-smarttimes) oder [smartCONTROL](https://www.smartenergy.at/api-schnittstellen). **smartNIGHT** hat keinen eigenen Endpunkt: Sein Off-Peak-Preis ist der von smartTIMES, deshalb wird er aus derselben Antwort berechnet – ein zusätzlicher Abruf entsteht dadurch nicht. Das geschieht etwa **einmal täglich** (Details zur Abruf-Frequenz und Retry-Logik siehe [Fehlerbehebung](Fehlerbehebung)).
 
 Übertragen wird dabei nur, was jede Web-Anfrage zwangsläufig mit sich bringt:
 

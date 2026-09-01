@@ -30,6 +30,12 @@ Der **[Sommer-Nieder-Arbeitspreis (SNAP)](https://www.e-control.at/sommer-nieder
 
 Bei **smartCONTROL** kommt zusätzlich die **Abwicklungsgebühr** (1,2 ct/kWh netto / 1,44 ct/kWh brutto) hinzu. Sie folgt derselben Netto-Konvention und erscheint als eigene Position `handling_fee`.
 
+# smartNIGHT: Peak-Aufschlag
+
+Bei **smartNIGHT** liegt der Arbeitspreis von **07:00 bis 23:00 Uhr** um **30 %** über dem Off-Peak-Preis; außerhalb dieses Fensters gilt der Off-Peak-Preis von smartTIMES. Der Aufschlag trifft ausschließlich den **Arbeitspreis** – Abgaben und Netzentgelte samt SNAP gelten unverändert und erscheinen daher auch nicht als eigene Position in der Aufschlüsselung. Eine Abwicklungsgebühr gibt es bei smartNIGHT nicht.
+
+> Das SNAP-Fenster (10:00–16:00 Uhr) liegt vollständig innerhalb der Peak-Zeit. In Netzgebieten mit hohem Netz-Arbeitspreis kann die SNAP-Ermäßigung den Peak-Aufschlag daher übersteigen – dann ist der Sommermittag günstiger als die Nacht. Der „Günstige Stunde“-Sensor richtet sich nach dem **Gesamtpreis** und bildet das automatisch ab.
+
 # Aufschlüsselung als Sensor-Attribute
 
 Der Gesamtpreis-Sensor liefert die Zusammensetzung zusätzlich als Attribute (`working_price_eur_kwh`, `surcharges_eur_kwh`, `surcharges_total_eur_kwh`, `total_eur_kwh`, …) – die vollständige Referenz steht unter [Sensoren und Attribute](Sensoren-und-Attribute#gesamtpreis-sensor). Alle Attribute sind in **EUR/kWh** angegeben; die ct/kWh dieser Seite sind die Einheit, in der die Tarifblätter und die API rechnen.

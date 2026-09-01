@@ -7,7 +7,7 @@
 
 # Was diese Integration tut
 
-**smartENERGY Strompreishelfer** ist eine Community-Integration (installiert über [HACS](https://hacs.xyz/)). Sie bildet je nach Wahl der Nutzerin/des Nutzers **smartTIMES** oder **smartCONTROL** in Home Assistant als Preis-Sensoren ab – inklusive der üblichen variablen Nebenkosten (Steuern, Abgaben, Netzentgelte). Zusätzlich stellt sie je Verbraucher einen „Günstige Stunde“-Sensor bereit, den Nutzerinnen und Nutzer typischerweise per Automatisierung nutzen, um Lasten wie Boiler oder Wallbox gezielt in günstige Preisfenster zu schalten.
+**smartENERGY Strompreishelfer** ist eine Community-Integration (installiert über [HACS](https://hacs.xyz/)). Sie bildet je nach Wahl der Nutzerin/des Nutzers **smartTIMES**, **smartCONTROL** oder **smartNIGHT** in Home Assistant als Preis-Sensoren ab – inklusive der üblichen variablen Nebenkosten (Steuern, Abgaben, Netzentgelte). **smartNIGHT** wird dabei rein lokal aus der smartTIMES-Antwort berechnet (Off-Peak-Preis des Tages, zwischen 07:00 und 23:00 Uhr zuzüglich 30 %) und ruft keinen zusätzlichen Endpunkt ab – am Anfragemuster unten ändert er nichts. Zusätzlich stellt sie je Verbraucher einen „Günstige Stunde“-Sensor bereit, den Nutzerinnen und Nutzer typischerweise per Automatisierung nutzen, um Lasten wie Boiler oder Wallbox gezielt in günstige Preisfenster zu schalten.
 
 ## Lastglättung der „Günstige Stunde“-Sensoren
 

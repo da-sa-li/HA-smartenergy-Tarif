@@ -1,5 +1,5 @@
 > [!NOTE]
-> Die Entitäts-IDs der **Preissensoren** beginnen mit dem gewählten Tarif – `smarttimes_…` bzw. `smartcontrol_…`; die Beispiele unten zeigen den smartTIMES-Fall. Die **„Günstige Stunde“-Sensoren** hängen dagegen am Gerät ihres Untereintrags und beginnen deshalb mit dem dort selbst vergebenen Namen.
+> Die Entitäts-IDs der **Preissensoren** beginnen mit dem gewählten Tarif – `smarttimes_…`, `smartcontrol_…` bzw. `smartnight_…`; die Beispiele unten zeigen den smartTIMES-Fall. Die **„Günstige Stunde“-Sensoren** hängen dagegen am Gerät ihres Untereintrags und beginnen deshalb mit dem dort selbst vergebenen Namen.
 
 # Übersicht
 
@@ -14,7 +14,7 @@
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute` | Teuerster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_preisrang_heute` | Der wievielt-günstigste ist das laufende Intervall unter den heutigen **Gesamtpreisen** (1 = günstigstes) |
 | `sensor.smarttimes_strompreishelfer_preisquantil_heute` | Dieselbe Einordnung normiert auf 0–100 % (je niedriger, desto günstiger) |
-| `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (derzeit nur **smartTIMES**). Meldet die API eine andere Einheit, steht der Sensor auf `unknown`: Seine Einheit ist fest hinterlegt, ein Jahreswert erschiene darunter als Monatswert |
+| `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (**smartTIMES** und **smartNIGHT**, nicht smartCONTROL). Meldet die API eine andere Einheit, steht der Sensor auf `unknown`: Seine Einheit ist fest hinterlegt, ein Jahreswert erschiene darunter als Monatswert |
 | `binary_sensor.smarttimes_strompreishelfer_preise_fur_morgen_verfugbar` | `on`, sobald die Preise für den Folgetag vorliegen (Diagnose) |
 
 Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis. Der **Gesamtpreis**-Sensor addiert Steuern, Abgaben und Netzentgelte (siehe [Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)) und ist die richtige Wahl fürs Energie-Dashboard und zum Schalten. Tageskennzahlen und der Günstige-Stunde-Sensor beziehen sich auf den **Gesamtpreis**.
@@ -26,7 +26,7 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 | Attribut | Beschreibung |
 |---|---|
 | `working_price_eur_kwh` | Reiner Arbeitspreis (EUR/kWh) |
-| `surcharges_eur_kwh` | Nebenkosten je Position, z. B. `{electricity_tax: 0.0012, renewable_support: 0.00744, grid_usage: 0.06696, grid_loss: 0.0084}`. Bei **smartCONTROL** zusätzlich `handling_fee` (Abwicklungsgebühr, 0,0144 EUR/kWh brutto) |
+| `surcharges_eur_kwh` | Nebenkosten je Position, z. B. `{electricity_tax: 0.0012, renewable_support: 0.00744, grid_usage: 0.06696, grid_loss: 0.0084}`. Bei **smartCONTROL** zusätzlich `handling_fee` (Abwicklungsgebühr, 0,0144 EUR/kWh brutto). Der Peak-Aufschlag von **smartNIGHT** erscheint hier **nicht** – er trifft den Arbeitspreis, nicht die Nebenkosten |
 | `surcharges_total_eur_kwh` | Summe aller Nebenkosten (EUR/kWh) |
 | `total_eur_kwh` | Gesamtpreis (EUR/kWh) – entspricht dem Sensorwert |
 | `grid_zone` | Gewähltes Netzgebiet (oder `null`) |
@@ -36,7 +36,7 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 | `prices_today` / `prices_tomorrow` | Vollständige **Gesamtpreis**-Vorschau für heute und morgen (`start`, `end`, `price`) |
 | `prices_tomorrow_valid` | `true`, sobald die Preise für morgen vorliegen. Trennt „noch nicht veröffentlicht“ von „keine Preise“ – `prices_tomorrow` ist in beiden Fällen leer |
 | `unit` | Einheit der Preisangaben in diesen Attributen (`EUR/kWh`) |
-| `source_unit` | Einheit, in der die API liefert – smartTIMES meldet `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
+| `source_unit` | Einheit, in der die API liefert – smartTIMES und smartNIGHT melden `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird – und der österreichische USt.-Satz (`0.2`). Der Satz ist **konstant**: Er nennt den geltenden Satz, nicht ob er im Preis schon steckt. Bei `vat_included: false` steht er also weiterhin auf `0.2`; der Bruttopreis ergibt sich daraus als `netto × (1 + vat_rate)`, also das 1,2-Fache – `vat_rate` selbst ist der Satz, nicht der Faktor |
 
 > [!NOTE]
@@ -127,7 +127,7 @@ Kosten mehrere Intervalle genau so viel wie das teuerste noch ausgewählte, ist 
 - **Eingeschaltet (Vorgabe seit 4.0.0):** Der Sensor liefert exakt die eingestellte Stundenzahl.
 - **Ausgeschaltet:** Alle preisgleichen Intervalle werden mitmarkiert. Der Sensor ist dann **länger an als eingestellt**, aber nie zu einem höheren Preis – alle zusätzlichen Intervalle liegen exakt auf dem Grenzpreis. Sinnvoll für selbstbegrenzende Verbraucher (Boiler mit Thermostat, Wallbox mit Ziel-Ladestand), die eine zusätzliche Gelegenheit zum selben Preis mitnehmen können.
 
-Wie stark sich das auswirkt, hängt am Tarif: **smartCONTROL** ist börsengekoppelt und hat pro Tag fast durchweg verschiedene Preise – die Erweiterung greift dort kaum. **smartTIMES** kennt als Zeittarif nur drei Preisstufen zu je 8 Stunden; mit ausgeschalteter Option liefert dort jede Einstellung zwischen 0,25 h und 8 h dieselben 8 Stunden, die Stundenzahl ist also praktisch wirkungslos.
+Wie stark sich das auswirkt, hängt am Tarif: **smartCONTROL** ist börsengekoppelt und hat pro Tag fast durchweg verschiedene Preise – die Erweiterung greift dort kaum. **smartTIMES** kennt als Zeittarif nur drei Preisstufen zu je 8 Stunden; mit ausgeschalteter Option liefert dort jede Einstellung zwischen 0,25 h und 8 h dieselben 8 Stunden, die Stundenzahl ist also praktisch wirkungslos. Bei **smartNIGHT** gilt dasselbe für seine beiden Stufen – ohne Netzgebiet sind das die 8 Off-Peak-Stunden von 23:00 bis 07:00 Uhr.
 
 ## Last-Glättung (Jitter)
 
@@ -193,14 +193,14 @@ Ohne ihn lässt sich „noch nicht veröffentlicht“ nicht von „keine Preise�
 
 | Attribut | Beschreibung |
 |---|---|
-| `tariff` | Gewählter Tarif (`smartTIMES` bzw. `smartCONTROL`) |
+| `tariff` | Gewählter Tarif (`smartTIMES`, `smartCONTROL` bzw. `smartNIGHT`) |
 | `unit` | Einheit der Preise (`EUR/kWh`) |
-| `source_unit` | Einheit, in der die API liefert – smartTIMES meldet `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
+| `source_unit` | Einheit, in der die API liefert – smartTIMES und smartNIGHT melden `cent/kWh`, smartCONTROL `ct/kWh` (gleichbedeutend) |
 | `interval_minutes` | Länge eines Preisintervalls in Minuten |
 | `vat_included` | `true`, wenn die Preise brutto (inkl. USt.) sind |
 | `current_start` / `current_end` | Beginn/Ende des aktuellen Preisintervalls |
 | `next_working_price` / `next_working_price_start` | Arbeitspreis und Beginn des nächsten Intervalls |
 | `average_working_price_today` / `lowest_working_price_today` / `highest_working_price_today` | Tageskennzahlen des **Arbeitspreises** |
-| `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit, direkt aus der API (üblicherweise `EUR/month`). Liefert der Tarif keine Grundgebühr – etwa smartCONTROL –, sind beide `null` |
+| `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit, direkt aus der API (üblicherweise `EUR/month`). Liefert der Tarif keine Grundgebühr – etwa smartCONTROL –, sind beide `null`. smartNIGHT übernimmt die Grundgebühr von smartTIMES |
 | `prices_today` / `prices_tomorrow` | **Arbeitspreis**-Vorschau für heute und morgen (`start`, `end`, `price`) |
 | `prices_tomorrow_valid` | `true`, sobald die Preise für morgen vorliegen (wie beim Gesamtpreis-Sensor) |

@@ -109,6 +109,72 @@ def test_gesamtpreis_smartcontrol_bei_negativem_preis(make_data, smartcontrol_pa
     assert data.all_in_value(price) == pytest.approx(9.8350)
 
 
+# --- smartNIGHT (aus smartTIMES abgeleitet, keine Abwicklungsgebühr) -------- #
+#
+# Off-Peak übernimmt die günstigste smartTIMES-Stufe (11,316 brutto = 9,43
+# netto), Peak (07:00-23:00) liegt 30 % darüber: 11,316 * 1,3 = 14,7108 brutto
+# = 12,259 netto.
+
+
+def test_gesamtpreis_smartnight_off_peak_ohne_netzgebiet(make_data, smarttimes_payload):
+    """Off-Peak-Gesamtpreis ohne Netzgebiet (nur bundesweite Abgaben)."""
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone=None)
+    price = _price_at(data, "2026-06-05T03:00:00+02:00")  # 3 Uhr -> Off-Peak
+    # netto AP 9,43 + Abgaben 0,72 = 10,15 ; brutto = 10,15 * 1,2 = 12,18
+    assert data.all_in_value(price) == pytest.approx(12.18)
+
+
+def test_gesamtpreis_smartnight_peak_ohne_netzgebiet(make_data, smarttimes_payload):
+    """Peak-Gesamtpreis ohne Netzgebiet."""
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone=None)
+    price = _price_at(data, "2026-06-05T08:00:00+02:00")  # 8 Uhr -> Peak
+    # netto AP 12,259 + 0,72 = 12,979 ; brutto = 12,979 * 1,2 = 15,5748
+    assert data.all_in_value(price) == pytest.approx(15.5748)
+
+
+def test_gesamtpreis_smartnight_im_snap_fenster_wien(make_data, smarttimes_payload):
+    """Das SNAP-Fenster liegt vollständig in der Peak-Zeit und wirkt dort."""
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone="wien")
+    price = _price_at(data, "2026-06-05T14:00:00+02:00")  # 14 Uhr -> Peak + SNAP
+    # netto AP 12,259 + 0,72 + Netz(SNAP) 6,28 = 19,259
+    # brutto = 19,259 * 1,2 = 23,1108
+    assert data.all_in_value(price) == pytest.approx(23.1108)
+
+
+def test_peak_aufschlag_trifft_nur_den_arbeitspreis(make_data, smarttimes_payload):
+    """Die 30 % gelten dem Arbeitspreis, nicht den Nebenkosten.
+
+    Verglichen werden zwei Zeitpunkte außerhalb des SNAP-Fensters, damit sich
+    allein die Tarifzone unterscheidet: 03:00 (Off-Peak) und 18:00 (Peak).
+    """
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone="wien")
+    off_peak = _iso("2026-06-05T03:00:00+02:00")
+    peak = _iso("2026-06-05T18:00:00+02:00")
+
+    # Gleiche Nebenkosten zu beiden Zeitpunkten (Abgaben + Netz zur Regelzeit).
+    assert data.surcharge_breakdown(off_peak) == pytest.approx(
+        data.surcharge_breakdown(peak)
+    )
+    # Off-Peak: 9,43 + 0,72 + 7,68 = 17,83 ; brutto = 21,396
+    # Peak:    12,259 + 0,72 + 7,68 = 20,659 ; brutto = 24,7908
+    # Differenz = 3,3948 = 30 % des Off-Peak-Arbeitspreises (11,316 * 0,3).
+    assert data.all_in_value(_price_at(data, off_peak.isoformat())) == pytest.approx(
+        21.396
+    )
+    assert data.all_in_value(_price_at(data, peak.isoformat())) == pytest.approx(
+        24.7908
+    )
+
+
+def test_aufschluesselung_smartnight_ohne_abwicklungsgebuehr(
+    make_data, smarttimes_payload
+):
+    """smartNIGHT kennt keine Abwicklungsgebühr – sie fehlt in der Aufschlüsselung."""
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone="wien")
+    breakdown = data.surcharge_breakdown(_iso("2026-06-05T14:00:00+02:00"))
+    assert "handling_fee" not in breakdown
+
+
 # --- Aufschlüsselung & USt.-Konvention ------------------------------------- #
 
 

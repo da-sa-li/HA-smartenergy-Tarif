@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "smartENERGY electricity price helper",
-        "description": "Fetches the tariff prices from smartENERGY (smartTIMES or smartCONTROL). No API key is required.",
+        "description": "Fetches the tariff prices from smartENERGY (smartTIMES, smartCONTROL or smartNIGHT). No API key is required.",
         "data": {
           "tariff": "Tariff model",
           "include_vat": "Show prices including 20% VAT (gross)",
           "grid_zone": "Grid area (for grid fees)"
         },
         "data_description": {
-          "tariff": "smartTIMES: time-based tariff. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top.",
+          "tariff": "smartTIMES: time-based tariff with three price levels. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top. smartNIGHT: two price levels – off-peak is the respective daily minimum price from smartTIMES, and between 07:00 and 23:00 the energy price is 30 % above it; no handling fee.",
           "include_vat": "Affects all sensors of the integration, not just one. \"On\" (gross, as delivered by the API) is the right choice for the Energy Dashboard and for comparing against your electricity bill.",
           "grid_zone": "Determines the grid fees (grid level 7, quarter-hourly metering) in the total price. \"No grid area\" leaves them out."
         }
@@ -36,7 +36,7 @@
           "grid_zone": "Grid area (for grid fees)"
         },
         "data_description": {
-          "tariff": "smartTIMES: time-based tariff. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top.",
+          "tariff": "smartTIMES: time-based tariff with three price levels. smartCONTROL: linked to the EPEX spot market price; a handling fee of 1.2 ct/kWh net (1.44 ct/kWh gross) is added on top. smartNIGHT: two price levels – off-peak is the respective daily minimum price from smartTIMES, and between 07:00 and 23:00 the energy price is 30 % above it; no handling fee.",
           "include_vat": "Affects all sensors of the integration, not just one. \"On\" (gross, as delivered by the API) is the right choice for the Energy Dashboard and for comparing against your electricity bill.",
           "grid_zone": "Determines the grid fees (grid level 7, quarter-hourly metering) in the total price. \"No grid area\" leaves them out."
         }
@@ -62,7 +62,7 @@
             "exact_hours": "Keep the number of hours exact"
           },
           "data_description": {
-            "cheap_hours": "With smartTIMES this has no effect: as a time-based tariff it only has three price tiers of 8 hours each, so any setting between 0.25 h and 8 h yields the same 8 hours. With smartCONTROL the number of hours matters directly, since prices there change almost every quarter-hour. At a tie, the actual on-time can exceed the configured number of hours unless \"Keep the number of hours exact\" is enabled — in \"Consecutive block\" mode it is always exact.",
+            "cheap_hours": "How much the number of hours matters depends on the tariff. With smartCONTROL it matters directly, since prices there change almost every quarter-hour. With smartTIMES (three price tiers of 8 hours each) and smartNIGHT (8 off-peak hours, 23:00-07:00) it has virtually no effect as long as \"Keep the number of hours exact\" is off and no grid zone is selected: any setting between 0.25 h and 8 h then yields the same 8 hours. With a grid zone the total price decides – in summer the SNAP window (10:00-16:00) can shift which hours are cheapest. At a tie, the actual on-time can exceed the configured number of hours unless \"Keep the number of hours exact\" is enabled — in \"Consecutive block\" mode it is always exact.",
             "cheap_mode": "\"Cheapest individual hours\": the cheapest quarter-hours of the day — they may be spread across the day (e.g. boiler, wallbox). \"Consecutive block\": a single cheapest window in one piece — for appliances with a fixed run time that must not be interrupted (washing machine, dishwasher).",
             "exact_hours": "By default, further times that cost exactly as much as the most expensive selected one are also marked cheap — the sensor is then on longer than configured, but never at a higher price. When enabled, it delivers exactly the configured number of hours. Only affects \"Cheapest individual hours\"."
           }
@@ -77,7 +77,7 @@
             "exact_hours": "Keep the number of hours exact"
           },
           "data_description": {
-            "cheap_hours": "With smartTIMES this has no effect: as a time-based tariff it only has three price tiers of 8 hours each, so any setting between 0.25 h and 8 h yields the same 8 hours. With smartCONTROL the number of hours matters directly, since prices there change almost every quarter-hour. At a tie, the actual on-time can exceed the configured number of hours unless \"Keep the number of hours exact\" is enabled — in \"Consecutive block\" mode it is always exact.",
+            "cheap_hours": "How much the number of hours matters depends on the tariff. With smartCONTROL it matters directly, since prices there change almost every quarter-hour. With smartTIMES (three price tiers of 8 hours each) and smartNIGHT (8 off-peak hours, 23:00-07:00) it has virtually no effect as long as \"Keep the number of hours exact\" is off and no grid zone is selected: any setting between 0.25 h and 8 h then yields the same 8 hours. With a grid zone the total price decides – in summer the SNAP window (10:00-16:00) can shift which hours are cheapest. At a tie, the actual on-time can exceed the configured number of hours unless \"Keep the number of hours exact\" is enabled — in \"Consecutive block\" mode it is always exact.",
             "cheap_mode": "\"Cheapest individual hours\": the cheapest quarter-hours of the day — they may be spread across the day (e.g. boiler, wallbox). \"Consecutive block\": a single cheapest window in one piece — for appliances with a fixed run time that must not be interrupted (washing machine, dishwasher).",
             "exact_hours": "By default, further times that cost exactly as much as the most expensive selected one are also marked cheap — the sensor is then on longer than configured, but never at a higher price. When enabled, it delivers exactly the configured number of hours. Only affects \"Cheapest individual hours\"."
           }
@@ -97,7 +97,8 @@
     "tariff": {
       "options": {
         "smarttimes": "smartTIMES (time-based tariff)",
-        "smartcontrol": "smartCONTROL (linked to spot price)"
+        "smartcontrol": "smartCONTROL (linked to spot price)",
+        "smartnight": "smartNIGHT (night tariff, more expensive 07:00-23:00)"
       }
     },
     "cheap_mode": {

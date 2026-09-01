@@ -128,7 +128,7 @@ Preis-Entität fürs Energie-Dashboard:
    unter **Kosten** die Option **Entität mit aktuellem Preis verwenden**
    aktivieren.
 3. Als Preis-Entität `sensor.smarttimes_strompreishelfer_gesamtpreis`
-   (bzw. `smartcontrol_…`) auswählen.
+   (bzw. `smartcontrol_…` / `smartnight_…`) auswählen.
 
 So rechnet Home Assistant die tatsächlichen Stromkosten dynamisch mit dem
 jeweils gültigen Gesamtpreis ab.

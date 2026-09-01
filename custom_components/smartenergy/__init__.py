@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -28,10 +29,12 @@ from .const import (
     TARIFF_API_URLS,
     TARIFF_DISPLAY_NAMES,
     TARIFF_SMARTCONTROL,
+    TARIFF_SMARTNIGHT,
 )
 from .coordinator import SmartTimesCoordinator
 from .entity import hub_device_info
 from .grid_fees import get_zone
+from .smartnight import SmartNightApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,10 +43,39 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 type SmartTimesConfigEntry = ConfigEntry[SmartTimesCoordinator]
 
 
+def erzeuge_preis_client(
+    session: aiohttp.ClientSession,
+    tariff: str,
+    *,
+    integration_version: str | None = None,
+    documentation_url: str | None = None,
+) -> SmartTimesApiClient:
+    """Baut den zum Tarif passenden Preis-Client.
+
+    Zwei Tarife holen ihre Preise unmittelbar von ihrem Endpunkt; smartNIGHT
+    hat keinen eigenen und wird aus der smartTIMES-Antwort berechnet (siehe
+    ``smartnight.py``) – dafür steht der ableitende Untertyp.
+
+    Bewusst hier und nicht an den Aufrufstellen: Damit liegt die Zuordnung
+    Tarif → Client neben Tarif → URL und Tarif → Abwicklungsgebühr, und der
+    Config-Flow prüft die Verbindung über genau den Client, der später auch
+    läuft.
+    """
+    client_cls = (
+        SmartNightApiClient if tariff == TARIFF_SMARTNIGHT else SmartTimesApiClient
+    )
+    return client_cls(
+        session,
+        TARIFF_API_URLS.get(tariff, TARIFF_API_URLS[DEFAULT_TARIFF]),
+        integration_version=integration_version,
+        documentation_url=documentation_url,
+    )
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: SmartTimesConfigEntry
 ) -> bool:
-    """Richtet die Integration (smartTIMES oder smartCONTROL) ein."""
+    """Richtet die Integration (smartTIMES, smartCONTROL oder smartNIGHT) ein."""
     session = async_get_clientsession(hass)
 
     # Tarif aus den Optionen (Fallback auf data, dann Default smartTIMES – deckt
@@ -51,7 +83,6 @@ async def async_setup_entry(
     tariff = entry.options.get(
         CONF_TARIFF, entry.data.get(CONF_TARIFF, DEFAULT_TARIFF)
     )
-    api_url = TARIFF_API_URLS.get(tariff, TARIFF_API_URLS[DEFAULT_TARIFF])
     tariff_name = TARIFF_DISPLAY_NAMES.get(
         tariff, TARIFF_DISPLAY_NAMES[DEFAULT_TARIFF]
     )
@@ -61,9 +92,9 @@ async def async_setup_entry(
     )
 
     integration = await async_get_integration(hass, DOMAIN)
-    client = SmartTimesApiClient(
+    client = erzeuge_preis_client(
         session,
-        api_url,
+        tariff,
         integration_version=str(integration.version),
         documentation_url=API_OPERATOR_DOC_URL,
     )

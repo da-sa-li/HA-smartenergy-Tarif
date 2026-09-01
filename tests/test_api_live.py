@@ -1,5 +1,10 @@
 """Vertragstests gegen die **echte** smartENERGY-API (smartTIMES & smartCONTROL).
 
+smartNIGHT hat keinen eigenen Endpunkt und steht deshalb nicht in
+``ERWARTUNGEN`` (das an Endpunkt und Fixture hängt); für ihn prüft ein eigener
+Test am Ende, dass sich aus der Live-Antwort weiterhin die zwei Preisstufen des
+Tarifs ergeben.
+
 Anders als die übrigen Tests arbeiten diese hier nicht mit den eingefrorenen
 Antworten aus ``tests/fixtures/``, sondern rufen die öffentlichen Endpunkte
 tatsächlich ab. Sie beantworten damit eine Frage, die eine Fixture nie
@@ -48,7 +53,13 @@ from custom_components.smartenergy.const import (
     API_TIMEOUT,
     TARIFF_API_URLS,
     TARIFF_SMARTCONTROL,
+    TARIFF_SMARTNIGHT,
     TARIFF_SMARTTIMES,
+)
+from custom_components.smartenergy.smartnight import (
+    SMARTNIGHT_PEAK_FACTOR,
+    SmartNightApiClient,
+    ist_peak,
 )
 
 # Alle Tests dieses Moduls rufen die echte API auf.
@@ -362,6 +373,57 @@ async def test_live_api_haelt_den_vertrag(
     else:
         assert result.basic_fees, "Grundgebühr-Block (basicFee) fehlt in der Antwort."
         assert all(gebuehr.gross_value > 0 for gebuehr in result.basic_fees)
+
+
+async def test_live_smartnight_leitet_zwei_preisstufen_ab(
+    live_session: aiohttp.ClientSession,
+) -> None:
+    """Aus der echten smartTIMES-Antwort entsteht ein gültiger smartNIGHT-Tarif.
+
+    Geprüft werden wieder nur Invarianten, keine konkreten Preise: dasselbe
+    lückenlose Viertelstundenraster wie bei den übrigen Tarifen und – als Zusage
+    des Tarifs selbst – **genau zwei** Preisstufen je Kalendertag, deren teurere
+    30 % über der günstigeren liegt.
+
+    Ein eigener Abruf statt eines Eintrags in ``ERWARTUNGEN``: Jenes prüft
+    zusätzlich die Feldstruktur gegen die Fixture, was für smartNIGHT dieselbe
+    Prüfung wie für smartTIMES wäre (gleicher Endpunkt, gleiche Fixture).
+    """
+    client = SmartNightApiClient(
+        live_session,
+        TARIFF_API_URLS[TARIFF_SMARTNIGHT],
+        integration_version=integration_version(),
+        documentation_url=API_OPERATOR_DOC_URL,
+    )
+
+    result = await client.async_get_prices()
+
+    pruefe_preis_vertrag(result)
+    assert result.tariff == "smartNIGHT"
+
+    stufen_je_tag: dict[object, dict[bool, set[float]]] = {}
+    for preis in result.prices:
+        lokal = dt_util.as_local(preis.start)
+        tag = stufen_je_tag.setdefault(lokal.date(), {True: set(), False: set()})
+        tag[ist_peak(preis.start)].add(preis.gross_ct_per_kwh)
+
+    for tag, stufen in stufen_je_tag.items():
+        if not stufen[True] or not stufen[False]:
+            # Angebrochener Kalendertag am Rand der Antwort – dort fehlt eine
+            # der beiden Zonen, ein Verhältnis lässt sich nicht bilden.
+            continue
+        assert len(stufen[False]) == 1, (
+            f"{tag}: mehr als ein Off-Peak-Preis {sorted(stufen[False])}"
+        )
+        assert len(stufen[True]) == 1, (
+            f"{tag}: mehr als ein Peak-Preis {sorted(stufen[True])}"
+        )
+        off_peak = next(iter(stufen[False]))
+        peak = next(iter(stufen[True]))
+        assert peak == round(off_peak * SMARTNIGHT_PEAK_FACTOR, 4), (
+            f"{tag}: Peak {peak} entspricht nicht {SMARTNIGHT_PEAK_FACTOR} x "
+            f"Off-Peak {off_peak}."
+        )
 
 
 @pytest.mark.parametrize("erwartung", ERWARTUNGEN, ids=lambda e: e.tarif)
