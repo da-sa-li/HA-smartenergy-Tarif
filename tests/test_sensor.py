@@ -91,6 +91,24 @@ async def test_smarttimes_hat_grundgebuehr_sensor(
     assert float(zustand.state) == pytest.approx(2.988)
 
 
+async def test_smartnight_hat_grundgebuehr_sensor(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """smartNIGHT erbt den basicFee-Block der smartTIMES-Antwort.
+
+    Die Grundgebühr ist bei smartNIGHT dieselbe wie bei den übrigen Tarifen; da
+    der Tarif aus derselben Antwort entsteht, kommt sie unverändert mit
+    (Fixture: 2,988 brutto). Der Aufschlag von 30 % gilt nur dem Arbeitspreis.
+    """
+    entry = await _richte_ein(hass, smarttimes_payload, "smartnight")
+
+    assert "basic_fee" in _sensor_schluessel(hass, entry)
+
+    zustand = hass.states.get("sensor.smartnight_strompreishelfer_basic_fee")
+    assert zustand is not None
+    assert float(zustand.state) == pytest.approx(2.988)
+
+
 async def test_smartcontrol_hat_keinen_grundgebuehr_sensor(
     hass: HomeAssistant, enable_custom_integrations, smartcontrol_payload
 ):
@@ -606,6 +624,9 @@ SMARTCONTROL_GEBUEHR_EUR = 0.0144
         # verstellter Satz änderte Laufzeitwert und Sollwert gemeinsam.
         ("smartcontrol", "smartcontrol_payload", 1.2),
         ("smarttimes", "smarttimes_payload", 0.0),
+        # smartNIGHT wird aus der smartTIMES-Antwort berechnet und kennt
+        # ebenfalls keine Abwicklungsgebühr.
+        ("smartnight", "smarttimes_payload", 0.0),
     ],
 )
 async def test_abwicklungsgebuehr_haengt_am_gewaehlten_tarif(
@@ -616,7 +637,7 @@ async def test_abwicklungsgebuehr_haengt_am_gewaehlten_tarif(
     payload_name: str,
     erwartet: float,
 ):
-    """Nur smartCONTROL bekommt die Abwicklungsgebühr, smartTIMES nicht.
+    """Nur smartCONTROL bekommt die Abwicklungsgebühr, die übrigen Tarife nicht.
 
     Prüft die Verdrahtung in ``__init__.async_setup_entry`` selbst: Ohne diesen
     Test bliebe unbemerkt, wenn die Fallunterscheidung wegfiele oder sich
@@ -652,6 +673,38 @@ async def test_abwicklungsgebuehr_erreicht_den_gesamtpreis_sensor(
             "handling_fee": SMARTCONTROL_GEBUEHR_EUR,
         }
     )
+
+
+@pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit
+async def test_smartnight_arbeitspreis_traegt_den_peak_aufschlag(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Ende zu Ende: Aus derselben Antwort entstehen zwei verschiedene Tarife.
+
+    Um 12:00 Ortszeit liegt smartTIMES in seiner günstigsten Zone (11,316 ct
+    brutto = 0,11316 EUR/kWh). Für smartNIGHT ist dieselbe Zeit Peak, der
+    Arbeitspreis beträgt dort 11,316 * 1,3 = 14,7108 ct = 0,147108 EUR/kWh.
+    """
+    await _richte_ein(hass, smarttimes_payload, "smartnight")
+
+    zustand = hass.states.get("sensor.smartnight_strompreishelfer_energy_price")
+    assert float(zustand.state) == pytest.approx(0.147108)
+    assert zustand.attributes["tariff"] == "smartNIGHT"
+
+
+@pytest.mark.freeze_time("2026-06-05 01:00:00")  # 03:00 Ortszeit
+async def test_smartnight_arbeitspreis_off_peak_entspricht_smarttimes(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Nachts zahlt smartNIGHT den Off-Peak-Preis von smartTIMES.
+
+    11,316 ct brutto = 0,11316 EUR/kWh – derselbe Wert, den smartTIMES um
+    02:00-04:00 Uhr meldet.
+    """
+    await _richte_ein(hass, smarttimes_payload, "smartnight")
+
+    zustand = hass.states.get("sensor.smartnight_strompreishelfer_energy_price")
+    assert float(zustand.state) == pytest.approx(0.11316)
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit

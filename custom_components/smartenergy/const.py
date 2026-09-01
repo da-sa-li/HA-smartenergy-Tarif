@@ -20,19 +20,27 @@ MARKET_API_URL: Final = "https://apis.smartenergy.at/market/v1/price"
 CONF_TARIFF: Final = "tariff"
 TARIFF_SMARTTIMES: Final = "smarttimes"
 TARIFF_SMARTCONTROL: Final = "smartcontrol"
+TARIFF_SMARTNIGHT: Final = "smartnight"
 DEFAULT_TARIFF: Final = TARIFF_SMARTTIMES
 
 # Anzeigename je Tarif (Gerätename, Modell, Titel). Stammt aus der Nutzer-Auswahl,
-# NICHT aus der API – smartCONTROL liefert dort den Börsen-Tarif "EPEXSPOTAT".
+# NICHT aus der API – smartCONTROL liefert dort den Börsen-Tarif "EPEXSPOTAT",
+# smartNIGHT wird aus der smartTIMES-Antwort berechnet (siehe smartnight.py).
 TARIFF_DISPLAY_NAMES: Final[dict[str, str]] = {
     TARIFF_SMARTTIMES: "smartTIMES",
     TARIFF_SMARTCONTROL: "smartCONTROL",
+    TARIFF_SMARTNIGHT: "smartNIGHT",
 }
 
-# API-URL je Tarif.
+# API-URL je Tarif. smartNIGHT hat keinen eigenen Endpunkt: Sein Off-Peak-Preis
+# *ist* der von smartTIMES, deshalb wird er aus derselben Antwort abgeleitet
+# (siehe smartnight.py). Der Eintrag steht hier ausdrücklich, damit nicht der
+# stille `.get`-Fallback der Aufrufer greift – der smartTIMES-Endpunkt ist für
+# smartNIGHT die richtige Adresse, nicht nur zufällig dieselbe.
 TARIFF_API_URLS: Final[dict[str, str]] = {
     TARIFF_SMARTTIMES: API_URL,
     TARIFF_SMARTCONTROL: MARKET_API_URL,
+    TARIFF_SMARTNIGHT: API_URL,
 }
 
 # Abwicklungsgebühr bei smartCONTROL: 1,2 ct/kWh NETTO (= 1,44 ct/kWh brutto inkl.

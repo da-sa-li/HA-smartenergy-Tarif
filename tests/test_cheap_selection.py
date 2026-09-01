@@ -136,6 +136,68 @@ def test_exact_hours_laesst_die_stundenzahl_durchschlagen(make_data, smarttimes_
         assert len(selected) == expected
 
 
+def test_smartnight_waehlt_die_off_peak_stunden(make_data, smarttimes_payload):
+    """Bei smartNIGHT ist die günstige Zone die Nacht (23:00-07:00).
+
+    Off-Peak kostet 11,316 brutto, Peak 14,7108 – ohne Netzgebiet ist die
+    Rangfolge monoton im Bruttopreis, günstig sind also genau die 32
+    Off-Peak-Intervalle des Kalendertages (00:00-07:00 und 23:00-24:00).
+    """
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone=None)
+    all_starts, strict_starts = data._cheap_selection(DAY, 4.0, "individual", False)
+
+    # 4 h = 16 strikte Intervalle; bei Gleichstand erweitert auf alle 32.
+    assert len(strict_starts) == 16
+    assert len(all_starts) == 32
+    assert all(
+        start.hour < 7 or start.hour >= 23 for start in all_starts
+    ), "eine Peak-Stunde wurde als günstig markiert"
+
+
+def test_smartnight_haelt_die_stundenzahl_mit_exact_hours_ein(
+    make_data, smarttimes_payload
+):
+    """Wie bei smartTIMES wirkt die Stundenzahl erst mit ``exact_hours``.
+
+    Die 32 Off-Peak-Intervalle sind exakt gleich teuer; gewählt werden deshalb
+    die 16 frühesten, also 00:00-04:00.
+    """
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone=None)
+    all_starts, strict_starts = data._cheap_selection(DAY, 4.0, "individual", True)
+
+    assert all_starts == strict_starts
+    assert sorted(all_starts) == [
+        _iso("2026-06-05T00:00:00+02:00") + timedelta(minutes=15 * i)
+        for i in range(16)
+    ]
+
+
+def test_smartnight_folgt_dem_gesamtpreis_nicht_der_uhrzeit(
+    make_data, smarttimes_payload
+):
+    """Im Kleinwalsertal ist im Sommer das SNAP-Fenster günstiger als die Nacht.
+
+    Das dortige Netznutzungsentgelt fällt im SNAP-Fenster um 17,73 - 14,18 =
+    3,55 ct/kWh netto - mehr, als der Peak-Aufschlag ausmacht (30 % von 9,43 =
+    2,829 netto). Damit kostet Peak im SNAP-Fenster netto
+    12,259 + 0,72 + 14,18 + 0,401 = 27,56 gegenüber
+    9,43 + 0,72 + 17,73 + 0,401 = 28,281 für Off-Peak außerhalb.
+
+    Die Auswahl richtet sich also weiterhin nach dem Gesamtpreis und nicht nach
+    der Tageszeit; gewählt werden die 16 frühesten der 24 preisgleichen
+    SNAP-Intervalle, also 10:00-14:00.
+    """
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone="kleinwalsertal")
+    intervals = data.cheap_intervals(DAY, 4.0, "individual", True)
+
+    assert [p.start for p in intervals] == [
+        _iso("2026-06-05T10:00:00+02:00") + timedelta(minutes=15 * i)
+        for i in range(16)
+    ]
+    # 27,56 * 1,2 = 33,072 gegenüber 28,281 * 1,2 = 33,9372 in der Nacht.
+    assert data.cheap_cutoff(DAY, 4.0, "individual", True) == pytest.approx(33.072)
+
+
 def test_blockmodus_waehlt_das_guenstigste_lueckenlose_fenster(make_data, smartcontrol_payload):
     """Der zusammenhängende Block ist das günstigste lückenlose Fenster."""
     # 2 h = 8 zusammenhängende Intervalle mit minimaler Summe.

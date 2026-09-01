@@ -21,6 +21,7 @@ from homeassistant.util import dt as dt_util
 from custom_components.smartenergy.api import SmartTimesApiClient
 from custom_components.smartenergy.coordinator import SmartTimesData
 from custom_components.smartenergy.grid_fees import get_zone
+from custom_components.smartenergy.smartnight import als_smartnight
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -119,7 +120,13 @@ def smartcontrol_payload() -> dict:
 
 @pytest.fixture
 def make_data():
-    """Factory: baut ``SmartTimesData`` aus einer API-Antwort (wie der Koordinator)."""
+    """Factory: baut ``SmartTimesData`` aus einer API-Antwort (wie der Koordinator).
+
+    Mit ``smartnight=True`` wird die Antwort zuvor in den smartNIGHT-Tarif
+    umgerechnet – genau wie es der ableitende Client im Betrieb tut. Eine eigene
+    Fixture gibt es dafür nicht, weil es für smartNIGHT keine eigene API gibt:
+    Der Tarif entsteht aus der smartTIMES-Antwort (siehe ``smartnight.py``).
+    """
 
     def _make(
         payload: dict,
@@ -128,9 +135,12 @@ def make_data():
         grid_zone: str | None = None,
         handling_fee_net: float = 0.0,
         tariff_name: str | None = None,
+        smartnight: bool = False,
     ) -> SmartTimesData:
         """Parst ``payload`` und kapselt ihn als ``SmartTimesData``."""
         result = SmartTimesApiClient._parse(payload)
+        if smartnight:
+            result = als_smartnight(result)
         return SmartTimesData(
             tariff=tariff_name or result.tariff,
             unit=result.unit,

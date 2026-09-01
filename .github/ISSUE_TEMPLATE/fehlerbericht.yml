@@ -63,6 +63,7 @@ body:
       options:
         - smartTIMES
         - smartCONTROL
+        - smartNIGHT
     validations:
       required: true
 

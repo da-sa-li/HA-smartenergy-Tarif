@@ -58,6 +58,36 @@ async def test_einrichtung_legt_den_eintrag_an(
     }
 
 
+async def test_einrichtung_mit_smartnight_legt_den_eintrag_an(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """smartNIGHT ist wählbar und trägt seinen eigenen Titel.
+
+    Die Verbindungsprüfung läuft über den ableitenden Client, der die
+    smartTIMES-API abruft – gepatcht wird deshalb die Basisklasse.
+    """
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    with patch(_PATCH_PRICES, AsyncMock(return_value=parsed)), patch(
+        _PATCH_SETUP, return_value=True
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"tariff": "smartnight", "include_vat": True, "grid_zone": "none"},
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "smartNIGHT Strompreishelfer"
+    assert result["options"] == {
+        "tariff": "smartnight",
+        "include_vat": True,
+        "grid_zone": "none",
+    }
+
+
 async def test_einrichtung_meldet_einen_verbindungsfehler(
     hass: HomeAssistant, enable_custom_integrations
 ):

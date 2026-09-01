@@ -2,8 +2,9 @@
 
 Eine [Home Assistant](https://www.home-assistant.io/) Integration für die
 dynamischen Stromtarife **[smartTIMES](https://www.smartenergy.at/smarttimes)**
-(drei Preiszonen mit monatlicher Preisanpassung) und **[smartCONTROL](https://www.smartenergy.at/smartcontrol)**
-(an den Spot-Börsenpreis gekoppelt) von
+(drei Preiszonen mit monatlicher Preisanpassung), **[smartCONTROL](https://www.smartenergy.at/smartcontrol)**
+(an den Spot-Börsenpreis gekoppelt) und **[smartNIGHT](https://www.smartenergy.at/smartnight)**
+(zwei Preiszonen, Peak von 07:00 bis 23:00 Uhr) von
 [smartENERGY](https://www.smartenergy.at/), die viertelstündliche Tarifpreise als
 Sensoren bereitstellt – ideal zum automatischen Schalten von Verbrauchern in
 günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
@@ -13,9 +14,11 @@ günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
 
 ## Funktionen
 
-- ⚡ **Tarifwahl smartTIMES oder smartCONTROL** – bei smartCONTROL wird die
-  **Abwicklungsgebühr** (1,2 ct/kWh netto / 1,44 ct/kWh brutto) auf den
-  Börsenpreis aufgeschlagen
+- ⚡ **Tarifwahl smartTIMES, smartCONTROL oder smartNIGHT** – bei smartCONTROL
+  wird die **Abwicklungsgebühr** (1,2 ct/kWh netto / 1,44 ct/kWh brutto) auf den
+  Börsenpreis aufgeschlagen; bei smartNIGHT liegt der Arbeitspreis von 07:00 bis
+  23:00 Uhr **30 % über** dem Off-Peak-Preis (die übrigen Tarife haben keinen
+  solchen Aufschlag)
 - 🔌 **Arbeitspreis** der laufenden Tarifzone (EUR/kWh)
 - 💶 **Gesamtpreis** in EUR/kWh inkl. aller variablen Nebenkosten – fürs Energie-Dashboard
 - 📐 **Einheitlich EUR/kWh** für alle Preissensoren – direkt vergleichbar,
@@ -49,7 +52,14 @@ gewähltem Tarif (API-Dokumentation:
 ```
 smartTIMES:   https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 smartCONTROL: https://apis.smartenergy.at/market/v1/price
+smartNIGHT:   https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 ```
+
+Für **smartNIGHT** gibt es keine eigene API. Sein Off-Peak-Preis *ist* der
+Off-Peak-Preis von smartTIMES, deshalb wird der Tarif aus derselben Antwort
+berechnet: Off-Peak übernimmt den günstigsten Preis des Tages, von 07:00 bis
+23:00 Uhr kommen 30 % darauf. So folgt der Preis der monatlichen Anpassung von
+smartENERGY automatisch, und es entsteht kein zusätzlicher Abruf.
 
 > [!WARNING]
 > Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant auf `Europe/Vienna` eingestellt sein.
@@ -75,7 +85,8 @@ smartCONTROL: https://apis.smartenergy.at/market/v1/price
 
 1. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 2. Nach **smartENERGY Strompreishelfer** suchen.
-3. Das **Tarifmodell** wählen: **smartTIMES** (zeitabhängig) oder **smartCONTROL**.
+3. Das **Tarifmodell** wählen: **smartTIMES** (zeitabhängig), **smartCONTROL**
+   (börsengekoppelt) oder **smartNIGHT** (Nachttarif).
 4. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 5. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
    Netzgebiet“ lässt die Netzentgelte weg. Das Netzgebiet steht im
@@ -108,7 +119,8 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
    Ziel-Ladestand), die eine Gelegenheit zum selben Preis mitnehmen können.
    Bei **smartTIMES** ist der Unterschied groß: Der Tarif kennt nur drei
    Preisstufen zu je 8 Stunden, ausgeschaltet liefert dort jede Einstellung
-   zwischen 0,25 h und 8 h dieselben 8 Stunden. Die Option wirkt nur bei
+   zwischen 0,25 h und 8 h dieselben 8 Stunden. Bei **smartNIGHT** gilt dasselbe
+   für seine 8 Off-Peak-Stunden (23:00–07:00). Die Option wirkt nur bei
    „Günstigste Einzelstunden“; beim zusammenhängenden Block gilt die
    eingestellte Länge ohnehin immer exakt.
 5. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
@@ -140,7 +152,7 @@ Löschen bleiben keine Konfigurationsreste zurück.
 
 ## Sensoren
 
-> Entitäts-IDs beginnen mit dem gewählten Tarif (`smarttimes_…` bzw. `smartcontrol_…`), unten verkürzt als `…`.
+> Entitäts-IDs beginnen mit dem gewählten Tarif (`smarttimes_…`, `smartcontrol_…` bzw. `smartnight_…`), unten verkürzt als `…`.
 
 | Sensor                                   | Beschreibung                                        |
 |-------------------------------------------|------------------------------------------------------|

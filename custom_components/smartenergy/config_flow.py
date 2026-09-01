@@ -19,8 +19,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from . import erzeuge_preis_client
 from .api import (
-    SmartTimesApiClient,
     SmartTimesApiError,
     SmartTimesApiPayloadError,
     SmartTimesApiPermanentError,
@@ -45,9 +45,9 @@ from .const import (
     DOMAIN,
     GRID_ZONE_NONE,
     SUBENTRY_TYPE_CHEAP_HOUR,
-    TARIFF_API_URLS,
     TARIFF_DISPLAY_NAMES,
     TARIFF_SMARTCONTROL,
+    TARIFF_SMARTNIGHT,
     TARIFF_SMARTTIMES,
 )
 from .grid_fees import GRID_ZONES
@@ -61,10 +61,10 @@ def _title(tariff: str) -> str:
 
 
 def _tariff_selector() -> selector.SelectSelector:
-    """Dropdown zur Auswahl des Tarifmodells (smartTIMES bzw. smartCONTROL)."""
+    """Dropdown zur Auswahl des Tarifmodells (smartTIMES, smartCONTROL, smartNIGHT)."""
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
-            options=[TARIFF_SMARTTIMES, TARIFF_SMARTCONTROL],
+            options=[TARIFF_SMARTTIMES, TARIFF_SMARTCONTROL, TARIFF_SMARTNIGHT],
             mode=selector.SelectSelectorMode.DROPDOWN,
             translation_key="tariff",
         )
@@ -131,12 +131,13 @@ async def _async_validate_tariff_connection(
 
     Wird von Einrichtungs- und Options-Flow gemeinsam genutzt. Liefert bei
     Erfolg ``None``, sonst den passenden Fehlerschlüssel für ``errors["base"]``.
+
+    Gebaut wird der Client über dieselbe Fabrik wie im Betrieb: Bei smartNIGHT
+    läuft die Prüfung damit über den ableitenden Client und deckt neben dem
+    Abruf auch die Umrechnung ab.
     """
     session = async_get_clientsession(hass)
-    client = SmartTimesApiClient(
-        session,
-        TARIFF_API_URLS.get(tariff, TARIFF_API_URLS[DEFAULT_TARIFF]),
-    )
+    client = erzeuge_preis_client(session, tariff)
     try:
         await client.async_get_prices()
     except SmartTimesApiTimeoutError:

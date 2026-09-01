@@ -1,4 +1,9 @@
-"""Client für die smartENERGY Preis-API (smartTIMES und smartCONTROL)."""
+"""Client für die smartENERGY Preis-API (smartTIMES und smartCONTROL).
+
+Der dritte Tarif, smartNIGHT, hat keinen eigenen Endpunkt: Er wird aus der
+smartTIMES-Antwort berechnet und sitzt deshalb in ``smartnight.py`` auf diesem
+Client auf.
+"""
 
 from __future__ import annotations
 
@@ -29,7 +34,7 @@ def _build_user_agent(
 ) -> str:
     """Baut den User-Agent-String nach dem Schema ``Produkt/Version (+URL)``.
 
-    Tarifneutral: derselbe Client bedient smartTIMES und smartCONTROL. Manche
+    Tarifneutral: derselbe Client bedient alle Tarife der Integration. Manche
     APIs lehnen Anfragen ohne "echten" UA mit 403 ab – daher setzen wir einen,
     der zusätzlich die Integrationsversion und einen Doku-Link trägt, damit
     smartENERGY bei Rückfragen eine Anlaufstelle hat.
@@ -168,7 +173,11 @@ class SmartTimesResult:
 
 
 class SmartTimesApiClient:
-    """Kapselt die HTTP-Aufrufe an die smartENERGY-API (smartTIMES/smartCONTROL)."""
+    """Kapselt die HTTP-Aufrufe an die smartENERGY-API (smartTIMES/smartCONTROL).
+
+    smartNIGHT nutzt denselben Client über den ableitenden Untertyp in
+    ``smartnight.py``.
+    """
 
     def __init__(
         self,
