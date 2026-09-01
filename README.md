@@ -120,7 +120,10 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
    Bei **smartTIMES** ist der Unterschied groß: Der Tarif kennt nur drei
    Preisstufen zu je 8 Stunden, ausgeschaltet liefert dort jede Einstellung
    zwischen 0,25 h und 8 h dieselben 8 Stunden. Bei **smartNIGHT** gilt dasselbe
-   für seine 8 Off-Peak-Stunden (23:00–07:00). Die Option wirkt nur bei
+   für seine 8 Off-Peak-Stunden (23:00–07:00). Beides gilt **ohne gewähltes
+   Netzgebiet** – mit Netzgebiet entscheidet der Gesamtpreis, und das
+   SNAP-Fenster (10:00–16:00 Uhr) kann die günstigsten Stunden im Sommer
+   verschieben. Die Option wirkt nur bei
    „Günstigste Einzelstunden“; beim zusammenhängenden Block gilt die
    eingestellte Länge ohnehin immer exakt.
 5. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
