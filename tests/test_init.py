@@ -122,8 +122,12 @@ async def test_untereintrags_geraet_haengt_am_hub(
 
     subentry_id = next(iter(entry.subentries))
     registry = dr.async_get(hass)
-    hub = registry.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
-    untereintrag = registry.async_get_device(identifiers={(DOMAIN, subentry_id)})
+    hub = registry.async_get_device_by_identifier(
+        (DOMAIN, entry.entry_id), entry.entry_id
+    )
+    untereintrag = registry.async_get_device_by_identifier(
+        (DOMAIN, subentry_id), entry.entry_id
+    )
 
     assert hub is not None
     assert untereintrag is not None
@@ -181,8 +185,9 @@ async def test_hub_geraet_existiert_vor_dem_weiterreichen(
     async def _mitschreiben(weitergereichter_eintrag, platforms):
         """Hält fest, ob das Hub-Gerät beim Weiterreichen schon existiert."""
         vorhanden.append(
-            registry.async_get_device(
-                identifiers={(DOMAIN, weitergereichter_eintrag.entry_id)}
+            registry.async_get_device_by_identifier(
+                (DOMAIN, weitergereichter_eintrag.entry_id),
+                weitergereichter_eintrag.entry_id,
             )
             is not None
         )
