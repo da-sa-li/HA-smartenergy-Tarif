@@ -63,9 +63,14 @@ def hub_device_id(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
     Baum; das ist besser, als sie mit einer unbekannten ID zu verknüpfen (die
     Geräte-Registry lehnt das ab und Home Assistant ließe die Entität dann
     ganz weg).
+
+    Nachgeschlagen wird über ``async_get_device_by_identifier`` und nicht über
+    ``async_get_device``: Identifier sind seit Home Assistant 2026.8 nur noch
+    innerhalb eines Config-Eintrags eindeutig, weshalb Letzteres seit 2026.9
+    eine Warnung im Log jedes Nutzers auslöst und 2027.8 entfällt.
     """
-    geraet = dr.async_get(hass).async_get_device(
-        identifiers={(DOMAIN, entry.entry_id)}
+    geraet = dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, entry.entry_id), entry.entry_id
     )
     if geraet is None:
         _LOGGER.warning(
