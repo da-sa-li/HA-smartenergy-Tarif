@@ -105,22 +105,54 @@ async def test_einrichtung_meldet_einen_verbindungsfehler(
     assert result["errors"] == {"base": "cannot_connect"}
 
 
-async def test_nur_eine_instanz_erlaubt(
-    hass: HomeAssistant, enable_custom_integrations
+@pytest.mark.parametrize(
+    ("tarif", "titel"),
+    [
+        ("smartcontrol", "smartCONTROL Strompreishelfer"),
+        ("smarttimes", "smartTIMES Strompreishelfer"),
+    ],
+)
+async def test_zweite_instanz_wird_angelegt(
+    hass: HomeAssistant,
+    enable_custom_integrations,
+    smarttimes_payload,
+    tarif,
+    titel,
 ):
-    """Existiert bereits ein Eintrag, bricht ein zweiter Flow ab."""
-    MockConfigEntry(domain=DOMAIN, unique_id=DOMAIN).add_to_hass(hass)
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    assert result["type"] is FlowResultType.ABORT
-    # Wegen "single_config_entry": true im Manifest bricht Home Assistant schon
-    # VOR async_step_user ab. Das ist der einzige Abbruchgrund dieses Flows –
-    # ein eigener Aufruf von _abort_if_unique_id_configured() käme nie zum Zug
-    # und wurde deshalb entfernt.
-    # Der Grund wird mitgeprüft, weil sonst ein fehlender Übersetzungstext
-    # unbemerkt bliebe (die Oberfläche zeigte dann den rohen Schlüssel).
-    assert result["reason"] == "single_instance_allowed"
+    """Neben einem bestehenden Eintrag lässt sich ein weiterer anlegen.
+
+    Ein Haushalt kann mehrere Zähler haben, je mit eigenem Tarif. Geprüft wird
+    beides: ein anderer Tarif als der bestehende (smartCONTROL neben smartTIMES)
+    und derselbe – zwei Zähler im selben Tarif sind ebenso legitim und brechen
+    nicht als Duplikat ab.
+
+    Der Bestandseintrag trägt ``unique_id=DOMAIN`` wie jeder, der vor Version
+    4.4 angelegt wurde. Diese unique_id darf einen neuen Eintrag nicht sperren.
+    """
+    MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        title="smartTIMES Strompreishelfer",
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+    ).add_to_hass(hass)
+
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    with patch(_PATCH_PRICES, AsyncMock(return_value=parsed)), patch(
+        _PATCH_SETUP, return_value=True
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        assert result["type"] is FlowResultType.FORM
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"tariff": tarif, "include_vat": True, "grid_zone": "wien"},
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == titel
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 2
 
 
 async def test_optionen_aktualisieren_werte_und_titel(

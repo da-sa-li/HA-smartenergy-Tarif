@@ -13,6 +13,7 @@ from datetime import datetime
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.const import DOMAIN, TARIFF_DATA_YEAR
 from custom_components.smartenergy.repairs import (
@@ -20,6 +21,7 @@ from custom_components.smartenergy.repairs import (
     ISSUE_TARIFF_DATA_OUTDATED,
     async_check_tariff_data_year,
     async_update_fetch_issue,
+    fetch_issue_id,
 )
 from tests.conftest import VIENNA
 
@@ -77,27 +79,61 @@ async def test_tarifdaten_issue_gilt_auch_in_spaeteren_jahren(
     assert _issue(hass, ISSUE_TARIFF_DATA_OUTDATED) is not None
 
 
-async def test_dauerhafter_abruf_fehler_erzeugt_ein_issue(hass: HomeAssistant):
-    """Ein dauerhafter Abruf-Fehler erzeugt ein WARNING-Issue (nicht behebbar)."""
-    async_update_fetch_issue(hass, failing=True)
+def _eintrag(hass: HomeAssistant, titel: str) -> MockConfigEntry:
+    """Einen Config-Eintrag mit Titel anlegen – das Abruf-Issue gehört je einem."""
+    eintrag = MockConfigEntry(domain=DOMAIN, title=titel)
+    eintrag.add_to_hass(hass)
+    return eintrag
 
-    issue = _issue(hass, ISSUE_FETCH_FAILING)
+
+async def test_dauerhafter_abruf_fehler_erzeugt_ein_issue(hass: HomeAssistant):
+    """Ein dauerhafter Abruf-Fehler erzeugt ein WARNING-Issue (nicht behebbar).
+
+    Die ID trägt die entry_id, der Übersetzungsschlüssel bleibt der alte; der
+    Eintragstitel steht als Platzhalter ``name`` im Text.
+    """
+    eintrag = _eintrag(hass, "smartTIMES Strompreishelfer")
+    async_update_fetch_issue(hass, eintrag, failing=True)
+
+    issue = _issue(hass, f"fetch_failing_{eintrag.entry_id}")
     assert issue is not None
     assert issue.is_fixable is False
     assert issue.severity is ir.IssueSeverity.WARNING
     assert issue.translation_key == ISSUE_FETCH_FAILING
+    assert issue.translation_placeholders == {"name": "smartTIMES Strompreishelfer"}
 
 
 async def test_abruf_issue_schliesst_sich_bei_erfolg(hass: HomeAssistant):
     """Gelingt der Abruf wieder, wird das Issue automatisch geschlossen."""
-    async_update_fetch_issue(hass, failing=True)
-    assert _issue(hass, ISSUE_FETCH_FAILING) is not None
+    eintrag = _eintrag(hass, "smartTIMES Strompreishelfer")
+    async_update_fetch_issue(hass, eintrag, failing=True)
+    assert _issue(hass, fetch_issue_id(eintrag.entry_id)) is not None
 
-    async_update_fetch_issue(hass, failing=False)
-    assert _issue(hass, ISSUE_FETCH_FAILING) is None
+    async_update_fetch_issue(hass, eintrag, failing=False)
+    assert _issue(hass, fetch_issue_id(eintrag.entry_id)) is None
 
 
 async def test_ohne_stoerung_entsteht_kein_issue(hass: HomeAssistant):
     """Ohne anhaltenden Fehler entsteht erst gar kein Issue."""
-    async_update_fetch_issue(hass, failing=False)
-    assert _issue(hass, ISSUE_FETCH_FAILING) is None
+    eintrag = _eintrag(hass, "smartTIMES Strompreishelfer")
+    async_update_fetch_issue(hass, eintrag, failing=False)
+    assert _issue(hass, fetch_issue_id(eintrag.entry_id)) is None
+
+
+async def test_abruf_issue_einer_instanz_bleibt_bei_erfolg_der_anderen_offen(
+    hass: HomeAssistant,
+):
+    """Gelingt der Abruf des einen Eintrags, bleibt das Issue des anderen offen.
+
+    Mit einem gemeinsamen Issue schlösse der erfolgreiche Eintrag die Meldung
+    für den gestörten gleich mit – der Nutzer erführe nie, dass dessen Preise
+    veraltet sind.
+    """
+    gestoert = _eintrag(hass, "smartCONTROL Strompreishelfer")
+    intakt = _eintrag(hass, "smartTIMES Strompreishelfer")
+
+    async_update_fetch_issue(hass, gestoert, failing=True)
+    async_update_fetch_issue(hass, intakt, failing=False)
+
+    assert _issue(hass, fetch_issue_id(gestoert.entry_id)) is not None
+    assert _issue(hass, fetch_issue_id(intakt.entry_id)) is None

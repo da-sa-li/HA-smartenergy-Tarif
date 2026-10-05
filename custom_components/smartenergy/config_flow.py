@@ -196,12 +196,11 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Erster (und einziger) Einrichtungsschritt."""
-        # Die API liefert für alle Nutzer dieselben Daten – nur eine Instanz.
-        # Den Abbruch übernimmt Home Assistant selbst: `single_config_entry` im
-        # Manifest greift schon vor diesem Schritt (Grund: single_instance_allowed).
-        # Die unique_id wird trotzdem gesetzt, sie identifiziert den Eintrag.
-        await self.async_set_unique_id(DOMAIN)
-
+        # Mehrere Einträge sind erlaubt – einer je Zähler. Ein Haushalt kann
+        # mehrere Zähler mit unterschiedlichem Tarif, Netzgebiet oder USt.-
+        # Anzeige haben; selbst zwei gleich konfigurierte sind legitim. Daher
+        # weder `single_config_entry` im Manifest noch eine unique_id: Alles
+        # Instanzbezogene hängt an der entry_id.
         errors: dict[str, str] = {}
         if user_input is not None:
             tariff = user_input.get(CONF_TARIFF, DEFAULT_TARIFF)

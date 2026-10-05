@@ -94,6 +94,20 @@ smartENERGY automatisch, und es entsteht kein zusätzlicher Abruf.
 
 Diese Einstellungen sind über **Konfigurieren** jederzeit änderbar.
 
+### Mehrere Zähler
+
+Hast du mehrere Zähler – etwa Haushalt und Wärmepumpe, auch mit
+unterschiedlichem Tarif oder Netzgebiet –, richte die Integration einfach
+**für jeden Zähler erneut** über **Integration hinzufügen** ein. Jeder Eintrag
+hat seine eigenen Sensoren, Einstellungen und „Günstige Stunde“-Untereinträge
+und ruft die Preise selbst ab.
+
+Die Entitäts-IDs leiten sich aus dem Tarif ab. Teilen sich zwei Einträge
+denselben Tarif, hängt Home Assistant an die des zweiten ein `_2` an
+(`sensor.smarttimes_strompreishelfer_gesamtpreis_2`). Zur besseren
+Unterscheidung lässt sich das Gerät auf seiner Geräteseite umbenennen, Home
+Assistant bietet dabei an, die Entitäts-IDs mitzuziehen.
+
 ### „Günstige Stunde“-Sensoren anlegen
 
 Die Binary-Sensoren „Günstige Stunde“ werden als **Untereinträge** angelegt – so
@@ -142,9 +156,9 @@ Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeit
 
 1. **Einstellungen → Geräte & Dienste** öffnen und die Integration
    **smartENERGY Strompreishelfer** auswählen.
-2. Beim Eintrag auf das Drei-Punkte-Menü → **Löschen** klicken. Damit werden die
-   Integration, alle Sensoren und die „Günstige Stunde“-Untereinträge (samt
-   ihrer Geräte) entfernt.
+2. Beim Eintrag auf das Drei-Punkte-Menü → **Löschen** klicken. Damit werden der
+   Eintrag, alle seine Sensoren und die „Günstige Stunde“-Untereinträge (samt
+   ihrer Geräte) entfernt. Bei mehreren Zählern jeden Eintrag einzeln löschen.
 3. Optional, um auch die Dateien zu entfernen: in **HACS** die Integration
    **smartENERGY Strompreishelfer** öffnen → **Entfernen**. Bei manueller
    Installation stattdessen den Ordner `custom_components/smartenergy` löschen.

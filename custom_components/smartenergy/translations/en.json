@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "smartENERGY electricity price helper",
-        "description": "Fetches the tariff prices from smartENERGY (smartTIMES, smartCONTROL or smartNIGHT). No API key is required.",
+        "description": "Fetches the tariff prices from smartENERGY (smartTIMES, smartCONTROL or smartNIGHT). No API key is required. With several meters, the integration can be set up multiple times – one entry per meter.",
         "data": {
           "tariff": "Tariff model",
           "include_vat": "Show prices including 20% VAT (gross)",
@@ -21,9 +21,6 @@
       "timeout": "The smartENERGY API timed out. This usually points to a temporary network or load issue – please try again later.",
       "api_rejected": "The smartENERGY API rejected the request. The selected tariff is currently unavailable – please try again later.",
       "invalid_response": "The smartENERGY API returned an unexpected response. This suggests the API's format has changed – please file an issue in the integration's GitHub repository."
-    },
-    "abort": {
-      "single_instance_allowed": "smartENERGY is already configured. The API returns the same prices for everyone, so a second instance is not possible. You can change tariff, VAT and grid zone via “Configure” on the existing entry."
     }
   },
   "options": {
@@ -133,8 +130,8 @@
       "description": "The grid fees and renewable energy surcharge bundled with this version are \"as of {data_year}\" – these rates are redetermined every year. Since the current calendar year has already moved on, the integration may now be calculating with outdated values. Please update to a newer version of the integration once one with refreshed rates is released."
     },
     "fetch_failing": {
-      "title": "Tariff prices have not been refreshed for a while",
-      "description": "Fetching current tariff prices from the smartENERGY API has been failing for several hours. The integration keeps using the last successfully loaded, cached prices in the meantime – these may by now be outdated. The issue resolves itself automatically once fetching succeeds again."
+      "title": "{name}: tariff prices have not been refreshed for a while",
+      "description": "Fetching current tariff prices for “{name}” from the smartENERGY API has been failing for several hours. The integration keeps using the last successfully loaded, cached prices in the meantime – these may by now be outdated. The issue resolves itself automatically once fetching succeeds again."
     }
   },
   "entity": {

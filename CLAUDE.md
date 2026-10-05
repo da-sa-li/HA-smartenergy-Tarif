@@ -309,7 +309,15 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   Options-Flow + Subentry-Flow für die Günstige-Stunde-Sensoren. Der **Tarif** (`CONF_TARIFF`:
   `smarttimes`/`smartcontrol`/`smartnight`) bestimmt API-URL, Client, Anzeigenamen und die
   Abwicklungsgebühr.
-  `single_config_entry: true` → nur **eine** Instanz. Schemas müssen frontend-serialisierbar
+  **Mehrere Einträge sind erlaubt – einer je Zähler** (seit 4.4; vorher `single_config_entry`).
+  Die alte Begründung „die API liefert allen dieselben Daten“ stammte aus der Zeit, als es nur
+  smartTIMES gab; seit Tarif, Netzgebiet und USt. je Eintrag wählbar sind, gilt sie nicht mehr,
+  und ein Haushalt kann mehrere Zähler mit verschiedenen Tarifen haben. Deshalb keine
+  `unique_id` im Flow und kein Duplikat-Abbruch (zwei gleich konfigurierte Zähler sind
+  legitim). Alles Instanzbezogene hängt an der `entry_id` – Entitäten, Hub-Gerät, Fetch-Jitter
+  **und das Abruf-Repair-Issue** (`repairs.fetch_issue_id`; ein gemeinsames Issue schlösse der
+  erfolgreiche Eintrag für den gestörten mit). Abgerufen wird je Eintrag getrennt, ohne
+  gemeinsamen Cache. Schemas müssen frontend-serialisierbar
   bleiben (keine Lambdas/`vol.All` mit Callable; Validierung stattdessen im Flow-Schritt).
 
 - **Schema-Migration** – `CONFIG_ENTRY_VERSION` in `const.py` ist die einzige Quelle für

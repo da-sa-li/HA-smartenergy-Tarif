@@ -32,8 +32,8 @@ from custom_components.smartenergy.const import (
 )
 from custom_components.smartenergy.coordinator import SmartTimesCoordinator
 from custom_components.smartenergy.repairs import (
-    ISSUE_FETCH_FAILING,
     ISSUE_TARIFF_DATA_OUTDATED,
+    fetch_issue_id,
 )
 from tests.conftest import VIENNA
 
@@ -403,7 +403,9 @@ async def test_dauerhafter_abruf_fehler_meldet_und_schliesst_das_issue(
     client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("boom"))
 
     await coordinator._async_update_data()
-    issue = ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_FETCH_FAILING)
+    # Das Issue gehört dem Eintrag des Koordinators (siehe repairs.py).
+    issue_id = fetch_issue_id(coordinator.config_entry.entry_id)
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
     assert issue is not None
     assert issue.is_fixable is False
     assert issue.severity is ir.IssueSeverity.WARNING
@@ -417,7 +419,7 @@ async def test_dauerhafter_abruf_fehler_meldet_und_schliesst_das_issue(
     client.async_get_prices = AsyncMock(return_value=parsed)
     await coordinator._async_update_data()
 
-    assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_FETCH_FAILING) is None
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
 
 
 @pytest.mark.freeze_time("2027-01-02 12:00:00")

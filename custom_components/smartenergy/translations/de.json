@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "smartENERGY Strompreishelfer",
-        "description": "Ruft die Tarifpreise von smartENERGY ab (smartTIMES, smartCONTROL oder smartNIGHT). Es ist kein API-Schlüssel erforderlich.",
+        "description": "Ruft die Tarifpreise von smartENERGY ab (smartTIMES, smartCONTROL oder smartNIGHT). Es ist kein API-Schlüssel erforderlich. Bei mehreren Zählern lässt sich die Integration mehrfach einrichten – ein Eintrag je Zähler.",
         "data": {
           "tariff": "Tarifmodell",
           "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
@@ -21,9 +21,6 @@
       "timeout": "Zeitüberschreitung beim Abruf der smartENERGY-API. Das deutet meist auf ein vorübergehendes Netzwerk- oder Lastproblem hin – bitte später erneut versuchen.",
       "api_rejected": "Die smartENERGY-API hat die Anfrage abgelehnt. Der gewählte Tarif ist damit aktuell nicht abrufbar – bitte später erneut versuchen.",
       "invalid_response": "Die smartENERGY-API hat eine unerwartete Antwort geliefert. Das deutet auf eine Formatänderung der API hin – bitte dazu ein Issue im GitHub-Repository der Integration melden."
-    },
-    "abort": {
-      "single_instance_allowed": "smartENERGY ist bereits eingerichtet. Die API liefert für alle Nutzer dieselben Preise – eine zweite Instanz ist deshalb nicht möglich. Tarif, USt. und Netzgebiet lassen sich über „Konfigurieren“ am bestehenden Eintrag ändern."
     }
   },
   "options": {
@@ -133,8 +130,8 @@
       "description": "Die in dieser Version hinterlegten Netzentgelte und der Erneuerbaren-Förderbeitrag sind „Stand {data_year}“ – diese Sätze werden jährlich neu festgelegt. Da das laufende Kalenderjahr bereits weiter fortgeschritten ist, rechnet die Integration möglicherweise mit veralteten Werten. Bitte auf eine neuere Version der Integration aktualisieren, sobald eine mit aktualisierten Sätzen erscheint."
     },
     "fetch_failing": {
-      "title": "Tarifpreise werden seit längerem nicht aktualisiert",
-      "description": "Der Abruf aktueller Tarifpreise von der smartENERGY-API schlägt seit mehreren Stunden fehl. Die Integration verwendet währenddessen weiter die zuletzt erfolgreich geladenen, zwischengespeicherten Preise – diese könnten inzwischen veraltet sein. Das Problem behebt sich automatisch, sobald der Abruf wieder gelingt."
+      "title": "{name}: Tarifpreise werden seit längerem nicht aktualisiert",
+      "description": "Der Abruf aktueller Tarifpreise für „{name}“ von der smartENERGY-API schlägt seit mehreren Stunden fehl. Die Integration verwendet währenddessen weiter die zuletzt erfolgreich geladenen, zwischengespeicherten Preise – diese könnten inzwischen veraltet sein. Das Problem behebt sich automatisch, sobald der Abruf wieder gelingt."
     }
   },
   "entity": {
