@@ -52,7 +52,7 @@ Der Sensor steht unter **Diagnose** auf der Geräteseite des Strompreishelfers.
 Die Integration meldet zwei Zustände als Reparatur-Hinweis (**Einstellungen → System → Reparaturen**):
 
 - **Tarifdaten veraltet** – Netzentgelte und Förderbeitrag sind mit Jahresangabe hinterlegt; sobald das laufende Jahr darüber hinausgeht, stimmen die Nebenkosten nicht mehr. Abhilfe schafft ein Update der Integration, siehe [Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten).
-- **Abruf dauerhaft fehlgeschlagen** – seit mehr als 36 Stunden kam kein Abruf durch. Die angezeigten Preise stammen dann aus dem Cache und sind vermutlich veraltet.
+- **Abruf dauerhaft fehlgeschlagen** – seit mehr als 36 Stunden kam kein Abruf durch. Die angezeigten Preise stammen dann aus dem Cache und sind vermutlich veraltet. Bei mehreren Zählern erscheint die Meldung je Eintrag; der Eintragsname steht im Titel.
 
 # Debug-Logging einschalten
 

@@ -34,6 +34,7 @@ from .const import (
 from .coordinator import SmartTimesCoordinator
 from .entity import hub_device_info
 from .grid_fees import get_zone
+from .repairs import async_delete_fetch_issue, async_delete_legacy_fetch_issue
 from .smartnight import SmartNightApiClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -113,6 +114,10 @@ async def async_setup_entry(
         handling_fee_net=handling_fee_net,
         tariff_name=tariff_name,
     )
+    # Vor dem ersten Abruf: Dessen Ergebnis legt das Abruf-Issue dieses
+    # Eintrags an oder schließt es; das einmalige Issue älterer Versionen
+    # bliebe sonst daneben stehen.
+    async_delete_legacy_fetch_issue(hass)
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
@@ -251,6 +256,13 @@ async def async_unload_entry(
 ) -> bool:
     """Entlädt einen Config-Eintrag."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(
+    hass: HomeAssistant, entry: SmartTimesConfigEntry
+) -> None:
+    """Räumt nach dem Entfernen eines Eintrags dessen Repair-Issue ab."""
+    async_delete_fetch_issue(hass, entry)
 
 
 async def _async_update_listener(

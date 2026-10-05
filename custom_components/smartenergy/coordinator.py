@@ -1104,7 +1104,9 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             # siehe oben) – das genügt für eine zeitnahe Meldung/Schließung,
             # ohne die Issue-Registry minütlich anzustoßen.
             async_check_tariff_data_year(self.hass, now)
-            async_update_fetch_issue(self.hass, failing=self._fetch_failing(now))
+            async_update_fetch_issue(
+                self.hass, self.config_entry, failing=self._fetch_failing(now)
+            )
 
         result = self._last_result
         if result is None:

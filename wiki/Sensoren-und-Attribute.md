@@ -1,5 +1,7 @@
 > [!NOTE]
 > Die Entitäts-IDs der **Preissensoren** beginnen mit dem gewählten Tarif – `smarttimes_…`, `smartcontrol_…` bzw. `smartnight_…`; die Beispiele unten zeigen den smartTIMES-Fall. Die **„Günstige Stunde“-Sensoren** hängen dagegen am Gerät ihres Untereintrags und beginnen deshalb mit dem dort selbst vergebenen Namen.
+>
+> Ist die Integration für **mehrere Zähler** eingerichtet und teilen sich zwei Einträge denselben Tarif, hängt Home Assistant an die Entitäts-IDs des zweiten ein `_2` an (`sensor.smarttimes_strompreishelfer_gesamtpreis_2`). Wer das Gerät auf seiner Geräteseite umbenennt, kann die IDs dabei mitziehen lassen.
 
 # Übersicht
 

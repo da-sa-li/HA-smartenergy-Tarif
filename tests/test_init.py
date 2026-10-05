@@ -6,11 +6,16 @@ from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import (
+    device_registry as dr,
+    entity_registry as er,
+    issue_registry as ir,
+)
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smartenergy.api import SmartTimesApiClient
+from custom_components.smartenergy.repairs import ISSUE_FETCH_FAILING, fetch_issue_id
 
 DOMAIN = "smartenergy"
 
@@ -206,6 +211,155 @@ async def test_hub_geraet_existiert_vor_dem_weiterreichen(
         await hass.async_block_till_done()
 
     assert vorhanden == [True]
+
+
+async def test_zwei_eintraege_laufen_unabhaengig_nebeneinander(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Zwei Einträge (zwei Zähler) laden nebeneinander, jeder für sich.
+
+    Erwartet je Eintrag: ein eigenes Hub-Gerät mit dem Namen seines Tarifs und
+    die acht Hub-Sensoren plus Diagnose-Binary-Sensor – zusammen also 16
+    Sensoren und 2 Binary-Sensoren ohne Kollision der unique_ids (eine
+    Kollision ließe Home Assistant die zweite Entität verwerfen). Wird einer
+    entladen, läuft der andere weiter.
+
+    Beide Tarife holen ihre Preise über ``SmartTimesApiClient.async_get_prices``;
+    die gepatchte Antwort ist für den Test gleichgültig, der Anzeigename des
+    Tarifs stammt aus der Konfiguration.
+    """
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    haushalt = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+    )
+    waermepumpe = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={"tariff": "smartcontrol", "include_vat": True, "grid_zone": "wien"},
+    )
+    haushalt.add_to_hass(hass)
+    waermepumpe.add_to_hass(hass)
+
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        # Richtet die Integration ein – und damit alle ihre Einträge.
+        assert await hass.config_entries.async_setup(haushalt.entry_id)
+        await hass.async_block_till_done()
+
+    assert haushalt.state is ConfigEntryState.LOADED
+    assert waermepumpe.state is ConfigEntryState.LOADED
+
+    geraete = dr.async_get(hass)
+    hub_haushalt = geraete.async_get_device_by_identifier(
+        (DOMAIN, haushalt.entry_id), haushalt.entry_id
+    )
+    hub_waermepumpe = geraete.async_get_device_by_identifier(
+        (DOMAIN, waermepumpe.entry_id), waermepumpe.entry_id
+    )
+    assert hub_haushalt is not None
+    assert hub_waermepumpe is not None
+    assert hub_haushalt.id != hub_waermepumpe.id
+    assert hub_haushalt.name == "smartTIMES Strompreishelfer"
+    assert hub_waermepumpe.name == "smartCONTROL Strompreishelfer"
+
+    entitaeten = er.async_get(hass)
+    for eintrag in (haushalt, waermepumpe):
+        eigene = er.async_entries_for_config_entry(entitaeten, eintrag.entry_id)
+        assert sum(e.domain == "sensor" for e in eigene) == 8
+        assert sum(e.domain == "binary_sensor" for e in eigene) == 1
+    alle = [e for e in entitaeten.entities.values() if e.platform == DOMAIN]
+    assert len(alle) == 18
+    assert len({e.unique_id for e in alle}) == 18
+
+    assert await hass.config_entries.async_unload(haushalt.entry_id)
+    await hass.async_block_till_done()
+    assert haushalt.state is ConfigEntryState.NOT_LOADED
+    assert waermepumpe.state is ConfigEntryState.LOADED
+
+
+async def test_einrichten_raeumt_das_abruf_issue_aelterer_versionen_ab(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Das einmalige Abruf-Issue ohne entry_id verschwindet beim Einrichten.
+
+    Bis Version 4.3 hieß das Issue schlicht ``fetch_failing``. Seit es je
+    Eintrag geführt wird, schließt es kein Coordinator mehr – stand es beim
+    Update offen, bliebe es ohne diesen Schritt dauerhaft in der persistenten
+    Issue-Registry stehen.
+    """
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_FETCH_FAILING,
+        is_fixable=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key=ISSUE_FETCH_FAILING,
+    )
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+    )
+    entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_FETCH_FAILING) is None
+
+
+async def test_entfernen_raeumt_das_abruf_issue_des_eintrags_ab(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Wird ein Eintrag entfernt, verschwindet sein Abruf-Issue mit ihm.
+
+    Schließen könnte es sonst nur der Coordinator dieses Eintrags – und der
+    läuft nach dem Entfernen nicht mehr. Das Issue eines anderen Eintrags
+    bleibt dagegen stehen.
+    """
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "wien"},
+    )
+    entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    issues = ir.async_get(hass)
+    for issue_id in (fetch_issue_id(entry.entry_id), fetch_issue_id("fremd")):
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_FETCH_FAILING,
+            translation_placeholders={"name": "x"},
+        )
+
+    assert await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert issues.async_get_issue(DOMAIN, fetch_issue_id(entry.entry_id)) is None
+    assert issues.async_get_issue(DOMAIN, fetch_issue_id("fremd")) is not None
 
 
 async def test_ha_instanzen_laufen_auf_europe_vienna(hass: HomeAssistant):

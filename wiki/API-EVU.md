@@ -22,7 +22,7 @@ Die Glättung passiert vollständig lokal in Home Assistant: Weder smartENERGY n
 
 # Anfragemuster
 
-Weil jede Home-Assistant-Instanz unabhängig und lokal läuft, kommt der Traffic dieser Integration von vielen verschiedenen, üblicherweise privaten IP-Adressen verteilt über den Tag – nicht konzentriert von einem zentralen Server. Gesteuert wird das über `custom_components/smartenergy/coordinator.py` (`_needs_fetch`, `_retry_delay`, `_fetch_allowed`). Pro Instanz gilt:
+Weil jede Home-Assistant-Instanz unabhängig und lokal läuft, kommt der Traffic dieser Integration von vielen verschiedenen, üblicherweise privaten IP-Adressen verteilt über den Tag – nicht konzentriert von einem zentralen Server. Gesteuert wird das über `custom_components/smartenergy/coordinator.py` (`_needs_fetch`, `_retry_delay`, `_fetch_allowed`). Pro Instanz gilt – genauer: pro eingerichtetem Eintrag; wer mehrere Zähler hat, richtet die Integration je Zähler einmal ein, und jeder Eintrag ruft für sich ab:
 
 - **~1 Abruf pro Tag**, plus ein einmaliger Abruf beim Start von Home Assistant.
 - Die Morgen-Preise für den Folgetag werden **ab 17 Uhr** (Konstante `NEXT_DAY_PRICES_HOUR`) abgerufen, mit einem deterministischen, aus der Entry-ID und dem Kalendertag abgeleiteten **Jitter über ein 20-Minuten-Fenster** (`FETCH_JITTER_MINUTES`) – so entsteht keine Lastspitze exakt zur vollen Stunde.
