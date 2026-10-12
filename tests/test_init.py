@@ -155,7 +155,8 @@ async def test_untereintrags_geraet_haengt_am_hub(
     assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 2
     # Das Untereintrags-Gerät gehört dem Untereintrag, nicht dem Haupteintrag;
     # sonst bliebe es beim Löschen des Untereintrags zurück.
-    assert untereintrag.config_entries_subentries == {entry.entry_id: {subentry_id}}
+    assert untereintrag.config_entry_id == entry.entry_id
+    assert untereintrag.config_subentry_id == subentry_id
 
 
 async def test_hub_geraet_existiert_vor_dem_weiterreichen(
