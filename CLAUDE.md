@@ -388,6 +388,28 @@ Zuruf per `workflow_dispatch`) ins GitHub-Wiki. Daraus folgt:
   Einheiten ändert, muss `wiki/` von Hand mitziehen – genau das ist bei der 4.0-Umbenennung des
   Gesamtpreis-Sensors unterblieben.
 
+## Changelog
+
+`CHANGELOG.md` im Repo-Wurzelverzeichnis ist die **maßgebliche Änderungshistorie** und folgt
+[Keep a Changelog 1.1.0](https://keepachangelog.com/de/1.1.0/) (deutsche Fassung). Es ersetzt die
+bis 4.4.0 unstrukturiert geführten GitHub-Release-Notes; die Einträge bis dahin sind daraus
+nachgetragen.
+
+- **Sprache Deutsch**, Überschriften wie in der Vorlage: `Hinzugefügt`, `Geändert`, `Veraltet`,
+  `Entfernt`, `Behoben`, `Sicherheit` – nur die, zu denen es etwas gibt, in dieser Reihenfolge.
+  Kein eigener Abschnitt „Intern“: Reine Test-/CI-/Refactoring-Änderungen und Dependabot-Bumps
+  gehören nur hinein, wenn Nutzer sie spüren.
+- Geschrieben **für Nutzer, nicht als Commit-Log**: Was ändert sich für sie, was müssen sie
+  tun? Breaking Changes (Entity-IDs, Attributnamen, Einheiten, Konfigurationsschema) werden mit
+  **„Breaking:“** am Zeilenanfang markiert und nennen alt → neu.
+- **Neueste Version oben**, Datum im Format `YYYY-MM-DD`, Überschrift `## [X.Y.Z] - YYYY-MM-DD`.
+  Der Abschnitt `## [Unreleased]` steht immer ganz oben; **jeder PR mit nutzersichtbarer
+  Änderung trägt seinen Eintrag dort ein**.
+- Am Dateiende stehen die **Vergleichslinks** je Version
+  (`[X.Y.Z]: …/compare/vVORHER...vX.Y.Z`, `[Unreleased]: …/compare/vLETZTE...HEAD`). Beim
+  Release mitziehen.
+- Zurückgezogene Versionen werden mit `[YANKED]` hinter dem Datum markiert.
+
 ## Release-Prozess
 
 1. Version in **`custom_components/smartenergy/manifest.json`** anheben (SemVer; Minor = neue
@@ -401,6 +423,10 @@ Zuruf per `workflow_dispatch`) ins GitHub-Wiki. Daraus folgt:
    ob sich der Bruch per Migration vermeiden lässt** (siehe „Schema-Migration“ oben) – geänderte
    Attributnamen, Einheiten und Entity-IDs sind für Nutzer spürbar, eine umgeschriebene
    `unique_id` oder ein nachgetragener Vorgabewert nicht.
-2. Mergen nach `main`.
-3. Veröffentlichen als **Git-Tag `vX.Y.Z` + GitHub-Release** (HACS zieht Releases darüber). Der
-   `version`-Wert im Manifest muss mit dem Release-Tag übereinstimmen.
+2. In **`CHANGELOG.md`** den Abschnitt `[Unreleased]` in `[X.Y.Z] - YYYY-MM-DD` umbenennen, einen
+   neuen leeren `[Unreleased]` darüber setzen und die Vergleichslinks am Dateiende anpassen
+   (siehe „Changelog“).
+3. Mergen nach `main`.
+4. Veröffentlichen als **Git-Tag `vX.Y.Z` + GitHub-Release** (HACS zieht Releases darüber). Der
+   `version`-Wert im Manifest muss mit dem Release-Tag übereinstimmen. Die **Release-Notes sind
+   der Abschnitt der Version aus `CHANGELOG.md`**, unverändert übernommen – nicht neu formuliert.
