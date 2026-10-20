@@ -70,6 +70,8 @@ async def test_diagnose_schnappschuss(
     assert coordinator_diag["snap_active"] is True
     # Wien führt 2026 eine einzige, unbefristete Satzgruppe (kein `since`).
     assert coordinator_diag["grid_rates_since"] is None
+    # Der WiNAP gilt erst ab Oktober 2027 und nur nachts.
+    assert coordinator_diag["winap_active"] is False
     assert coordinator_diag["handling_fee_net"] == 0.0
     assert coordinator_diag["last_fetch"] == dt_util.now()
 

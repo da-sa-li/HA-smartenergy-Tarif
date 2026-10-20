@@ -246,9 +246,15 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
 
 - **`grid_fees.py`** – **netzgebietsabhängige** Netzentgelte (Netzebene 7, Viertelstundenmessung,
   Variante „ohne Leistungsmessung“). Enthält die **SNAP**-Logik (Sommer-Nieder-Arbeitspreis:
-  1. Apr–30. Sep, tgl. 10–16 Uhr, −20 % auf den Netz-Arbeitspreis). Werte sind **„Stand 2026“**
-  und müssen **jährlich** aktualisiert werden (gilt auch für den Förderbeitrag in
-  `surcharges.py`).
+  1. Apr–30. Sep, tgl. 10–16 Uhr, −20 % auf den Netz-Arbeitspreis) und die **WiNAP**-Logik
+  (Winter-Nieder-Arbeitspreis, § 7 Abs. 4 SNE-G-V: 1. Okt–31. Mär, je 23–05 Uhr des Folgetags,
+  erstmals ab 1.10.2027). Beim WiNAP zählt eine Nacht zu dem Tag, an dem sie beginnt – eine
+  Prüfung über den Monat läge an den Rändern um fünf Stunden daneben. Seine Höhe nennt die
+  Verordnung nicht, deshalb ist `usage_winap` ein ausdrücklicher Wert je Satzgruppe (bis zur
+  SNE-T-V 2027 `None` → normaler Arbeitspreis) und wird nicht aus `usage_ap` abgeleitet; wer die
+  Sätze einträgt, ergänzt auch `ERWARTETE_ZONEN` in `tests/test_grid_fees.py`. Werte sind
+  **„Stand 2026“** und müssen **jährlich** aktualisiert werden (gilt auch für den
+  Förderbeitrag in `surcharges.py`).
   Die Sätze eines Netzgebiets sind **datierte Satzgruppen** (`GridRates` mit `since`/`until`,
   wie `DatedRate` in `surcharges.py`), damit ein Wechsel unter dem Jahr – etwa der Übergang
   auf das neue Entgeltsystem der Netzebene 7, der je Netzgebiet zu einem anderen Tag greifen
@@ -304,7 +310,7 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   smartTIMES, deshalb wird er aus derselben Antwort **berechnet** – Off-Peak übernimmt den
   günstigsten Preis des jeweiligen Kalendertages, von 07:00 bis 23:00 Uhr Ortszeit kommen
   30 % darauf (`SMARTNIGHT_PEAK_FACTOR`). Der Aufschlag trifft **nur den Arbeitspreis**;
-  Abgaben, Netzentgelte und SNAP gelten unverändert, eine Abwicklungsgebühr gibt es nicht.
+  Abgaben, Netzentgelte, SNAP und WiNAP gelten unverändert, eine Abwicklungsgebühr gibt es nicht.
   Bewusst das **Tagesminimum** statt nachgebauter smartTIMES-Fenster: Verschiebt smartENERGY
   seine Zonen, bleibt die Regel richtig. Der Einstiegspunkt ist `SmartNightApiClient`, ein
   Untertyp von `SmartTimesApiClient`, der allein `async_get_prices` überschreibt – dadurch
@@ -352,7 +358,7 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
 - **Zeitzone**: HA sollte auf `Europe/Vienna` stehen. smartTIMES liefert **lokale** Zeitstempel
   **ohne** Offset, smartCONTROL **mit** Offset (`+02:00`); `api.py` (`_parse_date`) übernimmt
   einen vorhandenen Offset und fällt sonst auf `dt_util.DEFAULT_TIME_ZONE` zurück. Zonen-Fenster
-  werden durchweg über die **lokale Stunde** bestimmt (`grid_fees.is_snap`,
+  werden durchweg über die **lokale Stunde** bestimmt (`grid_fees.is_snap`/`is_winap`,
   `smartnight.ist_peak`) – der Tarif nennt Wanduhrzeiten, also gelten sie auch an den
   Umstellungstagen der Sommerzeit unverändert.
 - **Domain** ist `smartenergy` (siehe `const.py`/`manifest.json`); das Integrationsverzeichnis
@@ -396,6 +402,28 @@ Zuruf per `workflow_dispatch`) ins GitHub-Wiki. Daraus folgt:
   Einheiten ändert, muss `wiki/` von Hand mitziehen – genau das ist bei der 4.0-Umbenennung des
   Gesamtpreis-Sensors unterblieben.
 
+## Changelog
+
+`CHANGELOG.md` im Repo-Wurzelverzeichnis ist die **maßgebliche Änderungshistorie** und folgt
+[Keep a Changelog 1.1.0](https://keepachangelog.com/de/1.1.0/) (deutsche Fassung). Es ersetzt die
+bis 4.4.0 unstrukturiert geführten GitHub-Release-Notes; die Einträge bis dahin sind daraus
+nachgetragen.
+
+- **Sprache Deutsch**, Überschriften wie in der Vorlage: `Hinzugefügt`, `Geändert`, `Veraltet`,
+  `Entfernt`, `Behoben`, `Sicherheit` – nur die, zu denen es etwas gibt, in dieser Reihenfolge.
+  Kein eigener Abschnitt „Intern“: Reine Test-/CI-/Refactoring-Änderungen und Dependabot-Bumps
+  gehören nur hinein, wenn Nutzer sie spüren.
+- Geschrieben **für Nutzer, nicht als Commit-Log**: Was ändert sich für sie, was müssen sie
+  tun? Breaking Changes (Entity-IDs, Attributnamen, Einheiten, Konfigurationsschema) werden mit
+  **„Breaking:“** am Zeilenanfang markiert und nennen alt → neu.
+- **Neueste Version oben**, Datum im Format `YYYY-MM-DD`, Überschrift `## [X.Y.Z] - YYYY-MM-DD`.
+  Der Abschnitt `## [Unreleased]` steht immer ganz oben; **jeder PR mit nutzersichtbarer
+  Änderung trägt seinen Eintrag dort ein**.
+- Am Dateiende stehen die **Vergleichslinks** je Version
+  (`[X.Y.Z]: …/compare/vVORHER...vX.Y.Z`, `[Unreleased]: …/compare/vLETZTE...HEAD`). Beim
+  Release mitziehen.
+- Zurückgezogene Versionen werden mit `[YANKED]` hinter dem Datum markiert.
+
 ## Release-Prozess
 
 1. Version in **`custom_components/smartenergy/manifest.json`** anheben (SemVer; Minor = neue
@@ -409,6 +437,10 @@ Zuruf per `workflow_dispatch`) ins GitHub-Wiki. Daraus folgt:
    ob sich der Bruch per Migration vermeiden lässt** (siehe „Schema-Migration“ oben) – geänderte
    Attributnamen, Einheiten und Entity-IDs sind für Nutzer spürbar, eine umgeschriebene
    `unique_id` oder ein nachgetragener Vorgabewert nicht.
-2. Mergen nach `main`.
-3. Veröffentlichen als **Git-Tag `vX.Y.Z` + GitHub-Release** (HACS zieht Releases darüber). Der
-   `version`-Wert im Manifest muss mit dem Release-Tag übereinstimmen.
+2. In **`CHANGELOG.md`** den Abschnitt `[Unreleased]` in `[X.Y.Z] - YYYY-MM-DD` umbenennen, einen
+   neuen leeren `[Unreleased]` darüber setzen und die Vergleichslinks am Dateiende anpassen
+   (siehe „Changelog“).
+3. Mergen nach `main`.
+4. Veröffentlichen als **Git-Tag `vX.Y.Z` + GitHub-Release** (HACS zieht Releases darüber). Der
+   `version`-Wert im Manifest muss mit dem Release-Tag übereinstimmen. Die **Release-Notes sind
+   der Abschnitt der Version aus `CHANGELOG.md`**, unverändert übernommen – nicht neu formuliert.

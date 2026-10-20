@@ -31,7 +31,7 @@ from .const import (
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
 from .entity import CheapHourEntity, hub_device_id, hub_device_info
-from .grid_fees import is_snap
+from .grid_fees import is_snap, is_winap
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -492,6 +492,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "total_eur_kwh": to_eur(data.all_in_value(price)) if price else None,
             "grid_zone": zone.name if zone else None,
             "snap_active": is_snap(moment) if zone else False,
+            "winap_active": is_winap(moment) if zone else False,
             "average_today": to_eur(avg),
             "lowest_today": to_eur(low),
             "highest_today": to_eur(high),

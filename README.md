@@ -25,7 +25,8 @@ günstige Tarifzonen. Der Tarif wird bei der Einrichtung gewählt.
   ohne Template-Sensor
 - 🧾 **Variable Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe,
   Erneuerbaren-Förderbeitrag und netzgebietsabhängige **Netzentgelte** inkl.
-  **Sommer-Nieder-Arbeitspreis (SNAP)** für Netzebene 7
+  **Sommer-Nieder-Arbeitspreis (SNAP)** für Netzebene 7 und ab Oktober 2027
+  der **Winter-Nieder-Arbeitspreis (WiNAP)**
 - 🟢 **Günstige Stunde** als Binary-Sensor – `on` in den günstigsten Stunden des
   Tages (nach **Gesamtkosten**), ideal zum Schalten von Boiler & Co. Wahlweise
   als **günstigste Einzelstunden** (dürfen über den Tag verteilt sein) oder als

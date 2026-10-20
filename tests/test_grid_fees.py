@@ -1,4 +1,4 @@
-"""Tests der Netzentgelte: SNAP-Fenster, Zonen-Lookup, Summen.
+"""Tests der Netzentgelte: SNAP-/WiNAP-Fenster, Zonen-Lookup, Summen.
 
 Werte für Wien (Stand 2026, netto): usage_ap=6,98 · usage_snap=5,58 · loss=0,700.
 """
@@ -37,6 +37,99 @@ def _dt(year, month, day, hour, minute=0):
 def test_snap_fenster_gilt_im_sommerhalbjahr(moment, expected):
     """Das SNAP-Fenster gilt im Sommerhalbjahr 10:00-16:00 (Ende exklusiv)."""
     assert grid_fees.is_snap(moment) is expected
+
+
+# --- WiNAP-Fenster ----------------------------------------------------------- #
+#
+# Sollwerte von Hand aus § 7 Abs. 4 SNE-G-V: 1. Oktober bis 31. März, je 23:00 bis
+# 05:00 Uhr des Folgetags; die Nacht zählt zu dem Tag, an dem sie beginnt.
+# Erstmals gilt der WiNAP in der Nacht ab 01.10.2027 (§ 32 Abs. 4).
+@pytest.mark.parametrize(
+    ("moment", "expected"),
+    [
+        (_dt(2027, 10, 1, 2, 0), False),    # Nacht des 30.09.: vor dem ersten WiNAP
+        (_dt(2027, 10, 1, 22, 59), False),  # vor Beginn der ersten Nacht
+        (_dt(2027, 10, 1, 23, 0), True),    # erste WiNAP-Nacht beginnt
+        (_dt(2027, 10, 2, 4, 59), True),    # Ende noch nicht erreicht
+        (_dt(2027, 10, 2, 5, 0), False),    # Ende 05:00 exklusiv
+        (_dt(2027, 12, 31, 23, 30), True),  # Jahreswechsel: Nacht beginnt
+        (_dt(2028, 1, 1, 0, 0), True),      # ... und läuft über Neujahr weiter
+        (_dt(2028, 3, 31, 23, 0), True),    # letzte Nacht beginnt
+        (_dt(2028, 4, 1, 4, 45), True),     # gehört noch zur Nacht des 31.03.
+        (_dt(2028, 4, 1, 5, 0), False),     # Ende exklusiv
+        (_dt(2028, 4, 1, 23, 0), False),    # Sommerhalbjahr
+        (_dt(2028, 1, 15, 12, 0), False),   # Winter, aber tagsüber
+        (_dt(2027, 1, 15, 2, 0), False),    # Winter 2026/27 hat noch keinen WiNAP
+        (_dt(2027, 3, 31, 23, 30), False),  # letzte Nacht davor: ebenfalls nicht
+    ],
+)
+def test_winap_fenster_gilt_nachts_im_winterhalbjahr_ab_2027(moment, expected):
+    """Der WiNAP gilt 23:00-05:00 (Ende exklusiv), je Nacht nach ihrem Beginn."""
+    assert grid_fees.is_winap(moment) is expected
+
+
+def test_winap_gilt_in_den_umstellungsnaechten_nach_wanduhr():
+    """Der WiNAP folgt der Wanduhr, auch in den Nächten der Zeitumstellung.
+
+    Am 31.10.2027 (03 -> 02 Uhr) wiederholt sich die Stunde 02:00, am 26.03.2028
+    (02 -> 03 Uhr) entfällt sie. Beide Nächte liegen im Fenster, auch die
+    wiederholte Stunde (``fold=1``) zählt.
+    """
+    erste = datetime(2027, 10, 31, 2, 30, tzinfo=VIENNA, fold=0)
+    zweite = datetime(2027, 10, 31, 2, 30, tzinfo=VIENNA, fold=1)
+    assert grid_fees.is_winap(erste) is True
+    assert grid_fees.is_winap(zweite) is True
+    assert grid_fees.is_winap(_dt(2027, 10, 31, 4, 59)) is True
+    assert grid_fees.is_winap(_dt(2027, 10, 31, 5, 0)) is False
+    assert grid_fees.is_winap(_dt(2028, 3, 26, 3, 0)) is True   # nach dem Sprung
+    assert grid_fees.is_winap(_dt(2028, 3, 26, 5, 0)) is False
+
+
+def test_winap_und_snap_ueberschneiden_sich_nie():
+    """Über ein Jahr in Viertelstunden gerastert gilt nie beides zugleich."""
+    moment = _dt(2027, 10, 1, 0, 0)
+    for _ in range(366 * 96):
+        assert not (grid_fees.is_snap(moment) and grid_fees.is_winap(moment))
+        moment += timedelta(minutes=15)
+
+
+def test_arbeitspreis_im_winap_fenster():
+    """Mit hinterlegtem Satz gilt im WiNAP-Fenster er, sonst der normale AP.
+
+    Fiktive Sätze (die echten gibt es erst mit der SNE-T-V 2027): AP 7,00 ·
+    SNAP 5,60 · WiNAP 4,90 · Verlust 0,50.
+    """
+    zone = GridZone("test", "Test", (GridRates(7.00, 5.60, 0.50, usage_winap=4.90),))
+    assert zone.usage_rate(_dt(2028, 1, 15, 2)) == 4.90   # WiNAP
+    assert zone.usage_rate(_dt(2028, 1, 15, 12)) == 7.00  # Winter, tagsüber
+    assert zone.usage_rate(_dt(2028, 6, 5, 14)) == 5.60   # SNAP
+    assert zone.total_ct_per_kwh(_dt(2028, 1, 15, 2)) == pytest.approx(5.40)
+    assert zone.breakdown(_dt(2028, 1, 15, 2)) == {"grid_usage": 4.90, "grid_loss": 0.50}
+
+
+def test_winap_satz_folgt_der_satzgruppe_des_tages():
+    """Der WiNAP-Satz kommt aus der Gruppe des Kalendertags, nicht aus der Zone.
+
+    Nacht vom 30.11. auf den 1.12.2027 um 23:30 Uhr am 30.11. (alte Gruppe,
+    WiNAP 4,90) und um 00:30 Uhr am 1.12. (neue Gruppe, WiNAP 3,70).
+    """
+    zone = GridZone(
+        "test",
+        "Test",
+        (
+            GridRates(7.00, 5.60, 0.50, usage_winap=4.90, until=date(2027, 11, 30)),
+            GridRates(5.00, 4.00, 0.40, usage_winap=3.70, since=date(2027, 12, 1)),
+        ),
+    )
+    assert zone.usage_rate(_dt(2027, 11, 30, 23, 30)) == 4.90
+    assert zone.usage_rate(_dt(2027, 12, 1, 0, 30)) == 3.70
+
+
+def test_ohne_winap_satz_gilt_im_fenster_der_normale_arbeitspreis():
+    """Solange kein WiNAP-Satz hinterlegt ist, bleibt es beim normalen AP."""
+    zone = grid_fees.get_zone("wien")
+    assert all(gruppe.usage_winap is None for gruppe in zone.rates)
+    assert zone.usage_rate(_dt(2028, 1, 15, 2)) == 6.98
 
 
 def test_netzgebiet_nachschlagen():

@@ -5,7 +5,7 @@ Willkommen im Wiki der Home-Assistant-Integration **smartENERGY Strompreishelfer
 Installation, Ersteinrichtung und eine kurze Sensor-Übersicht stehen im **[README](https://github.com/da-sa-li/HA-smartenergy-Tarif#readme)**. Dieses Wiki ergänzt das README um vertiefende Informationen:
 
 - :lock: **[Datenschutz](Datenschutz)** – welche Daten die Integration abruft und was lokal in Home Assistant bleibt
-- :moneybag: **[Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)** – wie sich der Gesamtpreis zusammensetzt (Steuern, Abgaben, Netzentgelte, SNAP) und wieso er sich jährlich ändert
+- :moneybag: **[Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)** – wie sich der Gesamtpreis zusammensetzt (Steuern, Abgaben, Netzentgelte, SNAP, WiNAP) und wieso er sich jährlich ändert
 - :bar_chart: **[Sensoren und Attribute](Sensoren-und-Attribute)** – vollständige Referenz aller Entitäten und ihrer Attribute
 - :gear: **[Automatisierungsbeispiele](Automatisierungsbeispiele)** – Verbraucher in günstigen Stunden schalten, Gesamtpreis im Energie-Dashboard hinterlegen
 - :bug: **[Fehlerbehebung](Fehlerbehebung)** – Lösungen für die häufigsten Probleme

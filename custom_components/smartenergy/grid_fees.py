@@ -1,10 +1,12 @@
 """Netzentgelte (Netzebene 7, Viertelstundenmessung) für smartTIMES.
 
 Die per-kWh-Netzentgelte hängen vom **Netzgebiet** ab und – über den
-Sommer-Nieder-Arbeitspreis (SNAP) – von der **Uhrzeit/Jahreszeit**:
+Sommer-Nieder-Arbeitspreis (SNAP) und den Winter-Nieder-Arbeitspreis (WiNAP) –
+von der **Uhrzeit/Jahreszeit**:
 
-* Netznutzungsentgelt-Arbeitspreis: normaler ``AP`` bzw. reduzierter ``SNAP``
-  im Sommer-Mittagsfenster.
+* Netznutzungsentgelt-Arbeitspreis: normaler ``AP``, reduzierter ``SNAP`` im
+  Sommer-Mittagsfenster bzw. ``WiNAP`` in den Winternächten (erstmals ab
+  1. Oktober 2027).
 * Netzverlustentgelt: konstant je Netzgebiet.
 
 Die Sätze eines Netzgebiets sind als **datierte Satzgruppen** (`GridRates` mit
@@ -16,7 +18,9 @@ kein Release zum Stichtag: Die neue Gruppe steht in der Tabelle und greift am
 
 Annahmen (vom Anwendungsfall gedeckt): Haushaltskunden liegen auf Netzebene 7
 und haben für den smartTIMES-Tarif ohnehin ein Smart Meter mit aktiver
-Viertelstundenmessung (IME) – damit gilt der SNAP automatisch.
+Viertelstundenmessung (IME) – damit gelten SNAP und WiNAP automatisch. Die
+Grundlage ist § 7 Abs. 5 SNE-G-V: Beide gelten nur mit gemessenen
+Viertelstundenwerten.
 
 Zugrunde gelegt wird die Tarifvariante **ohne Leistungsmessung** ("nicht
 gemessene Leistung"): Haushaltskunden ohne Lastprofilzähler zahlen einen reinen
@@ -34,7 +38,7 @@ Aktualisierung der Sätze auch dort das Jahr anheben, sonst meldet
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Final
 
 from homeassistant.util import dt as dt_util
@@ -52,6 +56,35 @@ def is_snap(moment: datetime) -> bool:
     return local.month in SNAP_MONTHS and SNAP_START_HOUR <= local.hour < SNAP_END_HOUR
 
 
+# WiNAP: 1. Oktober – 31. März, je 23:00 bis 05:00 Uhr des Folgetags (lokale
+# Zeit; § 7 Abs. 4 SNE-G-V). Die Nacht zählt zu dem Tag, an dem sie beginnt:
+# 01.10.2027 02:00 gehört zur Nacht des 30.09. und liegt außerhalb, 01.04.2028
+# 04:45 noch zur Nacht des 31.03. und liegt innerhalb. Erstmals gilt der WiNAP
+# in der Nacht ab 01.10.2027 (§ 32 Abs. 4 SNE-G-V). Maßgeblich ist wie beim SNAP
+# der Beginn des jeweiligen 15-Minuten-Intervalls.
+WINAP_FIRST_NIGHT: Final = date(2027, 10, 1)
+WINAP_MONTHS: Final = (10, 11, 12, 1, 2, 3)
+WINAP_START_HOUR: Final = 23
+WINAP_END_HOUR: Final = 5
+
+
+def is_winap(moment: datetime) -> bool:
+    """Ob der Winter-Nieder-Arbeitspreis zu ``moment`` gilt.
+
+    Über die *lokale* Stunde bestimmt, damit das Fenster an den Umstellungstagen
+    der Sommerzeit nach Wanduhr gilt (wie ``is_snap``). Eine Prüfung über den
+    Monat des Zeitpunkts allein läge an beiden Rändern um fünf Stunden daneben.
+    """
+    local = dt_util.as_local(moment)
+    if local.hour >= WINAP_START_HOUR:
+        night = local.date()
+    elif local.hour < WINAP_END_HOUR:
+        night = local.date() - timedelta(days=1)
+    else:
+        return False
+    return night >= WINAP_FIRST_NIGHT and night.month in WINAP_MONTHS
+
+
 @dataclass(frozen=True)
 class GridRates:
     """Netzentgelte eines Netzgebiets für einen Zeitraum, netto in ct/kWh.
@@ -62,6 +95,11 @@ class GridRates:
     usage_ap: float  # Netznutzungsentgelt-Arbeitspreis (Regelzeiten)
     usage_snap: float  # Sommer-Nieder-Arbeitspreis (reduziert)
     loss: float  # Netzverlustentgelt
+    # Winter-Nieder-Arbeitspreis. Die Verordnung nennt keine Höhe (und keinen
+    # Prozentsatz), er wird deshalb ausdrücklich hinterlegt und nicht aus
+    # ``usage_ap`` abgeleitet. Die Sätze gibt es erst mit der SNE-T-V 2027; bis
+    # dahin ``None`` – dann gilt auch im WiNAP-Fenster der normale Arbeitspreis.
+    usage_winap: float | None = None
     since: date | None = None
     until: date | None = None
 
@@ -110,9 +148,17 @@ class GridZone:
         return self.rates_on(dt_util.as_local(moment).date())
 
     def usage_rate(self, moment: datetime) -> float:
-        """Gültiger Netznutzungs-Arbeitspreis (AP bzw. SNAP) zu ``moment``."""
+        """Gültiger Netznutzungs-Arbeitspreis (AP, SNAP bzw. WiNAP) zu ``moment``.
+
+        SNAP (Sommer, Mittag) und WiNAP (Winter, Nacht) überschneiden sich nie,
+        eine Rangfolge ist deshalb nicht nötig.
+        """
         group = self._rates_at(moment)
-        return group.usage_snap if is_snap(moment) else group.usage_ap
+        if is_snap(moment):
+            return group.usage_snap
+        if group.usage_winap is not None and is_winap(moment):
+            return group.usage_winap
+        return group.usage_ap
 
     def breakdown(self, moment: datetime) -> dict[str, float]:
         """Netto-Sätze (ct/kWh) je Netzentgelt-Position."""
@@ -128,7 +174,8 @@ class GridZone:
 
 # Netzentgelte 2026, Netzebene 7, Viertelstundenmessung (IME), Tarifvariante
 # ohne Leistungsmessung ("nicht gemessene Leistung"). Netto in ct/kWh.
-# Reihenfolge je Satzgruppe: usage_ap, usage_snap, loss (+ optional since/until).
+# Reihenfolge je Satzgruppe: usage_ap, usage_snap, loss (+ optional usage_winap,
+# since/until; usage_winap folgt mit der SNE-T-V 2027).
 GRID_ZONES: Final[dict[str, GridZone]] = {
     "burgenland": GridZone(
         "burgenland",

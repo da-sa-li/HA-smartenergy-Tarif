@@ -30,7 +30,7 @@ from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
 from .api import MarketPrice
-from .grid_fees import is_snap
+from .grid_fees import is_snap, is_winap
 
 
 def _interval_snapshot(price: MarketPrice | None) -> dict[str, Any] | None:
@@ -82,6 +82,7 @@ async def async_get_config_entry_diagnostics(
             "grid_rates_since": (
                 grid_zone.rates_on(now.date()).since if grid_zone is not None else None
             ),
+            "winap_active": is_winap(now) if grid_zone is not None else None,
             "handling_fee_net": data.handling_fee_net,
             "last_fetch": coordinator.last_fetch,
             "current_interval": _interval_snapshot(current),
