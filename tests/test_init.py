@@ -42,12 +42,12 @@ async def test_einrichten_und_entladen(
 
     assert entry.state is ConfigEntryState.LOADED
 
-    # 8 Sensor-Entities (die acht Einträge in SENSORS in sensor.py) und der
+    # 7 Sensor-Entities (die sieben Einträge in SENSORS in sensor.py) und der
     # Diagnose-Binary-Sensor „Preise für morgen verfügbar“. Kein „Günstige
     # Stunde“-Untereintrag angelegt, also auch keine Untereintrags-Entitäten.
     registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(registry, entry.entry_id)
-    assert sum(e.domain == "sensor" for e in entities) == 8
+    assert sum(e.domain == "sensor" for e in entities) == 7
     assert sum(e.domain == "binary_sensor" for e in entities) == 1
 
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -139,12 +139,12 @@ async def test_untereintrags_geraet_haengt_am_hub(
     assert untereintrag.via_device_id == hub.id
 
     # Je Untereintrag entstehen zwei Entitäten: der Günstige-Stunde-Binary-
-    # Sensor und der Zeitstempel-Sensor. Dazu die acht Hub-Sensoren und der
+    # Sensor und der Zeitstempel-Sensor. Dazu die sieben Hub-Sensoren und der
     # Diagnose-Binary-Sensor.
     entities = er.async_entries_for_config_entry(
         er.async_get(hass), entry.entry_id
     )
-    assert sum(e.domain == "sensor" for e in entities) == 9
+    assert sum(e.domain == "sensor" for e in entities) == 8
     assert sum(e.domain == "binary_sensor" for e in entities) == 2
 
     # Der Tarif-Anzeigename stammt aus der Nutzer-Auswahl, nicht aus der API.
@@ -271,11 +271,11 @@ async def test_zwei_eintraege_laufen_unabhaengig_nebeneinander(
     entitaeten = er.async_get(hass)
     for eintrag in (haushalt, waermepumpe):
         eigene = er.async_entries_for_config_entry(entitaeten, eintrag.entry_id)
-        assert sum(e.domain == "sensor" for e in eigene) == 8
+        assert sum(e.domain == "sensor" for e in eigene) == 7
         assert sum(e.domain == "binary_sensor" for e in eigene) == 1
     alle = [e for e in entitaeten.entities.values() if e.platform == DOMAIN]
-    assert len(alle) == 18
-    assert len({e.unique_id for e in alle}) == 18
+    assert len(alle) == 16
+    assert len({e.unique_id for e in alle}) == 16
 
     assert await hass.config_entries.async_unload(haushalt.entry_id)
     await hass.async_block_till_done()

@@ -151,9 +151,6 @@
       "highest_today": {
         "name": "Höchster Gesamtpreis heute"
       },
-      "price_rank_today": {
-        "name": "Preisrang heute"
-      },
       "price_quantile_today": {
         "name": "Preisquantil heute"
       },

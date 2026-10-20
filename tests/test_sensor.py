@@ -34,7 +34,6 @@ DOMAIN = "smartenergy"
 # weiterhin auf.
 KEINE_EUR_PRO_KWH = {
     "basic_fee": UNIT_EUR_PER_MONTH,        # monatliche Pauschale
-    "price_rank_today": None,               # Ordnungszahl, dimensionslos
     "price_quantile_today": PERCENTAGE,     # normiert auf 0-100 %
 }
 
@@ -127,7 +126,6 @@ async def test_smartcontrol_hat_keinen_grundgebuehr_sensor(
         "average_today",
         "lowest_today",
         "highest_today",
-        "price_rank_today",
         "price_quantile_today",
     }
 
@@ -320,12 +318,11 @@ async def test_keine_ct_attribute_mehr(
     await _richte_ein(hass, smarttimes_payload, "smarttimes")
 
     # Die Namensprüfung gilt für jeden Sensor, der überhaupt Attribute führt –
-    # auch für die beiden Kennzahl-Sensoren, deren Attribute (quantile_percent,
+    # auch für den Quantil-Sensor, dessen Attribute (quantile_percent,
     # interval_count) bewusst kein ct im Namen tragen.
     for entity_id in (
         "sensor.smarttimes_strompreishelfer_energy_price",
         "sensor.smarttimes_strompreishelfer_total_price",
-        "sensor.smarttimes_strompreishelfer_price_rank_today",
         "sensor.smarttimes_strompreishelfer_price_quantile_today",
     ):
         attribute = hass.states.get(entity_id).attributes
@@ -339,7 +336,7 @@ async def test_keine_ct_attribute_mehr(
     # Die Einheit wird ausgewiesen, und zwar als EUR/kWh. source_unit gibt den
     # Einheiten-String der API wieder – die smartTIMES-Fixture meldet
     # "cent/kWh", gleichbedeutend mit ct/kWh. Beides führen nur die beiden
-    # Preissensoren; Rang und Quantil sind keine Preise.
+    # Preissensoren; das Quantil ist kein Preis.
     for entity_id in (
         "sensor.smarttimes_strompreishelfer_energy_price",
         "sensor.smarttimes_strompreishelfer_total_price",
@@ -1008,47 +1005,40 @@ PREISRANG_WIEN = {"rang": 1, "quantil": 12.5, "gleich": 24}
 
 
 @pytest.mark.freeze_time("2026-06-05 10:00:00")  # 12:00 Ortszeit, im SNAP-Fenster
-async def test_preisrang_und_quantil_tragen_die_erwarteten_werte(
+async def test_quantil_sensor_traegt_die_erwarteten_werte(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
-    """Beide Kennzahl-Sensoren melden Zustand und Attribute wie hergeleitet.
+    """Der Quantil-Sensor meldet Zustand und Attribute wie hergeleitet.
 
     Geprüft wird die ganze Kette bis zur Entität: Rechnung im Koordinator,
-    Einheit, und die Attribute, die beide Sensoren gemeinsam tragen – damit
-    jeder für sich verständlich ist, auch allein im Dashboard.
+    Einheit und die Einordnung als Attribute, darunter der Rang, den es nur noch
+    als Attribut gibt.
     """
     await _richte_ein_wien(hass, smarttimes_payload)
 
-    rang = hass.states.get("sensor.smarttimes_strompreishelfer_price_rank_today")
     quantil = hass.states.get(
         "sensor.smarttimes_strompreishelfer_price_quantile_today"
     )
 
-    assert int(rang.state) == PREISRANG_WIEN["rang"]
     assert float(quantil.state) == pytest.approx(PREISRANG_WIEN["quantil"])
-
-    # Der Rang ist dimensionslos, das Quantil eine Prozentangabe.
-    assert "unit_of_measurement" not in rang.attributes
     assert quantil.attributes["unit_of_measurement"] == PERCENTAGE
 
-    # Beide tragen dieselbe Einordnung als Attribute.
-    for zustand in (rang, quantil):
-        assert zustand.attributes["rank"] == PREISRANG_WIEN["rang"]
-        assert zustand.attributes["quantile_percent"] == pytest.approx(
-            PREISRANG_WIEN["quantil"]
-        )
-        assert zustand.attributes["interval_count"] == 96
-        assert zustand.attributes["cheaper_intervals"] == 0
-        assert zustand.attributes["equal_intervals"] == PREISRANG_WIEN["gleich"]
-        assert zustand.attributes["quantile_method"] == "midrank"
-        assert zustand.attributes["reference"] == "total_price"
+    assert quantil.attributes["rank"] == PREISRANG_WIEN["rang"]
+    assert quantil.attributes["quantile_percent"] == pytest.approx(
+        PREISRANG_WIEN["quantil"]
+    )
+    assert quantil.attributes["interval_count"] == 96
+    assert quantil.attributes["cheaper_intervals"] == 0
+    assert quantil.attributes["equal_intervals"] == PREISRANG_WIEN["gleich"]
+    assert quantil.attributes["quantile_method"] == "midrank"
+    assert quantil.attributes["reference"] == "total_price"
 
 
 @pytest.mark.freeze_time("2026-06-07 10:00:00")  # jenseits der Fixture-Tage
-async def test_preisrang_ohne_preise_ist_unbekannt(
+async def test_quantil_ohne_preise_ist_unbekannt(
     hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
 ):
-    """Ohne laufendes Intervall stehen beide Sensoren auf ``unknown``.
+    """Ohne laufendes Intervall steht der Quantil-Sensor auf ``unknown``.
 
     Und zwar ohne Attribute: Ein Attributsatz voller ``None`` sähe aus wie eine
     Einordnung, wäre aber keine. In der Praxis ist das der Zustand nach einem
@@ -1056,10 +1046,43 @@ async def test_preisrang_ohne_preise_ist_unbekannt(
     """
     await _richte_ein_wien(hass, smarttimes_payload)
 
-    for entity_id in (
-        "sensor.smarttimes_strompreishelfer_price_rank_today",
-        "sensor.smarttimes_strompreishelfer_price_quantile_today",
+    zustand = hass.states.get(
+        "sensor.smarttimes_strompreishelfer_price_quantile_today"
+    )
+    assert zustand.state == "unknown"
+    assert "rank" not in zustand.attributes
+
+
+async def test_entfallener_preisrang_sensor_wird_aus_der_registry_entfernt(
+    hass: HomeAssistant, enable_custom_integrations, smarttimes_payload
+):
+    """Ein Preisrang-Eintrag älterer Versionen verschwindet beim Start.
+
+    Der Sensor existiert nicht mehr; sein Registry-Eintrag bliebe sonst als
+    „nicht mehr verfügbar“ stehen.
+    """
+    parsed = SmartTimesApiClient._parse(smarttimes_payload)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        data={},
+        options={"tariff": "smarttimes", "include_vat": True, "grid_zone": "none"},
+    )
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    alt = registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_price_rank_today",
+        config_entry=entry,
+    )
+
+    with patch(
+        "custom_components.smartenergy.api.SmartTimesApiClient.async_get_prices",
+        AsyncMock(return_value=parsed),
     ):
-        zustand = hass.states.get(entity_id)
-        assert zustand.state == "unknown"
-        assert "rank" not in zustand.attributes
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert registry.async_get(alt.entity_id) is None
+    assert "price_rank_today" not in _sensor_schluessel(hass, entry)

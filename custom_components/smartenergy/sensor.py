@@ -105,12 +105,6 @@ def _highest_today(data: SmartTimesData) -> StateType:
     return to_eur(_stats(_today_allin_values(data))[2])
 
 
-def _price_rank_today(data: SmartTimesData) -> StateType:
-    """Rang des laufenden Intervalls unter den Gesamtpreisen des Tages."""
-    einordnung = data.price_rank()
-    return einordnung.rank if einordnung else None
-
-
 def _price_quantile_today(data: SmartTimesData) -> StateType:
     """Quantil des laufenden Intervalls (Prozent) unter den Tagespreisen."""
     einordnung = data.price_rank()
@@ -176,16 +170,6 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=5,
         value_fn=_highest_today,
-    ),
-    SmartTimesSensorDescription(
-        key="price_rank_today",
-        translation_key="price_rank_today",
-        # Eine dimensionslose Ordnungszahl – `unit` wird ausdrücklich auf None
-        # gesetzt, weil die Vorgabe der Beschreibung EUR/kWh lautet.
-        unit=None,
-        state_class=SensorStateClass.MEASUREMENT,
-        suggested_display_precision=0,
-        value_fn=_price_rank_today,
     ),
     SmartTimesSensorDescription(
         key="price_quantile_today",
@@ -368,7 +352,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             return self._all_in_attributes()
         if self.entity_description.key == "working_price":
             return self._working_price_attributes()
-        if self.entity_description.key in ("price_rank_today", "price_quantile_today"):
+        if self.entity_description.key == "price_quantile_today":
             return self._rank_attributes()
         return None
 
@@ -512,12 +496,12 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         }
 
     def _rank_attributes(self) -> dict | None:
-        """Einordnung des laufenden Intervalls, für beide Kennzahl-Sensoren.
+        """Einordnung des laufenden Intervalls, für den Quantil-Sensor.
 
-        Beide tragen dieselben Attribute, damit jeder für sich verständlich ist:
-        Wer nur das Quantil im Dashboard hat, sieht den Rang trotzdem, und
-        umgekehrt. ``None``, solange kein Intervall läuft – ein Wörterbuch
-        voller ``None`` sähe aus wie eine Aussage, ist aber keine.
+        Der Rang steht als Attribut daneben, damit er trotz des entfallenen
+        Preisrang-Sensors weiter ablesbar bleibt. ``None``, solange kein
+        Intervall läuft – ein Wörterbuch voller ``None`` sähe aus wie eine
+        Aussage, ist aber keine.
         """
         einordnung = self.coordinator.data.price_rank()
         if einordnung is None:
