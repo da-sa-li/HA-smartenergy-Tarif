@@ -7,6 +7,15 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Winter-Nieder-Arbeitspreis (WiNAP)** nach § 7 Abs. 4 SNE-G-V: Vom 1. Oktober bis 31. März gilt
+  jeweils von 23:00 bis 05:00 Uhr des Folgetags ein reduzierter Netz-Arbeitspreis, erstmals ab
+  1. Oktober 2027. Neues Attribut `winap_active` am Gesamtpreis-Sensor (und in der Diagnose).
+  Die Sätze je Netzgebiet gibt es erst mit den Netzentgelten 2027; bis dahin rechnet die
+  Integration auch im WiNAP-Fenster mit dem normalen Arbeitspreis. Beim Tarif smartNIGHT zerfällt
+  der Off-Peak im Winter, sobald der Satz hinterlegt ist, in zwei Preisstufen (05–07 Uhr ist teurer als davor).
+
 ## [4.4.0] - 2026-10-05
 
 ### Hinzugefügt

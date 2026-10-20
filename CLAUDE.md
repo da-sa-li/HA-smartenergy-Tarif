@@ -246,9 +246,15 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
 
 - **`grid_fees.py`** – **netzgebietsabhängige** Netzentgelte (Netzebene 7, Viertelstundenmessung,
   Variante „ohne Leistungsmessung“). Enthält die **SNAP**-Logik (Sommer-Nieder-Arbeitspreis:
-  1. Apr–30. Sep, tgl. 10–16 Uhr, −20 % auf den Netz-Arbeitspreis). Werte sind **„Stand 2026“**
-  und müssen **jährlich** aktualisiert werden (gilt auch für den Förderbeitrag in
-  `surcharges.py`).
+  1. Apr–30. Sep, tgl. 10–16 Uhr, −20 % auf den Netz-Arbeitspreis) und die **WiNAP**-Logik
+  (Winter-Nieder-Arbeitspreis, § 7 Abs. 4 SNE-G-V: 1. Okt–31. Mär, je 23–05 Uhr des Folgetags,
+  erstmals ab 1.10.2027). Beim WiNAP zählt eine Nacht zu dem Tag, an dem sie beginnt – eine
+  Prüfung über den Monat läge an den Rändern um fünf Stunden daneben. Seine Höhe nennt die
+  Verordnung nicht, deshalb ist `usage_winap` ein ausdrücklicher Wert je Zone (bis zur
+  SNE-T-V 2027 `None` → normaler Arbeitspreis) und wird nicht aus `usage_ap` abgeleitet; wer die
+  Sätze einträgt, ergänzt auch `ERWARTETE_ZONEN` in `tests/test_grid_fees.py`. Werte sind
+  **„Stand 2026“** und müssen **jährlich** aktualisiert werden (gilt auch für den
+  Förderbeitrag in `surcharges.py`).
 
 - **Günstige-Stunde-Sensoren** (`binary_sensor.py`) werden als **Config Subentries** angelegt –
   einer pro Verbraucher, mit eigener Stundenzahl (`cheap_hours`) und Auswahllogik (`cheap_mode`):
@@ -296,7 +302,7 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   smartTIMES, deshalb wird er aus derselben Antwort **berechnet** – Off-Peak übernimmt den
   günstigsten Preis des jeweiligen Kalendertages, von 07:00 bis 23:00 Uhr Ortszeit kommen
   30 % darauf (`SMARTNIGHT_PEAK_FACTOR`). Der Aufschlag trifft **nur den Arbeitspreis**;
-  Abgaben, Netzentgelte und SNAP gelten unverändert, eine Abwicklungsgebühr gibt es nicht.
+  Abgaben, Netzentgelte, SNAP und WiNAP gelten unverändert, eine Abwicklungsgebühr gibt es nicht.
   Bewusst das **Tagesminimum** statt nachgebauter smartTIMES-Fenster: Verschiebt smartENERGY
   seine Zonen, bleibt die Regel richtig. Der Einstiegspunkt ist `SmartNightApiClient`, ein
   Untertyp von `SmartTimesApiClient`, der allein `async_get_prices` überschreibt – dadurch
@@ -344,7 +350,7 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
 - **Zeitzone**: HA sollte auf `Europe/Vienna` stehen. smartTIMES liefert **lokale** Zeitstempel
   **ohne** Offset, smartCONTROL **mit** Offset (`+02:00`); `api.py` (`_parse_date`) übernimmt
   einen vorhandenen Offset und fällt sonst auf `dt_util.DEFAULT_TIME_ZONE` zurück. Zonen-Fenster
-  werden durchweg über die **lokale Stunde** bestimmt (`grid_fees.is_snap`,
+  werden durchweg über die **lokale Stunde** bestimmt (`grid_fees.is_snap`/`is_winap`,
   `smartnight.ist_peak`) – der Tarif nennt Wanduhrzeiten, also gelten sie auch an den
   Umstellungstagen der Sommerzeit unverändert.
 - **Domain** ist `smartenergy` (siehe `const.py`/`manifest.json`); das Integrationsverzeichnis

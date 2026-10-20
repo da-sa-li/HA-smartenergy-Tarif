@@ -3,7 +3,7 @@
 smartNIGHT ist ein Zwei-Zonen-Tarif: **Peak** von 07:00 bis 23:00 Uhr Ortszeit,
 **Off-Peak** die übrige Zeit. Der Off-Peak-Arbeitspreis ist derselbe wie bei
 smartTIMES, der Peak-Preis liegt 30 % darüber. Betroffen ist ausschließlich der
-**Arbeitspreis** – Abgaben und Netzentgelte (samt SNAP) gelten unverändert und
+**Arbeitspreis** – Abgaben und Netzentgelte (samt SNAP und WiNAP) gelten unverändert und
 werden wie bei allen Tarifen im Koordinator aufgeschlagen.
 
 **Eine eigene API gibt es für smartNIGHT nicht.** Da sein Off-Peak-Preis
@@ -53,7 +53,12 @@ def ist_peak(moment: datetime) -> bool:
     Bewusst über die *lokale* Stunde und nicht über eine feste Zahl Sekunden
     seit Tagesbeginn: An den Umstellungstagen der Sommerzeit ist ein Kalendertag
     23 bzw. 25 Stunden lang. Der Tarif nennt Wanduhrzeiten, also entscheidet die
-    Wanduhr – genauso hält es ``grid_fees.is_snap`` für das SNAP-Fenster.
+    Wanduhr – genauso halten es ``grid_fees.is_snap`` und ``is_winap``.
+
+    Der WiNAP (23-05 Uhr, ab Oktober 2027) liegt vollständig im Off-Peak
+    (23-07 Uhr): Sobald für das Netzgebiet ein WiNAP-Satz hinterlegt ist (bis
+    dahin gilt auch nachts der normale Arbeitspreis), zerfällt dieser im Winter
+    in zwei Preisstufen, 05-07 Uhr ist teurer als die Stunden davor.
     """
     local = dt_util.as_local(moment)
     return SMARTNIGHT_PEAK_START_HOUR <= local.hour < SMARTNIGHT_PEAK_END_HOUR

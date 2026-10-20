@@ -33,6 +33,7 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 | `total_eur_kwh` | Gesamtpreis (EUR/kWh) – entspricht dem Sensorwert |
 | `grid_zone` | Gewähltes Netzgebiet (oder `null`) |
 | `snap_active` | `true`, wenn für das **aktuelle Intervall** der SNAP gilt. Ohne gewähltes Netzgebiet immer `false` |
+| `winap_active` | `true`, wenn für das **aktuelle Intervall** das Fenster des [WiNAP](Netzentgelte-und-Nebenkosten) gilt (Oktober bis März, 23–05 Uhr, erstmals ab 1. Oktober 2027). Ohne gewähltes Netzgebiet immer `false` |
 | `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen (Gesamtpreis, EUR/kWh) |
 | `next_price` / `next_price_start` | Gesamtpreis und Beginn des nächsten Intervalls |
 | `prices_today` / `prices_tomorrow` | Vollständige **Gesamtpreis**-Vorschau für heute und morgen (`start`, `end`, `price`) |
@@ -78,7 +79,7 @@ Ohne gewähltes Netzgebiet ergibt ein smartTIMES-Tag damit genau drei Werte:
 | teuerste | 32 | 65 | 83,33 % |
 
 > [!NOTE]
-> **Mit** Netzgebiet werden im Sommer mehr Stufen daraus – das ist kein Fehler. Der [SNAP](Netzentgelte-und-Nebenkosten) senkt von April bis September zwischen 10 und 16 Uhr den Netz-Arbeitspreis. Jede der drei Arbeitspreis-Stufen kann innerhalb *und* außerhalb dieses Fensters liegen, es sind also **bis zu sechs** verschiedene Gesamtpreise am Tag möglich. Welche tatsächlich auftreten, hängt am Zonenplan des jeweiligen Tages, den die API liefert – eine feste Zahl gibt es nicht.
+> **Mit** Netzgebiet werden im Sommer mehr Stufen daraus – das ist kein Fehler. Der [SNAP](Netzentgelte-und-Nebenkosten) senkt von April bis September zwischen 10 und 16 Uhr den Netz-Arbeitspreis. Jede der drei Arbeitspreis-Stufen kann innerhalb *und* außerhalb dieses Fensters liegen, es sind also **bis zu sechs** verschiedene Gesamtpreise am Tag möglich. Dasselbe gilt ab Oktober 2027 im Winter für den WiNAP (23–05 Uhr), sobald dessen Sätze hinterlegt sind. Welche tatsächlich auftreten, hängt am Zonenplan des jeweiligen Tages, den die API liefert – eine feste Zahl gibt es nicht.
 >
 > Ein Beispiel: Netzgebiet Wien an einem Sommertag, dessen günstigste Arbeitspreis-Stufe die Stunden 02–03 und 10–15 umfasst. Hier fällt das ganze SNAP-Fenster in diese eine Stufe, also entstehen vier Gesamtpreise:
 >

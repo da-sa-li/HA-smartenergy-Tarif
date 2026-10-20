@@ -778,6 +778,7 @@ async def test_gesamtpreis_attribute_tragen_die_erwarteten_werte(
     assert attribute["vat_rate"] == pytest.approx(0.20)
     assert attribute["grid_zone"] == "Wien"
     assert attribute["snap_active"] is True
+    assert attribute["winap_active"] is False
     assert attribute["working_price_eur_kwh"] == pytest.approx(
         GESAMTPREIS_WIEN["arbeitspreis"]
     )
