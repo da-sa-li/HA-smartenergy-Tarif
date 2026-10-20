@@ -129,7 +129,7 @@ Im Modus „Günstigste Einzelstunden“ gilt „des Tages“ wörtlich: je Kale
 
 Um 20:00 Uhr liegen weder SNAP (10–16) noch WiNAP noch die smartNIGHT-Nacht (23–07), die Grenze zerschneidet also kein günstiges Fenster. Ab 20:00 Uhr beziehen sich `cheap_intervals`, `cheap_windows` und `threshold_eur_kwh` bereits auf den nächsten Auswahltag.
 
-Die Preise für den Folgetag erscheinen ab 17 Uhr. Fehlen sie um 20:00 Uhr noch (etwa weil der Abruf mehrmals scheiterte), **wählt der Blockmodus vorerst nichts**: Der Sensor bleibt aus, `next_cheap_start` ist leer. Aus dem Abend allein zu wählen hieße, ausgerechnet die Abendspitze zu nehmen. Sobald die Preise da sind, wird gewählt – lag der beste Block dann teilweise schon in der Vergangenheit, schaltet der Sensor nur noch für den Rest ein.
+Die Preise für den Folgetag erscheinen ab 17 Uhr. Fehlen sie um 20:00 Uhr noch (etwa weil der Abruf mehrmals scheiterte), **wählt der Blockmodus vorerst nichts**: Der Sensor bleibt aus, `next_cheap_start` ist leer. Fehlen die Preise auch nach Mitternacht noch, gibt es keinen aktuellen Preis mehr – der Zustand ist dann `unknown`, wie bei allen Sensoren ohne Preisabdeckung. Aus dem Abend allein zu wählen hieße, ausgerechnet die Abendspitze zu nehmen. Sobald die Preise da sind, wird gewählt – lag der beste Block dann teilweise schon in der Vergangenheit, schaltet der Sensor nur noch für den Rest ein.
 
 ## Stundenzahl exakt einhalten (`exact_hours`)
 

@@ -278,13 +278,14 @@ async def test_abruf_behaelt_den_vortagsabend(hass: HomeAssistant, smarttimes_pa
 
 @pytest.mark.freeze_time("2026-06-06 15:10:00")  # 17:10 Ortszeit
 async def test_wiederholter_abruf_behaelt_den_vortagsabend_weiter(
-    hass: HomeAssistant, smarttimes_payload
+    hass: HomeAssistant, smarttimes_payload, freezer
 ):
     """Ein zweiter Abruf am selben Tag reicht den behaltenen Abend weiter.
 
-    Fehlen die Morgen-Preise, wird wiederholt; die API liefert dann wieder erst
-    ab dem 06.06. Der Vortagsabend steht nur noch in den behaltenen Preisen,
-    nicht mehr in der vorigen Antwort – und muss trotzdem bleiben.
+    Fehlen die Morgen-Preise, wird nach 30 Minuten wiederholt (17:40, also noch
+    vor 20:00); die API liefert dann wieder erst ab dem 06.06. Der Vortagsabend
+    steht nur noch in den behaltenen Preisen, nicht mehr in der vorigen
+    Antwort – und muss trotzdem bleiben.
     """
     coordinator, client = await _coordinator(hass, smarttimes_payload)
     coordinator._needs_fetch = lambda _: True
@@ -293,8 +294,12 @@ async def test_wiederholter_abruf_behaelt_den_vortagsabend_weiter(
     )
 
     await coordinator._async_update_data()
+    # Ohne Weiterstellen der Uhr bremste `_fetch_allowed` den zweiten Abruf, und
+    # der Test bestünde, ohne die Weitergabe überhaupt zu durchlaufen.
+    freezer.tick(timedelta(minutes=30))
     data = await coordinator._async_update_data()
 
+    assert client.async_get_prices.await_count == 2
     assert len(data.retained_prices) == 16
 
 

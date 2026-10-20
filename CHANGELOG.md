@@ -30,7 +30,7 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
   bestehende und neue Sensoren gleichermaßen. Ab 20:00 Uhr beziehen sich die Attribute
   `cheap_intervals`, `cheap_windows` und `threshold_eur_kwh` dieser Sensoren bereits auf den
   nächsten Zeitraum. Fehlen um 20:00 Uhr die Preise für den Folgetag noch, bleibt der Sensor aus,
-  bis sie vorliegen. Nach einem Neustart von Home Assistant fehlt der Abend vor Mitternacht; bis
+  bis sie vorliegen (ab Mitternacht ohne aktuellen Preis: `unknown`). Nach einem Neustart von Home Assistant fehlt der Abend vor Mitternacht; bis
   20:00 Uhr kann dann ein zweiter Block am selben Tag gewählt werden (siehe Wiki,
   „Fehlerbehebung“). Der Modus „Günstigste Einzelstunden“ wählt unverändert je Kalendertag.
 
