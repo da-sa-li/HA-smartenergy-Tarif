@@ -46,7 +46,7 @@ Bei **smartNIGHT** liegt der Arbeitspreis von **07:00 bis 23:00 Uhr** um **30 %*
 
 > Das SNAP-Fenster (10:00–16:00 Uhr) liegt vollständig innerhalb der Peak-Zeit. In Netzgebieten mit hohem Netz-Arbeitspreis kann die SNAP-Ermäßigung den Peak-Aufschlag daher übersteigen – dann ist der Sommermittag günstiger als die Nacht. Der „Günstige Stunde“-Sensor richtet sich nach dem **Gesamtpreis** und bildet das automatisch ab.
 
-> Ab Oktober 2027 liegt der WiNAP (23:00–05:00 Uhr) vollständig im Off-Peak (23:00–07:00 Uhr). Im Winter zerfällt der Off-Peak damit in zwei Preisstufen: 05:00–07:00 Uhr ist teurer als die Stunden davor.
+> Ab Oktober 2027 liegt der WiNAP (23:00–05:00 Uhr) vollständig im Off-Peak (23:00–07:00 Uhr). Sobald für das Netzgebiet ein WiNAP-Satz hinterlegt ist (bis dahin gilt auch nachts der normale Netz-Arbeitspreis), zerfällt der Off-Peak im Winter damit in zwei Preisstufen: 05:00–07:00 Uhr ist teurer als die Stunden davor.
 
 # Aufschlüsselung als Sensor-Attribute
 

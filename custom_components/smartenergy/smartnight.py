@@ -56,8 +56,9 @@ def ist_peak(moment: datetime) -> bool:
     Wanduhr – genauso halten es ``grid_fees.is_snap`` und ``is_winap``.
 
     Der WiNAP (23-05 Uhr, ab Oktober 2027) liegt vollständig im Off-Peak
-    (23-07 Uhr): Im Winter zerfällt dieser damit in zwei Preisstufen, 05-07 Uhr
-    ist teurer als die Stunden davor.
+    (23-07 Uhr): Sobald für das Netzgebiet ein WiNAP-Satz hinterlegt ist (bis
+    dahin gilt auch nachts der normale Arbeitspreis), zerfällt dieser im Winter
+    in zwei Preisstufen, 05-07 Uhr ist teurer als die Stunden davor.
     """
     local = dt_util.as_local(moment)
     return SMARTNIGHT_PEAK_START_HOUR <= local.hour < SMARTNIGHT_PEAK_END_HOUR
