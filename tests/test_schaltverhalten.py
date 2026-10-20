@@ -171,12 +171,11 @@ async def test_sensor_schaltet_vorgezogen_wieder_aus(uhr_ohne_jitter):
     assert uhr_ohne_jitter.zustand(GUENSTIG_SENSOR) == "off"
 
 
-async def test_schaltdauer_entspricht_block_minus_jitterbreite(uhr):
-    """Mit echter Phase liegt das Fenster im Block und ist L - Jitterbreite lang.
+async def _pruefe_fenster_im_block(uhr: _Uhr) -> None:
+    """Misst die Flanken am Sensor und prüft Lage und Länge des Fensters.
 
-    Ohne den ``ohne_jitter``-Eingriff, also mit der tatsächlichen, aus der
-    Untereintrags-ID abgeleiteten Phase. Gemessen werden die Flanken am Sensor,
-    indem die Uhr minütlich durch den ganzen Block gedreht wird.
+    Die Uhr wird minütlich durch den ganzen Block gedreht; aus den Minuten mit
+    Zustand ``on`` ergibt sich das Schaltfenster.
     """
     an_zeiten = []
     moment = BLOCK_BEGINN - timedelta(minutes=5)
@@ -196,10 +195,54 @@ async def test_schaltdauer_entspricht_block_minus_jitterbreite(uhr):
     ) + 1
     # Die Einschaltflanke liegt höchstens eine Jitterbreite nach dem Blockbeginn.
     assert an_zeiten[0] <= BLOCK_BEGINN + timedelta(seconds=JITTER_SPAN_SECONDS)
-    # Der ausgewiesene Versatz passt zur beobachteten Flanke (minutengenau, weil
-    # nur im Minutentakt abgetastet wurde).
+    # Der ausgewiesene Versatz passt zur beobachteten Flanke. Abgetastet wird im
+    # Minutentakt, die erste Abtastung mit „an“ liegt also auf der nächsten vollen
+    # Minute NACH dem echten Versatz; das Attribut ist dagegen auf ganze Sekunden
+    # gerundet und kann bis zu eine halbe Sekunde darunter liegen. Der Abstand
+    # beträgt damit bis zu eine volle Minute, und zwar einschließlich: Bei einem
+    # Versatz von 240,4 s steht im Attribut 240, die erste Abtastung liegt bei
+    # 300 – Abstand genau 60. Eine strikte Grenze (``< 60``) schlug deshalb bei
+    # etwa einem von 120 Läufen an, je nach zufälliger Untereintrags-ID.
     versatz = uhr.attribute(GUENSTIG_SENSOR)["jitter_offset_seconds"]
-    assert abs((an_zeiten[0] - BLOCK_BEGINN).total_seconds() - versatz) < 60
+    assert abs((an_zeiten[0] - BLOCK_BEGINN).total_seconds() - versatz) <= 60
+
+
+async def test_schaltdauer_entspricht_block_minus_jitterbreite(uhr):
+    """Mit echter Phase liegt das Fenster im Block und ist L - Jitterbreite lang.
+
+    Ohne den ``ohne_jitter``-Eingriff, also mit der tatsächlichen, aus der
+    Untereintrags-ID abgeleiteten Phase. Gemessen werden die Flanken am Sensor,
+    indem die Uhr minütlich durch den ganzen Block gedreht wird.
+    """
+    await _pruefe_fenster_im_block(uhr)
+
+
+@pytest.fixture
+def versatz_240_4_sekunden():
+    """Feste Jitter-Phase für einen Versatz von 240,4 s (0,4 s über einer Minute).
+
+    Handgerechnet: 240,4 s / ``JITTER_SPAN_SECONDS`` (600 s). Gepatcht wird wie bei
+    ``ohne_jitter`` die Bindung in ``entity``. Als eigene Fixture, die vor ``uhr``
+    steht, weil die Phase beim Anlegen der Entität gelesen wird.
+    """
+    with patch(
+        "custom_components.smartenergy.entity.cheap_phase",
+        return_value=240.4 / JITTER_SPAN_SECONDS,
+    ):
+        yield
+
+
+async def test_schaltdauer_bei_versatz_knapp_ueber_voller_minute(
+    versatz_240_4_sekunden, uhr
+):
+    """Der Fall, der bei zufälliger Untereintrags-ID selten und unvorhersehbar auftrat.
+
+    Versatz 240,4 s: Das Attribut meldet gerundet 240, die erste Abtastung mit
+    „an“ liegt bei 300 s – Abstand genau eine Minute. Fest vorgegeben statt
+    dem Zufall überlassen, damit die Grenze bei jedem Lauf geprüft wird.
+    """
+    await _pruefe_fenster_im_block(uhr)
+    assert uhr.attribute(GUENSTIG_SENSOR)["jitter_offset_seconds"] == 240
 
 
 async def test_preissensor_folgt_dem_intervallwechsel(uhr):
