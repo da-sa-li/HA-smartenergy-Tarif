@@ -249,6 +249,14 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   1. Apr–30. Sep, tgl. 10–16 Uhr, −20 % auf den Netz-Arbeitspreis). Werte sind **„Stand 2026“**
   und müssen **jährlich** aktualisiert werden (gilt auch für den Förderbeitrag in
   `surcharges.py`).
+  Die Sätze eines Netzgebiets sind **datierte Satzgruppen** (`GridRates` mit `since`/`until`,
+  wie `DatedRate` in `surcharges.py`), damit ein Wechsel unter dem Jahr – etwa der Übergang
+  auf das neue Entgeltsystem der Netzebene 7, der je Netzgebiet zu einem anderen Tag greifen
+  kann (Issue #111) – ohne Release zum Stichtag greift. Anders als bei den Abgaben fällt eine
+  Lücke **nie** auf 0: `GridZone.rates_on` nimmt dann die zeitlich nächstliegende Gruppe, und
+  ein Test erzwingt, dass an jedem Tag von `TARIFF_DATA_YEAR` genau eine Gruppe gilt. Die
+  Gruppen stehen chronologisch sortiert. Die Diagnose weist die gerade geltende Gruppe über
+  `grid_rates_since` aus.
 
 - **Günstige-Stunde-Sensoren** (`binary_sensor.py`) werden als **Config Subentries** angelegt –
   einer pro Verbraucher, mit eigener Stundenzahl (`cheap_hours`) und Auswahllogik (`cheap_mode`):
