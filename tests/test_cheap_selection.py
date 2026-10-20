@@ -7,12 +7,16 @@ bestimmt (ohne Netzgebiet ist die Rangfolge monoton im Bruttopreis).
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
 from custom_components.smartenergy.api import MarketPrice
-from custom_components.smartenergy.coordinator import SmartTimesData
+from custom_components.smartenergy.coordinator import (
+    SmartTimesData,
+    auswahltag,
+    auswahlzeitraum,
+)
 from tests.conftest import VIENNA
 
 DAY = date(2026, 6, 5)
@@ -323,3 +327,213 @@ def test_blockmodus_ignoriert_exact_hours(make_data, smarttimes_payload):
     assert data._cheap_blocks(DAY, 1.0, "consecutive", False) == data._cheap_blocks(
         DAY, 1.0, "consecutive", True
     )
+
+
+# --- Auswahltag des Blockmodus: 20 bis 20 Uhr (Issue #114) ------------------ #
+#
+# Im Blockmodus reicht der Auswahltag ``D`` von 20:00 Uhr des Vortags bis 20:00
+# Uhr an ``D``. So kann ein Block über Mitternacht reichen; der Abend von ``D``
+# gehört dagegen schon zum Auswahltag ``D + 1``.
+
+NEXT_DAY = date(2026, 6, 6)
+
+
+def _zwei_tage(
+    gross_by_slot: dict[str, float],
+    *,
+    tage: tuple[int, ...] = (5, 6),
+    retained: dict[str, float] | None = None,
+) -> SmartTimesData:
+    """Viertelstunden der genannten Junitage; Schlüssel ``"TT HH:MM"``.
+
+    Nicht genannte Slots kosten 50,0 und sind damit deutlich teurer als alles,
+    was ein Test eigens setzt. Ohne Netzgebiet ist die Rangfolge monoton im
+    Bruttopreis, die Sollwerte lassen sich direkt aus den Preisen ablesen.
+
+    ``retained`` landet in ``retained_prices`` – so, wie der Koordinator den
+    Vortagsabend nach dem täglichen Abruf weiterreicht.
+    """
+
+    def slot(label: str, gross: float) -> MarketPrice:
+        tag, uhrzeit = label.split(" ")
+        hour, minute = (int(part) for part in uhrzeit.split(":"))
+        start = datetime(2026, 6, int(tag), hour, minute, tzinfo=VIENNA)
+        return MarketPrice(
+            start=start, end=start + timedelta(minutes=15), gross_ct_per_kwh=gross
+        )
+
+    prices = []
+    for tag in tage:
+        for index in range(96):
+            start = datetime(2026, 6, tag, tzinfo=VIENNA) + timedelta(minutes=15 * index)
+            label = f"{tag:02d} {start.hour:02d}:{start.minute:02d}"
+            prices.append(slot(label, gross_by_slot.get(label, 50.0)))
+    data = _wrap(prices)
+    data.retained_prices = [slot(label, gross) for label, gross in (retained or {}).items()]
+    return data
+
+
+def _slots(tag: int, von: str, bis: str, gross: float) -> dict[str, float]:
+    """Gleicher Preis für alle Viertelstunden von ``von`` bis ausschließlich ``bis``."""
+    start = datetime(2026, 6, tag, *(int(p) for p in von.split(":")), tzinfo=VIENNA)
+    ende = datetime(2026, 6, tag, *(int(p) for p in bis.split(":")), tzinfo=VIENNA)
+    if ende <= start:
+        ende += timedelta(days=1)
+    result = {}
+    while start < ende:
+        result[f"{start.day:02d} {start.hour:02d}:{start.minute:02d}"] = gross
+        start += timedelta(minutes=15)
+    return result
+
+
+def test_auswahltag_des_blockmodus_beginnt_um_20_uhr():
+    """Ab 20:00 Uhr gilt im Blockmodus schon der Auswahltag des Folgetags."""
+    vor = datetime(2026, 6, 5, 19, 59, tzinfo=VIENNA)
+    ab = datetime(2026, 6, 5, 20, 0, tzinfo=VIENNA)
+
+    assert auswahltag(vor, "consecutive") == DAY
+    assert auswahltag(ab, "consecutive") == NEXT_DAY
+    # Im Einzelstunden-Modus bleibt es beim Kalendertag.
+    assert auswahltag(ab, "individual") == DAY
+    assert auswahlzeitraum(NEXT_DAY, "consecutive") == (ab, ab + timedelta(days=1))
+    assert auswahlzeitraum(NEXT_DAY, "individual") == (
+        datetime(2026, 6, 6, tzinfo=VIENNA),
+        datetime(2026, 6, 7, tzinfo=VIENNA),
+    )
+
+
+def test_auswahltag_folgt_an_der_zeitumstellung_der_wanduhr():
+    """Am Ende der Sommerzeit ist der Auswahltag 25 Stunden lang.
+
+    In der Nacht auf den 25.10.2026 wird die Uhr von 03:00 auf 02:00
+    zurückgestellt. Der Auswahltag reicht trotzdem von 20:00 bis 20:00 Uhr
+    Wanduhrzeit – vorher mit Sommerzeit-Offset +02:00, danach mit +01:00.
+    """
+    start, ende = auswahlzeitraum(date(2026, 10, 25), "consecutive")
+
+    assert start.isoformat() == "2026-10-24T20:00:00+02:00"
+    assert ende.isoformat() == "2026-10-25T20:00:00+01:00"
+    # In UTC rechnen: Zwei Zeitpunkte derselben Zone zieht Python als
+    # Wanduhrzeiten voneinander ab und käme so auf 24 Stunden.
+    assert ende.astimezone(UTC) - start.astimezone(UTC) == timedelta(hours=25)
+
+
+def test_blockmodus_waehlt_ein_fenster_ueber_mitternacht():
+    """Das günstigste Fenster über Mitternacht wird als ein Block gewählt.
+
+    Das Beispiel aus Issue #114: 23:00-05:00 kostet 10,0 (Off-Peak mit WiNAP),
+    05:00-07:00 kostet 12,0 (Off-Peak ohne WiNAP). Für 6 h ist 23:00-05:00 mit
+    24 x 10,0 = 240,0 das günstigste Fenster. Je Kalendertag stand nur
+    00:00-06:00 zur Wahl (20 x 10,0 + 4 x 12,0 = 248,0).
+    """
+    data = _zwei_tage(
+        _slots(5, "23:00", "05:00", 10.0) | _slots(6, "05:00", "07:00", 12.0)
+    )
+
+    blocks = data._cheap_blocks(NEXT_DAY, 6.0, "consecutive")
+
+    assert blocks == (
+        (
+            datetime(2026, 6, 5, 23, 0, tzinfo=VIENNA),
+            datetime(2026, 6, 6, 5, 0, tzinfo=VIENNA),
+            False,
+        ),
+    )
+
+
+def test_blockmodus_schneidet_an_der_20_uhr_grenze():
+    """Ein Block reicht nie über 20:00 Uhr – dort beginnt der nächste Auswahltag.
+
+    Am 05.06. kostet 19:00-21:00 je 10,0, sonst alles 50,0. Für 2 h nimmt der
+    Auswahltag des 05.06. (bis 20:00) die Stunde 19:00-20:00 mit, das
+    günstigste Fenster ist also 18:00-20:00 (4 x 50,0 + 4 x 10,0). Der
+    Auswahltag des 06.06. beginnt um 20:00 und nimmt 20:00-21:00 mit, also
+    20:00-22:00 (das früheste der beiden gleich teuren Fenster).
+    """
+    data = _zwei_tage(_slots(5, "19:00", "21:00", 10.0))
+
+    assert data._cheap_blocks(DAY, 2.0, "consecutive")[0][:2] == (
+        datetime(2026, 6, 5, 18, 0, tzinfo=VIENNA),
+        datetime(2026, 6, 5, 20, 0, tzinfo=VIENNA),
+    )
+    assert data._cheap_blocks(NEXT_DAY, 2.0, "consecutive")[0][:2] == (
+        datetime(2026, 6, 5, 20, 0, tzinfo=VIENNA),
+        datetime(2026, 6, 5, 22, 0, tzinfo=VIENNA),
+    )
+
+
+def test_blockmodus_wartet_auf_die_preise_des_auswahltags():
+    """Fehlen die Morgen-Preise, wählt der Blockmodus gar nichts.
+
+    Vorhanden ist nur der 05.06.; 21:00-22:00 ist dort mit 1,0 die günstigste
+    Stunde. Sie gehört zum Auswahltag des 06.06., dessen übrige 20 Stunden
+    fehlen. Gewählt wird trotzdem nicht: Sonst fiele die Wahl allein auf den
+    Vortagsabend, also gerade auf die Abendspitze.
+    """
+    data = _zwei_tage(_slots(5, "21:00", "22:00", 1.0), tage=(5,))
+    abends = datetime(2026, 6, 5, 20, 30, tzinfo=VIENNA)
+
+    assert data.cheap_intervals(NEXT_DAY, 1.0, "consecutive") == []
+    assert data.is_cheap_now(
+        datetime(2026, 6, 5, 21, 30, tzinfo=VIENNA), 1.0, 0.0, "consecutive"
+    ) is False
+    assert data.next_cheap_on(abends, 1.0, 0.0, "consecutive") is None
+
+
+def test_blockmodus_nutzt_den_behaltenen_vortagsabend():
+    """``retained_prices`` füllen den Vortagsabend des Auswahltags auf.
+
+    Die API liefert nur noch den 06.06.; der Koordinator hat 20:00-24:00 des
+    05.06. behalten, 23:00-24:00 kostet dort 10,0. Am 06.06. kostet
+    00:00-01:00 ebenfalls 10,0. Für 2 h ist 23:00-01:00 mit 8 x 10,0 das
+    günstigste Fenster. Ohne den behaltenen Abend bliebe nur 00:00-02:00
+    (4 x 10,0 + 4 x 50,0).
+    """
+    data = _zwei_tage(
+        _slots(6, "00:00", "01:00", 10.0),
+        tage=(6,),
+        retained=_slots(5, "20:00", "23:00", 50.0) | _slots(5, "23:00", "00:00", 10.0),
+    )
+
+    assert data._cheap_blocks(NEXT_DAY, 2.0, "consecutive")[0][:2] == (
+        datetime(2026, 6, 5, 23, 0, tzinfo=VIENNA),
+        datetime(2026, 6, 6, 1, 0, tzinfo=VIENNA),
+    )
+
+
+def test_einzelmodus_ignoriert_den_behaltenen_vortagsabend():
+    """Der Einzelstunden-Modus wählt weiter je Kalendertag.
+
+    Dieselben Daten wie im Test darüber: Für 1 h ist 00:00-01:00 (10,0) die
+    günstigste Stunde des 06.06. Die gleich teure Stunde 23:00-24:00 des 05.06.
+    gehört zu einem anderen Kalendertag und bleibt außen vor.
+    """
+    data = _zwei_tage(
+        _slots(6, "00:00", "01:00", 10.0),
+        tage=(6,),
+        retained=_slots(5, "23:00", "00:00", 10.0),
+    )
+
+    assert [p.start for p in data.cheap_intervals(NEXT_DAY, 1.0, "individual", True)] == [
+        datetime(2026, 6, 6, 0, 0, tzinfo=VIENNA) + timedelta(minutes=15 * i)
+        for i in range(4)
+    ]
+
+
+def test_smartnight_block_beginnt_am_vorabend(make_data, smarttimes_payload):
+    """Bei smartNIGHT beginnt ein Nacht-Block um 23:00 Uhr des Vortags.
+
+    Off-Peak (23:00-07:00) kostet durchgehend 11,316, Peak 14,7108. Ohne
+    Netzgebiet sind damit alle 6-h-Fenster in 23:00-07:00 gleich teuer
+    (23-05, 00-06 und 01-07, jeweils die Viertelstunden-Zwischenschritte
+    eingeschlossen); gewählt wird das früheste. Je Kalendertag war das
+    00:00-06:00, jetzt ist es 23:00-05:00 – sobald der WiNAP (23-05) Sätze hat,
+    ist es auch das günstigste.
+    """
+    data = make_data(smarttimes_payload, smartnight=True, grid_zone=None)
+
+    blocks = data._cheap_blocks(NEXT_DAY, 6.0, "consecutive")
+
+    assert [block[:2] for block in blocks] == [
+        (_iso("2026-06-05T23:00:00+02:00"), _iso("2026-06-06T05:00:00+02:00"))
+    ]

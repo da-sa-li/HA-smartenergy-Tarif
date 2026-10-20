@@ -123,6 +123,14 @@ Die **Auswahllogik** (`cheap_mode`) legt fest, *wie* die günstigen Stunden best
 - **Günstigste Einzelstunden** (`individual`, Standard): die billigsten Intervalle des Tages – sie dürfen über den Tag verteilt (zerteilt) sein. Geeignet für Verbraucher ohne feste Laufzeit (Boiler, Wallbox).
 - **Zusammenhängender Block** (`consecutive`): das günstigste *lückenlose* Zeitfenster aus `cheap_hours` „am Stück“ – für Geräte, deren Laufzeit nicht unterbrochen werden darf (Waschmaschine, Geschirrspüler). Der Block wird bei Preisgleichstand **nie** verlängert: Die eingestellte Länge gilt hier immer exakt, denn genau dafür gibt es diese Betriebsart.
 
+## Auswahltag im Blockmodus: 20 bis 20 Uhr
+
+Im Modus „Günstigste Einzelstunden“ gilt „des Tages“ wörtlich: je Kalendertag, von Mitternacht bis Mitternacht. Im Blockmodus wird der Block dagegen je Zeitraum **von 20:00 Uhr bis 20:00 Uhr des Folgetags** gewählt. Je Kalendertag könnte er nie über Mitternacht reichen, obwohl dort oft das günstigste Fenster liegt – bei smartCONTROL in windigen Nächten, ab Oktober 2027 im Winter durch den WiNAP (23:00–05:00) bei allen Tarifen. Ein 6-Stunden-Block bei smartNIGHT liegt so bei 23:00–05:00 statt 00:00–06:00.
+
+Um 20:00 Uhr liegen weder SNAP (10–16) noch WiNAP noch die smartNIGHT-Nacht (23–07), die Grenze zerschneidet also kein günstiges Fenster. Ab 20:00 Uhr beziehen sich `cheap_intervals`, `cheap_windows` und `threshold_eur_kwh` bereits auf den nächsten Auswahltag.
+
+Die Preise für den Folgetag erscheinen ab 17 Uhr. Fehlen sie um 20:00 Uhr noch (etwa weil der Abruf mehrmals scheiterte), **wählt der Blockmodus vorerst nichts**: Der Sensor bleibt aus, `next_cheap_start` ist leer. Aus dem Abend allein zu wählen hieße, ausgerechnet die Abendspitze zu nehmen. Sobald die Preise da sind, wird gewählt – lag der beste Block dann teilweise schon in der Vergangenheit, schaltet der Sensor nur noch für den Rest ein.
+
 ## Stundenzahl exakt einhalten (`exact_hours`)
 
 Kosten mehrere Intervalle genau so viel wie das teuerste noch ausgewählte, ist die Auswahl unter ihnen willkürlich. Diese Option legt fest, wie damit umgegangen wird – sie wirkt **nur** bei „Günstigste Einzelstunden“.
@@ -138,7 +146,7 @@ Damit nicht alle Verbraucher gleichzeitig schalten und Lastspitzen erzeugen, ver
 
 **Beide Flanken wandern nach innen:** Eingeschaltet wird bis zu 10 min *später*, ausgeschaltet bis zu 10 min *früher*. Das Schaltfenster liegt damit immer vollständig innerhalb des günstigen Blocks – der Verbraucher läuft zu keinem Zeitpunkt in einer teureren Preiszone. Der Preis dafür ist eine feste Verkürzung von 10 min je Block, für jeden Sensor gleich lang. Bei kurzen Günstig-Fenstern fällt das ins Gewicht: Aus einer konfigurierten Stunde werden 50 Minuten Laufzeit.
 
-Läuft ein günstiger Zeitraum über Mitternacht, werden die Blöcke beider Tage für den Jitter zu **einem** zusammengefasst – sonst risse der Versatz am Tageswechsel eine Schaltlücke auf. Ein Fenster in `cheap_windows` kann deshalb vor dem heutigen Tag beginnen oder nach ihm enden.
+Läuft ein günstiger Zeitraum über die Tagesgrenze (Mitternacht, im Blockmodus 20:00 Uhr), werden die Blöcke beider Tage für den Jitter zu **einem** zusammengefasst – sonst risse der Versatz am Tageswechsel eine Schaltlücke auf. Ein Fenster in `cheap_windows` kann deshalb vor dem laufenden Tag beginnen oder nach ihm enden.
 
 Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist genau dieser Versatz und kein Fehler. Der eigene Wert steht in `jitter_offset_seconds`. Auf die Sekunde genau lässt er sich am Sensor allerdings nicht ablesen: Ausgewertet wird nur, wenn der Koordinator rechnet – einmal je Minute –, der Sensor schaltet also bis zu einer Minute nach dem ausgewiesenen Versatz.
 
@@ -154,7 +162,7 @@ Wer sich wundert, warum der Sensor nicht zur vollen Stunde schaltet: Das ist gen
 | `unit` | Einheit der Preisangaben in diesen Attributen (`EUR/kWh`) |
 | `jitter_offset_seconds` | Konstanter **Einschalt**-Versatz dieses Sensors (Sekunden). Ausgeschaltet wird um `600 − jitter_offset_seconds` Sekunden **vor** dem Blockende – beide Flanken wandern nach innen |
 | `next_cheap_start` | Nächster (gejitterter) Einschaltzeitpunkt |
-| `cheap_intervals` | Liste der heutigen günstigen Intervalle (`start`, `end`, `price` in EUR/kWh) |
+| `cheap_intervals` | Liste der günstigen Intervalle des laufenden Tages (`start`, `end`, `price` in EUR/kWh) – im Blockmodus des Auswahltags von 20 bis 20 Uhr |
 | `cheap_windows` | Tatsächliche, gejitterte Schaltfenster (`on`, `off`, `exceeds_cheap_hours`) |
 | `vat_included` | `true`, wenn brutto gerechnet wird |
 

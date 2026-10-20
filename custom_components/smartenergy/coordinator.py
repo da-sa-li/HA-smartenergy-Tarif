@@ -23,6 +23,7 @@ from .api import (
 )
 from .const import (
     CHEAP_MODE_CONSECUTIVE,
+    CONSECUTIVE_DAY_START_HOUR,
     DEFAULT_CHEAP_MODE,
     DEFAULT_EXACT_HOURS,
     DOMAIN,
@@ -46,6 +47,39 @@ from .surcharges import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def auswahlzeitraum(day: date, mode: str) -> tuple[datetime, datetime]:
+    """Beginn und Ende des Auswahltags ``day`` als ``[start, end)``.
+
+    Im Einzelstunden-Modus ist das der lokale Kalendertag. Im Blockmodus
+    reicht er von ``CONSECUTIVE_DAY_START_HOUR`` des Vortags bis zu derselben
+    Stunde an ``day`` (siehe dort): Benannt ist er also nach dem Kalendertag,
+    von dem er den größten Teil abdeckt, und ein Block darf über Mitternacht
+    reichen.
+
+    Die Grenzen sind Wanduhrzeiten. An den Umstellungstagen der Sommerzeit ist
+    ein Auswahltag deshalb 23 oder 25 Stunden lang – genau wie ein Kalendertag.
+    """
+    if mode == CHEAP_MODE_CONSECUTIVE:
+        return (
+            dt_util.start_of_local_day(day - timedelta(days=1)).replace(
+                hour=CONSECUTIVE_DAY_START_HOUR
+            ),
+            dt_util.start_of_local_day(day).replace(hour=CONSECUTIVE_DAY_START_HOUR),
+        )
+    return (
+        dt_util.start_of_local_day(day),
+        dt_util.start_of_local_day(day + timedelta(days=1)),
+    )
+
+
+def auswahltag(moment: datetime, mode: str) -> date:
+    """Der Auswahltag (siehe :func:`auswahlzeitraum`), in den ``moment`` fällt."""
+    local = dt_util.as_local(moment)
+    if mode == CHEAP_MODE_CONSECUTIVE and local.hour >= CONSECUTIVE_DAY_START_HOUR:
+        return local.date() + timedelta(days=1)
+    return local.date()
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +174,12 @@ class SmartTimesData:
     # Abwicklungsgebühr (netto, ct/kWh). Nur bei smartCONTROL > 0; sie wird wie
     # die übrigen Nebenkosten netto summiert (USt. einmal am Ende).
     handling_fee_net: float = 0.0
+    # Preise aus früheren Abrufen, die die aktuelle API-Antwort nicht mehr
+    # enthält, die der laufende Auswahltag des Blockmodus aber noch braucht
+    # (siehe `SmartTimesCoordinator._behaltene_preise`). Bewusst getrennt von
+    # `prices`: Sie gehen allein in diese Auswahl ein, alle übrigen Entitäten
+    # sehen unverändert die API-Antwort.
+    retained_prices: list[MarketPrice] = field(default_factory=list)
 
     # --- Rechen-Cache (abgeleitet, siehe Klassen-Docstring) ---------------- #
     # Preis-Einträge je lokalem Kalendertag (spart den Durchlauf aller Preise
@@ -199,6 +239,44 @@ class SmartTimesData:
         eigenständig: Es läuft, bevor diese Datenklasse überhaupt gebaut ist.
         """
         return bool(self.for_day(day))
+
+    def _auswahl_preise(self, day: date, mode: str) -> tuple[MarketPrice, ...]:
+        """Die Preis-Einträge des Auswahltags ``day`` (chronologisch).
+
+        Im Einzelstunden-Modus ist das :meth:`for_day`. Im Blockmodus kommt der
+        Abend des Vortags ab ``CONSECUTIVE_DAY_START_HOUR`` hinzu, während der
+        Abend von ``day`` selbst schon zum nächsten Auswahltag gehört (siehe
+        :func:`auswahlzeitraum`).
+
+        Liegen für den Kalendertag ``day`` noch **keine** Preise vor, ist das
+        Ergebnis im Blockmodus leer: Die Auswahl wartet dann auf die
+        Morgen-Preise. Sonst wählte sie allein aus dem Vortagsabend – also
+        ausgerechnet aus der Abendspitze. Fehlt dagegen nur der Vortagsabend
+        (nach einem Neustart liefert die API erst ab Mitternacht), wird aus dem
+        Rest gewählt; das Ergebnis kann dann von der Auswahl vor dem Neustart
+        abweichen.
+
+        Ungecacht: Sie filtert nur zwei bereits gecachte Tage, und die teure
+        Auswahl darauf ist ihrerseits gecacht.
+        """
+        today = self.for_day(day)
+        if mode != CHEAP_MODE_CONSECUTIVE:
+            return today
+        if not today:
+            return ()
+        start, end = auswahlzeitraum(day, mode)
+        # `retained_prices` liegen vollständig vor `prices` (siehe
+        # `SmartTimesCoordinator._behaltene_preise`), die Reihenfolge bleibt
+        # beim Aneinanderhängen also chronologisch.
+        return tuple(
+            p
+            for p in (
+                *self.retained_prices,
+                *self.for_day(day - timedelta(days=1)),
+                *today,
+            )
+            if start <= p.start < end
+        )
 
     def value(self, price: MarketPrice) -> float:
         """Arbeitspreis eines Eintrags gemäß Brutto-/Netto-Einstellung."""
@@ -360,6 +438,10 @@ class SmartTimesData:
     ) -> tuple[frozenset[datetime], frozenset[datetime]]:
         """``(alle, strikte)`` Startzeiten der günstigsten Intervalle eines Tages.
 
+        ``day`` ist der **Auswahltag** (siehe :func:`auswahlzeitraum`): im
+        Einzelstunden-Modus der Kalendertag, im Blockmodus der Zeitraum ab
+        ``CONSECUTIVE_DAY_START_HOUR`` des Vortags.
+
         ``mode`` steuert die Auswahllogik:
 
         * ``CHEAP_MODE_INDIVIDUAL`` (Standard): die günstigsten **Einzel**-
@@ -400,7 +482,7 @@ class SmartTimesData:
 
         Siehe :meth:`_cheap_selection` für Bedeutung und Schlüssel.
         """
-        prices = self.for_day(day)
+        prices = self._auswahl_preise(day, mode)
         if not prices:
             return frozenset(), frozenset()
         count = min(self._cheap_count(cheap_hours), len(prices))
@@ -444,7 +526,7 @@ class SmartTimesData:
         ``strikte`` ist das günstigste lückenlose Fenster aus ``count``
         aufeinanderfolgenden Intervallen (geringste Summe der Gesamtkosten,
         Gleichstand → frühestes Fenster). ``prices`` muss chronologisch sortiert
-        sein (wie von :meth:`for_day` geliefert).
+        sein (wie von :meth:`_auswahl_preise` geliefert).
 
         ``alle`` ist hier **identisch** mit ``strikte``: Bei Gleichstand wird
         der Block *nicht* verlängert. Eine feste Fensterlänge ist der Zweck
@@ -518,9 +600,11 @@ class SmartTimesData:
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
     ) -> list[MarketPrice]:
-        """Die günstigsten Intervalle eines Tages (nach Gesamtkosten), chronologisch."""
+        """Die günstigsten Intervalle eines Auswahltags (nach Gesamtkosten), chronologisch."""
         starts = self._cheap_starts(day, cheap_hours, mode, exact_hours)
-        return [price for price in self.for_day(day) if price.start in starts]
+        return [
+            price for price in self._auswahl_preise(day, mode) if price.start in starts
+        ]
 
     def cheap_cutoff(
         self,
@@ -529,7 +613,7 @@ class SmartTimesData:
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
     ) -> float | None:
-        """Höchster Gesamtpreis (ct/kWh) unter den günstigen Intervallen des Tages."""
+        """Höchster Gesamtpreis (ct/kWh) unter den günstigen Intervallen des Auswahltags."""
         intervals = self.cheap_intervals(day, cheap_hours, mode, exact_hours)
         if not intervals:
             return None
@@ -542,7 +626,7 @@ class SmartTimesData:
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
     ) -> tuple[tuple[datetime, datetime, bool], ...]:
-        """Günstig-Blöcke eines Tages als ``(start, end, exceeds_cheap_hours)``.
+        """Günstig-Blöcke eines Auswahltags als ``(start, end, exceeds_cheap_hours)``.
 
         Direkt aufeinanderfolgende günstige Intervalle werden zu einem Block
         zusammengefasst, damit der Jitter pro **Block** (nicht pro Intervall)
@@ -592,19 +676,20 @@ class SmartTimesData:
         mode: str,
         exact_hours: bool,
     ) -> tuple[tuple[datetime, datetime, bool], ...]:
-        """Bildet die Blöcke eines Tages (ohne Cache, siehe :meth:`_cheap_blocks`)."""
+        """Bildet die Blöcke eines Auswahltags (ohne Cache, siehe :meth:`_cheap_blocks`)."""
         all_starts, strict_starts = self._cheap_selection(
             day, cheap_hours, mode, exact_hours
         )
         surplus = all_starts - strict_starts
         # [start, end, enthält Überschuss-Intervall]
         blocks: list[list] = []
-        # Direkt über ``for_day`` (chronologisch) statt über ``cheap_intervals``:
-        # Jenes ermittelt die Auswahl über ``_cheap_starts`` ein zweites Mal,
-        # obwohl sie hier bereits vorliegt. Der Koordinator rechnet minütlich,
-        # und ``_cheap_blocks_spanning`` ruft diese Methode je Auswertung bis zu
-        # dreimal – der doppelte Lauf summiert sich entsprechend.
-        for price in self.for_day(day):
+        # Direkt über ``_auswahl_preise`` (chronologisch) statt über
+        # ``cheap_intervals``: Jenes ermittelt die Auswahl über ``_cheap_starts``
+        # ein zweites Mal, obwohl sie hier bereits vorliegt. Der Koordinator
+        # rechnet minütlich, und ``_cheap_blocks_spanning`` ruft diese Methode je
+        # Auswertung bis zu dreimal – der doppelte Lauf summiert sich
+        # entsprechend.
+        for price in self._auswahl_preise(day, mode):
             if price.start not in all_starts:
                 continue
             exceeds = price.start in surplus
@@ -622,19 +707,20 @@ class SmartTimesData:
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
     ) -> list[tuple[datetime, datetime, bool]]:
-        """Günstig-Blöcke eines Tages, über die Tagesgrenze hinweg zusammengefasst.
+        """Günstig-Blöcke eines Auswahltags, über dessen Grenzen hinweg zusammengefasst.
 
         Die *Auswahl* der günstigen Intervalle bleibt bewusst tageweise – jeder
-        Kalendertag bekommt seine eigenen ``cheap_hours``. Für den Jitter ist
-        Mitternacht aber keine echte Grenze: Läuft ein günstiger Zeitraum über
-        den Tageswechsel (im Einzelstunden-Modus der Normalfall, da die Nacht
-        meist am günstigsten ist), zerfiele er in zwei getrennt gejitterte
-        Blöcke. Deren Fenster stoßen dann nicht mehr aneinander, sondern klaffen
-        um ``JITTER_SPAN_SECONDS`` auseinander – und zwar für *jede* Phase
-        gleich weit, weil sich beide Flanken um denselben Betrag verschieben:
-        Der Vortagsblock schaltet um die volle Breite vorgezogen ab, der
+        Auswahltag (siehe :func:`auswahlzeitraum`) bekommt seine eigenen
+        ``cheap_hours``. Für den Jitter ist die Tagesgrenze aber keine echte
+        Grenze: Läuft ein günstiger Zeitraum über sie hinweg (im
+        Einzelstunden-Modus mit seiner Grenze um Mitternacht der Normalfall, da
+        die Nacht meist am günstigsten ist), zerfiele er in zwei getrennt
+        gejitterte Blöcke. Deren Fenster stoßen dann nicht mehr aneinander,
+        sondern klaffen um ``JITTER_SPAN_SECONDS`` auseinander – und zwar für
+        *jede* Phase gleich weit, weil sich beide Flanken um denselben Betrag
+        verschieben: Der Vortagsblock schaltet um die volle Breite vorgezogen ab, der
         Folgeblock um dieselbe Breite verzögert ein. Ohne Jitter gäbe es die
-        Lücke nicht (beide Grenzen fallen exakt auf Mitternacht); erst der
+        Lücke nicht (beide Grenzen fallen exakt auf die Tagesgrenze); erst der
         Jitter reißt sie auf und erzeugt so genau den Aus-/Einschaltzyklus, den
         er verhindern soll.
 
@@ -644,7 +730,7 @@ class SmartTimesData:
         keine Rolle spielt, über welchen Tag ein Aufrufer ihn findet.
 
         Zusammengefasst wird jeweils ein Tag nach vorn und einer nach hinten.
-        Ein Block über drei Kalendertage hinweg setzte einen vollständig
+        Ein Block über drei Auswahltage hinweg setzte einen vollständig
         günstigen Tag voraus (``cheap_hours`` = 24) und käme praktisch nicht
         vor; er wird von dem Tag aus, der ihn enthält, dennoch vollständig
         aufgelöst.
@@ -660,10 +746,11 @@ class SmartTimesData:
         blocks = list(self._cheap_blocks(day, cheap_hours, mode, exact_hours))
         if not blocks:
             return blocks
+        start, end = auswahlzeitraum(day, mode)
         # Nur ein Block, der eine Tagesgrenze exakt berührt, kann überhaupt an
         # den Nachbartag angrenzen. Ohne diese Vorprüfung liefe die (im
         # Blockmodus nicht ganz billige) Auswahl an jedem Tag dreifach.
-        if blocks[0][0] == dt_util.start_of_local_day(day):
+        if blocks[0][0] == start:
             previous = self._cheap_blocks(
                 day - timedelta(days=1), cheap_hours, mode, exact_hours
             )
@@ -676,7 +763,7 @@ class SmartTimesData:
                     blocks[0][1],
                     previous[-1][2] or blocks[0][2],
                 )
-        if blocks[-1][1] == dt_util.start_of_local_day(day + timedelta(days=1)):
+        if blocks[-1][1] == end:
             following = self._cheap_blocks(
                 day + timedelta(days=1), cheap_hours, mode, exact_hours
             )
@@ -730,13 +817,14 @@ class SmartTimesData:
     ) -> bool:
         """Ob ``moment`` in einem gejitterten Günstig-Fenster liegt.
 
-        Geprüft werden die Fenster des aktuellen **und** des vorigen Tages, da
-        das Ausschaltfenster des letzten Blocks über Mitternacht hinausreichen
-        kann. Ein über den Tageswechsel zusammengefasster Block (siehe
+        Geprüft werden die Fenster des aktuellen **und** des vorigen
+        Auswahltags (siehe :func:`auswahltag`), da das Ausschaltfenster des
+        letzten Blocks über die Tagesgrenze hinausreichen kann. Ein über den
+        Tageswechsel zusammengefasster Block (siehe
         :meth:`_cheap_blocks_spanning`) ist damit ebenfalls abgedeckt: Er
-        erscheint bereits im Ergebnis des Tages von ``moment`` selbst.
+        erscheint bereits im Ergebnis des Auswahltags von ``moment`` selbst.
         """
-        day = dt_util.as_local(moment).date()
+        day = auswahltag(moment, mode)
         for d in (day - timedelta(days=1), day):
             for on_time, off_time, _ in self.jittered_cheap_windows(
                 d, cheap_hours, phase, mode, exact_hours
@@ -753,8 +841,11 @@ class SmartTimesData:
         mode: str = DEFAULT_CHEAP_MODE,
         exact_hours: bool = DEFAULT_EXACT_HOURS,
     ) -> datetime | None:
-        """Nächster gejitterter Einschaltzeitpunkt nach ``moment`` (oder ``None``)."""
-        day = dt_util.as_local(moment).date()
+        """Nächster gejitterter Einschaltzeitpunkt nach ``moment`` (oder ``None``).
+
+        Gesucht wird im Auswahltag von ``moment`` und im folgenden.
+        """
+        day = auswahltag(moment, mode)
         upcoming = [
             on_time
             for d in (day, day + timedelta(days=1))
@@ -818,6 +909,9 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         self._last_fetch: datetime | None = None
         self._last_success: datetime | None = None
         self._last_result: SmartTimesResult | None = None
+        # Preise früherer Abrufe, die der laufende Auswahltag des Blockmodus
+        # noch braucht (siehe `_behaltene_preise`).
+        self._behaltene: list[MarketPrice] = []
         # Zähler erfolgloser Versuche (steuert die wachsende Wartezeit) und die
         # zuletzt vom Server per Retry-After angeforderte Pause.
         self._failed_attempts: int = 0
@@ -1043,6 +1137,36 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             zuletzt_gemeldet,
         )
 
+    def _behaltene_preise(
+        self, now: datetime, neu: SmartTimesResult
+    ) -> list[MarketPrice]:
+        """Bisherige Preise, die nach dem Abruf ``neu`` noch gebraucht werden.
+
+        Die API liefert ab Mitternacht des laufenden Tages. Der Auswahltag des
+        Blockmodus beginnt aber schon um ``CONSECUTIVE_DAY_START_HOUR`` des
+        Vortags (siehe :func:`auswahlzeitraum`): Der tägliche Abruf um
+        ``NEXT_DAY_PRICES_HOUR`` verwürfe sonst den Vortagsabend, während der
+        Auswahltag noch bis 20 Uhr läuft, und dessen Auswahl würde aus der
+        verbliebenen Hälfte neu gebildet.
+
+        Behalten wird deshalb alles ab Beginn des laufenden Auswahltags, was
+        vor dem ersten Preis von ``neu`` liegt – liefert die API eines Tages
+        selbst weiter zurück, bleibt die Liste leer. Gehalten wird nur im
+        Speicher: Nach einem Neustart fehlt der Vortagsabend (siehe
+        :meth:`SmartTimesData._auswahl_preise`).
+        """
+        if not neu.prices or self._last_result is None:
+            return []
+        beginn, _ = auswahlzeitraum(
+            auswahltag(now, CHEAP_MODE_CONSECUTIVE), CHEAP_MODE_CONSECUTIVE
+        )
+        erster = neu.prices[0].start
+        return [
+            price
+            for price in (*self._behaltene, *self._last_result.prices)
+            if beginn <= price.start < erster
+        ]
+
     async def _async_update_data(self) -> SmartTimesData:
         """Berechnet die Entitätsdaten neu und ruft bei Bedarf die API ab."""
         now = dt_util.now()
@@ -1056,7 +1180,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
                 else None
             )
             try:
-                self._last_result = await self._client.async_get_prices()
+                neu = await self._client.async_get_prices()
             except SmartTimesApiError as err:
                 if isinstance(err, SmartTimesApiPermanentError):
                     # Dauerhafte Ablehnung: direkt auf die maximale Wartezeit
@@ -1082,6 +1206,8 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
                     err,
                 )
             else:
+                self._behaltene = self._behaltene_preise(now, neu)
+                self._last_result = neu
                 self._last_success = now
                 self._pruefe_grundgebuehr_einheit(bisherige_einheit)
                 if self._next_day_prices_due(now) and not self._has_tomorrow_prices(
@@ -1126,4 +1252,5 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             basic_fee_unit=result.basic_fee_unit,
             grid_zone=self._grid_zone,
             handling_fee_net=self._handling_fee_net,
+            retained_prices=self._behaltene,
         )

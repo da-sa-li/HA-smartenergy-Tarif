@@ -25,6 +25,12 @@ Der Versatz wandert dabei **nach innen**: eingeschaltet wird etwas *später* als
 
 Der Versatz ist aus der ID des Untereintrags abgeleitet und damit **je Sensor konstant** – er wandert nicht von Tag zu Tag. Nachsehen lässt er sich im Attribut `jitter_offset_seconds` des Sensors (**Entwicklerwerkzeuge → Zustände**); der tatsächliche nächste Einschaltzeitpunkt steht in `next_cheap_start`. Mehr dazu unter [Sensoren und Attribute](Sensoren-und-Attribute#binary-sensor-günstige-stunde).
 
+# Blockmodus läuft nach einem Neustart ein zweites Mal
+
+Im Blockmodus reicht ein Auswahltag von 20:00 bis 20:00 Uhr (siehe [Sensoren und Attribute](Sensoren-und-Attribute#auswahltag-im-blockmodus-20-bis-20-uhr)). Die smartENERGY-API liefert aber nur Preise ab Mitternacht des laufenden Tages. Den Abend davor hält die Integration im laufenden Betrieb selbst vor – **nach einem Neustart von Home Assistant fehlt er**.
+
+Bis 20:00 Uhr wird der Block dann nur aus der Zeit ab Mitternacht gewählt. Lag der ursprünglich gewählte Block am Vorabend (etwa 23:00–05:00) und ist schon gelaufen, kann die neue Auswahl einen zweiten Block am selben Tag ergeben. Ab 20:00 Uhr ist der nächste Auswahltag wieder vollständig. Wer das ausschließen will, lässt die Automatisierung das Gerät höchstens einmal je Tag starten – etwa über eine Bedingung auf den Zeitpunkt des letzten Starts.
+
 # Falsche Gesamtkosten
 
 Stimmt der Gesamtpreis nicht mit der Abrechnung überein, ist meist das **Netzgebiet** nicht oder falsch gewählt – davon hängen die Netzentgelte ab (siehe [Netzentgelte und Nebenkosten](Netzentgelte-und-Nebenkosten)). Das korrekte Netzgebiet steht im **Netzzugangsvertrag** des Netzbetreibers und lässt sich über **Konfigurieren** jederzeit anpassen. „Kein Netzgebiet“ lässt die Netzentgelte ganz weg, der Gesamtpreis fällt dann zu niedrig aus.

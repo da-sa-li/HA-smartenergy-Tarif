@@ -86,20 +86,28 @@ def _tagesdaten(make_data, smarttimes_payload):
     return make_data(smarttimes_payload, include_vat=True, grid_zone="wien")
 
 
-@pytest.mark.parametrize("mode", ["individual", "consecutive"])
+@pytest.mark.parametrize(
+    ("mode", "bewertungen"), [("individual", 192), ("consecutive", 176)]
+)
 def test_jedes_intervall_wird_hoechstens_einmal_bewertet(
-    tagesdaten, berechnungen, mode
+    tagesdaten, berechnungen, mode, bewertungen
 ):
     """Eine volle Auswertung bewertet jedes Intervall genau einmal.
 
     Die smartTIMES-Fixture deckt zwei Kalendertage zu je 96 Viertelstunden ab;
     die Auswertung berührt beide (``is_cheap_now`` prüft Vortag und Tag,
     ``next_cheap_on`` Tag und Folgetag). Mehr als 2 x 96 = 192 Bewertungen kann
-    es damit nicht geben – und weniger auch nicht, da jeder der beiden Tage
-    vollständig in eine Rangfolge gebracht wird.
+    es damit nicht geben – und im Einzelstunden-Modus auch nicht weniger, da
+    jeder der beiden Tage vollständig in eine Rangfolge gebracht wird.
+
+    Im Blockmodus reicht ein Auswahltag von 20 bis 20 Uhr. Der Auswahltag des
+    5.6. findet in der Fixture nur 00-20 Uhr (80 Intervalle, der Vortagsabend
+    fehlt), der des 6.6. ist mit 20 Uhr des 5.6. bis 20 Uhr des 6.6. vollständig
+    (96). Der Abend des 6.6. gehört zum Auswahltag des 7.6., für den es noch
+    keine Preise gibt; er wird deshalb gar nicht erst bewertet: 80 + 96 = 176.
     """
     _auswerten(tagesdaten, mode)
-    assert berechnungen["_compute_all_in_value"] == 192
+    assert berechnungen["_compute_all_in_value"] == bewertungen
 
 
 @pytest.mark.parametrize("mode", ["individual", "consecutive"])

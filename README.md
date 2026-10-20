@@ -124,7 +124,9 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
      Verbraucher ohne feste Laufzeit (Boiler, Wallbox).
    - **Zusammenhängender Block**: ein einziges günstigstes Zeitfenster „am
      Stück“. Wichtig für Geräte mit fester, ununterbrochener Laufzeit
-     (Waschmaschine, Geschirrspüler).
+     (Waschmaschine, Geschirrspüler). Der Block wird je Zeitraum von
+     **20 Uhr bis 20 Uhr** gewählt, nicht je Kalendertag – so kann er auch über
+     Mitternacht reichen (z. B. 23:00–05:00).
 4. **Stundenzahl exakt einhalten** (Vorgabe: **ein**) entscheidet, was bei
    Preisgleichstand passiert. Eingeschaltet liefert der Sensor exakt die
    eingestellte Stundenzahl. Ausgeschaltet werden alle Zeiten mitmarkiert, die

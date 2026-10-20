@@ -86,6 +86,34 @@ def test_ausgeschlossene_attribute_existieren_auch(cheap_hour_sensor):
     assert set(cheap_hour_sensor._unrecorded_attributes) <= set(attribute)
 
 
+@pytest.mark.freeze_time("2026-06-05 18:30:00")  # 20:30 Ortszeit
+def test_blockmodus_zeigt_ab_20_uhr_den_naechsten_auswahltag(
+    make_data, smarttimes_payload
+):
+    """Ab 20:00 Uhr beschreiben die Attribute den Auswahltag des Folgetags.
+
+    Um 20:30 am 05.06. hat im Blockmodus der Auswahltag des 06.06. begonnen.
+    smartTIMES kostet 10-16 Uhr und 02-04 Uhr gleich viel (11,316); in Wien
+    senkt der SNAP (10-16 Uhr) das Netzentgelt, 10-16 Uhr ist also echt
+    günstiger. Alle 4-h-Fenster darin sind gleich teuer, gewählt wird das
+    früheste: 10:00-14:00 – am 06.06., nicht mehr am 05.06.
+    """
+    untereintrag = ConfigSubentry(
+        data={"cheap_hours": 4.0, "cheap_mode": "consecutive", "exact_hours": True},
+        subentry_type=SUBENTRY_TYPE_CHEAP_HOUR,
+        title="Waschmaschine",
+        unique_id=None,
+    )
+    daten = make_data(smarttimes_payload, grid_zone="wien")
+    sensor = CheapHourBinarySensor(SimpleNamespace(data=daten), untereintrag)
+
+    intervalle = sensor.extra_state_attributes["cheap_intervals"]
+
+    assert intervalle[0]["start"] == "2026-06-06T10:00:00+02:00"
+    assert intervalle[-1]["end"] == "2026-06-06T14:00:00+02:00"
+    assert len(intervalle) == 16
+
+
 def test_erwartete_listen_namen(cheap_hour_sensor):
     """Die beiden bekannten Vorschaulisten sind ausgeschlossen (Regression)."""
     assert set(cheap_hour_sensor._unrecorded_attributes) == {
