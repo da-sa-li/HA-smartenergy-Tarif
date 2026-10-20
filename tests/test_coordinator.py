@@ -8,6 +8,7 @@ testbar – hier wird der maßgebliche Zeitpunkt direkt an ``_needs_fetch``
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
@@ -241,6 +242,101 @@ async def test_gelungener_abruf_ohne_morgenpreise_wartet_laenger(
     await coordinator._async_update_data()
 
     assert coordinator._failed_attempts == 1
+
+
+# --- Vortagsabend für den Auswahltag des Blockmodus (Issue #114) ------------- #
+
+
+def _ab(result, tag: int):
+    """``result`` ab Mitternacht des genannten Junitags – wie die API am Tag selbst."""
+    grenze = datetime(2026, 6, tag, tzinfo=VIENNA)
+    return replace(result, prices=[p for p in result.prices if p.start >= grenze])
+
+
+@pytest.mark.freeze_time("2026-06-06 15:10:00")  # 17:10 Ortszeit
+async def test_abruf_behaelt_den_vortagsabend(hass: HomeAssistant, smarttimes_payload):
+    """Der tägliche Abruf verwirft den Abend des Vortags nicht.
+
+    Um 17:10 am 06.06. läuft noch der Auswahltag, der am 05.06. um 20:00
+    begann. Die API liefert inzwischen erst ab dem 06.06. 00:00; behalten
+    werden deshalb die 16 Viertelstunden 20:00-24:00 des 05.06. – nicht mehr
+    und nicht weniger.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda _: True
+    client.async_get_prices = AsyncMock(
+        return_value=_ab(SmartTimesApiClient._parse(smarttimes_payload), 6)
+    )
+
+    data = await coordinator._async_update_data()
+
+    assert len(data.retained_prices) == 16
+    assert data.retained_prices[0].start == datetime(2026, 6, 5, 20, 0, tzinfo=VIENNA)
+    assert data.retained_prices[-1].end == datetime(2026, 6, 6, 0, 0, tzinfo=VIENNA)
+    assert data.prices[0].start == datetime(2026, 6, 6, 0, 0, tzinfo=VIENNA)
+
+
+@pytest.mark.freeze_time("2026-06-06 15:10:00")  # 17:10 Ortszeit
+async def test_wiederholter_abruf_behaelt_den_vortagsabend_weiter(
+    hass: HomeAssistant, smarttimes_payload, freezer
+):
+    """Ein zweiter Abruf am selben Tag reicht den behaltenen Abend weiter.
+
+    Fehlen die Morgen-Preise, wird nach 30 Minuten wiederholt (17:40, also noch
+    vor 20:00); die API liefert dann wieder erst ab dem 06.06. Der Vortagsabend
+    steht nur noch in den behaltenen Preisen, nicht mehr in der vorigen
+    Antwort – und muss trotzdem bleiben.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._needs_fetch = lambda _: True
+    client.async_get_prices = AsyncMock(
+        return_value=_ab(SmartTimesApiClient._parse(smarttimes_payload), 6)
+    )
+
+    await coordinator._async_update_data()
+    # Ohne Weiterstellen der Uhr bremste `_fetch_allowed` den zweiten Abruf, und
+    # der Test bestünde, ohne die Weitergabe überhaupt zu durchlaufen.
+    freezer.tick(timedelta(minutes=30))
+    data = await coordinator._async_update_data()
+
+    assert client.async_get_prices.await_count == 2
+    assert len(data.retained_prices) == 16
+
+
+@pytest.mark.freeze_time("2026-06-06 18:30:00")  # 20:30 Ortszeit
+async def test_nach_20_uhr_wird_der_vortagsabend_nicht_mehr_gebraucht(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """Mit dem neuen Auswahltag (ab 20:00) fällt der Vortagsabend weg.
+
+    Um 20:30 am 06.06. beginnt der laufende Auswahltag am 06.06. um 20:00. Der
+    Abend des 05.06. liegt davor und wird nicht weiter behalten.
+    """
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    coordinator._behaltene = list(SmartTimesApiClient._parse(smarttimes_payload).prices[80:96])
+    coordinator._needs_fetch = lambda _: True
+    client.async_get_prices = AsyncMock(
+        return_value=_ab(SmartTimesApiClient._parse(smarttimes_payload), 6)
+    )
+
+    data = await coordinator._async_update_data()
+
+    assert data.retained_prices == []
+
+
+async def test_fehlgeschlagener_abruf_laesst_die_behaltenen_preise_stehen(
+    hass: HomeAssistant, smarttimes_payload
+):
+    """Scheitert der Abruf, bleiben die behaltenen Preise unverändert."""
+    coordinator, client = await _coordinator(hass, smarttimes_payload)
+    behalten = list(SmartTimesApiClient._parse(smarttimes_payload).prices[80:96])
+    coordinator._behaltene = behalten
+    coordinator._needs_fetch = lambda _: True
+    client.async_get_prices = AsyncMock(side_effect=SmartTimesApiError("weg"))
+
+    data = await coordinator._async_update_data()
+
+    assert data.retained_prices == behalten
 
 
 # --- Harte Untergrenze zwischen zwei API-Aufrufen ---------------------------- #

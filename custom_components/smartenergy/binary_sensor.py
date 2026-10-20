@@ -5,6 +5,8 @@ Tages zählt – gemessen an den **gesamten variablen Kosten** (Arbeitspreis +
 Abgaben + Netzentgelte inkl. SNAP). Die Anzahl günstiger Stunden wird je
 Untereintrag (Config Subentry) festgelegt, sodass pro Verbraucher ein eigener
 Sensor mit eigener Stundenzahl möglich ist (z. B. Boiler 4 h, Wallbox 8 h).
+„Des Tages“ heißt im Blockmodus: von 20 Uhr bis 20 Uhr des Folgetags, damit
+ein Block über Mitternacht reichen kann (siehe ``CONSECUTIVE_DAY_START_HOUR``).
 
 Dazu kommt ein Diagnose-Sensor am Hub-Gerät, der meldet, ob die Preise für
 den Folgetag bereits vorliegen.
@@ -30,7 +32,7 @@ from .const import (
     UNIT_EUR_PER_KWH,
     to_eur,
 )
-from .coordinator import SmartTimesCoordinator
+from .coordinator import SmartTimesCoordinator, auswahltag
 from .entity import CheapHourEntity, hub_device_id, hub_device_info
 
 # Reine Koordinator-Lesesensoren ohne eigene API-Aufrufe oder Aktionen – eine
@@ -105,16 +107,20 @@ class CheapHourBinarySensor(CheapHourEntity, BinarySensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Schwellwert, günstige Intervalle, gejitterte Fenster und nächster Start."""
+        """Schwellwert, günstige Intervalle, gejitterte Fenster und nächster Start.
+
+        Intervalle, Fenster und Schwellwert beschreiben den **Auswahltag**, in
+        dem ``now`` liegt – im Blockmodus also ab 20 Uhr bereits den nächsten.
+        """
         data = self.coordinator.data
         now = dt_util.now()
-        today = now.date()
+        tag = auswahltag(now, self._cheap_mode)
         price = data.current(now)
         cheap = data.cheap_intervals(
-            today, self._cheap_hours, self._cheap_mode, self._exact_hours
+            tag, self._cheap_hours, self._cheap_mode, self._exact_hours
         )
         windows = data.jittered_cheap_windows(
-            today,
+            tag,
             self._cheap_hours,
             self._jitter_phase,
             self._cheap_mode,
@@ -139,7 +145,7 @@ class CheapHourBinarySensor(CheapHourEntity, BinarySensorEntity):
             "exact_hours": self._exact_hours,
             "threshold_eur_kwh": to_eur(
                 data.cheap_cutoff(
-                    today, self._cheap_hours, self._cheap_mode, self._exact_hours
+                    tag, self._cheap_hours, self._cheap_mode, self._exact_hours
                 )
             ),
             "current_price_eur_kwh": current_price(),

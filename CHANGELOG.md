@@ -28,6 +28,19 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
   braucht damit kein Release zum Stichtag. Die Diagnose nennt mit `grid_rates_since`, welche Gruppe
   gerade gilt. Die bisherigen Sätze und damit alle Preise bleiben unverändert.
 
+### Geändert
+
+- **Zusammenhängender Block über Mitternacht:** Im Modus „Zusammenhängender Block“ wird der Block
+  nicht mehr je Kalendertag gewählt, sondern je Zeitraum von 20:00 bis 20:00 Uhr. Er kann damit
+  über Mitternacht reichen, wenn dort das günstigste Fenster liegt – bei smartCONTROL in manchen
+  Nächten, ab Oktober 2027 im Winter durch den WiNAP (23–05 Uhr) bei allen Tarifen. Das gilt für
+  bestehende und neue Sensoren gleichermaßen. Ab 20:00 Uhr beziehen sich die Attribute
+  `cheap_intervals`, `cheap_windows` und `threshold_eur_kwh` dieser Sensoren bereits auf den
+  nächsten Zeitraum. Fehlen um 20:00 Uhr die Preise für den Folgetag noch, bleibt der Sensor aus,
+  bis sie vorliegen (ab Mitternacht ohne aktuellen Preis: `unknown`). Nach einem Neustart von Home Assistant fehlt der Abend vor Mitternacht; bis
+  20:00 Uhr kann dann ein zweiter Block am selben Tag gewählt werden (siehe Wiki,
+  „Fehlerbehebung“). Der Modus „Günstigste Einzelstunden“ wählt unverändert je Kalendertag.
+
 ## [4.4.0] - 2026-10-05
 
 ### Hinzugefügt

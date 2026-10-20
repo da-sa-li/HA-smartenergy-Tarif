@@ -212,7 +212,9 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   in den **synchronen** Properties `is_on`/`extra_state_attributes` zieht – im Event-Loop von
   HA. **Keine Invalidierung nötig:** `_async_update_data` erzeugt je Neuberechnung eine frische
   Instanz, der Cache lebt also genau so lange wie die Daten (eine Minute); alle Sensoren lesen
-  dieselbe Instanz, gleich konfigurierte teilen sich das Ergebnis. Der Jitter geht bewusst
+  dieselbe Instanz, gleich konfigurierte teilen sich das Ergebnis. Der Tag im Schlüssel ist der
+  **Auswahltag** (siehe Günstige-Stunde-Sensoren), nicht zwingend der Kalendertag; da der Modus
+  mit im Schlüssel steht, kollidiert das nicht. Der Jitter geht bewusst
   **nicht** in den Schlüssel ein (er wirkt erst auf die fertigen Blöcke). Gecacht werden
   ausschließlich **unveränderliche** Container (`tuple`/`frozenset`), damit ein Aufrufer die
   Daten aller Sensoren nicht aus Versehen verfälschen kann; wer eine veränderbare Fassung
@@ -281,6 +283,21 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   `_migriere_exact_hours` (siehe „Schema-Migration“): Es trägt ihnen den alten Wert `False`
   ausdrücklich ein. In `consecutive` wird **nie** erweitert und `exact_hours` ist wirkungslos:
   Eine feste Fensterlänge ist dort der Zweck der Betriebsart (Waschmaschine, Geschirrspüler).
+
+  **Auswahltag** (`coordinator.auswahltag`/`auswahlzeitraum`, Issue #114): `individual` wählt je
+  Kalendertag, `consecutive` je Zeitraum von `CONSECUTIVE_DAY_START_HOUR` (20 Uhr) des Vortags bis
+  20 Uhr des benannten Tages – sonst könnte ein Block nie über Mitternacht reichen (WiNAP 23–05,
+  smartNIGHT-Off-Peak, nächtliche Börsentiefs). `individual` braucht das nicht, seine Blöcke fasst
+  `_cheap_blocks_spanning` ohnehin über die Grenze zusammen. Die Grenze liegt bewusst abends: Sie
+  schneidet kein günstiges Fenster und liegt nach dem Abruf der Morgen-Preise samt zwei
+  Wiederholungen. Fehlen die Preise des benannten Kalendertags, wählt `consecutive` **nichts**
+  (`_auswahl_preise`) – sonst fiele die Wahl auf die Abendspitze. Weil die API erst ab Mitternacht
+  liefert, hält der Coordinator den Vortagsabend über `_behaltene_preise` vor und reicht ihn als
+  `SmartTimesData.retained_prices` weiter; nur `consecutive` liest ihn, alle übrigen Entitäten
+  sehen unverändert die API-Antwort. Gehalten wird nur im Speicher: Nach einem Neustart fehlt der
+  Abend, bis 20 Uhr wird aus dem Rest gewählt. Das ist bewusst nur dokumentiert (Wiki,
+  „Fehlerbehebung“), nicht persistiert. Die Tageskennzahlen und `price_rank` bleiben beim
+  Kalendertag.
 
 - **`jitter.py`** – **Last-Glättung**: jeder Günstig-Stunde-Sensor verschiebt seine Schaltflanken
   um einen **deterministischen, aus der Subentry-ID (SHA-256) abgeleiteten** Versatz, damit nicht

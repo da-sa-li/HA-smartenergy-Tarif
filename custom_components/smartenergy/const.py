@@ -105,6 +105,28 @@ CHEAP_MODE_INDIVIDUAL: Final = "individual"
 CHEAP_MODE_CONSECUTIVE: Final = "consecutive"
 DEFAULT_CHEAP_MODE: Final = CHEAP_MODE_INDIVIDUAL
 
+# Beginn des Auswahltags im Blockmodus (Stunde, Lokalzeit). Der Block wird nicht
+# je Kalendertag gewählt, sondern je Zeitraum von 20:00 Uhr bis 20:00 Uhr des
+# Folgetags (Issue #114). Je Kalendertag könnte er nie über Mitternacht reichen,
+# obwohl dort oft das günstigste Fenster liegt: bei smartCONTROL in windigen
+# Nächten, ab Oktober 2027 im Winter durch den WiNAP (23-05 Uhr) bei allen
+# Tarifen. Der Einzelstunden-Modus braucht das nicht – seine Blöcke fasst
+# `_cheap_blocks_spanning` ohnehin über Mitternacht zusammen.
+#
+# Warum gerade 20 Uhr:
+#
+# - Die Grenze darf kein günstiges Fenster zerschneiden. Um 20 Uhr liegen die
+#   smartTIMES-Spitze (17-22), der smartNIGHT-Peak (07-23) und das Abendhoch
+#   der Börse – weit weg von SNAP (10-16), WiNAP (23-05) und Off-Peak (23-07).
+# - Zu Beginn des Auswahltags müssen dessen Preise vorliegen, also die
+#   Morgen-Preise (NEXT_DAY_PRICES_HOUR + bis zu FETCH_JITTER_MINUTES, spätestens
+#   17:19). Mit den Wiederholungen nach 30 und 60 Minuten übersteht 20 Uhr zwei
+#   gescheiterte Versuche; 18 Uhr hätte nur einen überstanden.
+#
+# Fehlen die Preise zu Beginn trotzdem, wartet die Auswahl auf sie (siehe
+# `SmartTimesData._auswahl_preise`).
+CONSECUTIVE_DAY_START_HOUR: Final = 20
+
 # Ob die eingestellte Stundenzahl exakt eingehalten wird ("Stundenzahl exakt
 # einhalten") – also NICHT bei Preisgleichstand am Schwellwert darüber hinaus
 # erweitert wird.
