@@ -7,6 +7,13 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
 
 ## [Unreleased]
 
+### Entfernt
+
+- Breaking: Der Sensor **„Preisrang heute“** (`…_preisrang_heute`) entfällt. Der Rang steht weiter
+  als Attribut `rank` am Sensor „Preisquantil heute“; wer den Sensor in Automatisierungen,
+  Vorlagen oder Dashboards verwendet, muss auf dieses Attribut oder auf das Quantil umstellen.
+  Der Registry-Eintrag des entfallenen Sensors wird beim Start automatisch entfernt.
+
 ### Hinzugefügt
 
 - **Winter-Nieder-Arbeitspreis (WiNAP)** nach § 7 Abs. 4 SNE-G-V: Vom 1. Oktober bis 31. März gilt

@@ -133,9 +133,30 @@ async def async_setup_entry(
         **hub_device_info(entry, coordinator.data.tariff),
     )
 
+    _entferne_preisrang_entitaet(hass, entry)
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+def _entferne_preisrang_entitaet(
+    hass: HomeAssistant, entry: SmartTimesConfigEntry
+) -> None:
+    """Löscht den Registry-Eintrag des entfallenen Preisrang-Sensors.
+
+    Der Sensor ``price_rank_today`` gibt es nicht mehr. Ohne diesen Schritt
+    bliebe sein Eintrag in der Entity-Registry als „nicht mehr verfügbar“
+    zurück, bis der Nutzer ihn von Hand löscht. Das ist bewusst keine
+    Schema-Migration: Der Aufruf ist bei jedem Start gefahrlos wiederholbar
+    und ohne Wirkung, sobald der Eintrag fort ist.
+    """
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        Platform.SENSOR, DOMAIN, f"{entry.entry_id}_price_rank_today"
+    )
+    if entity_id is not None:
+        registry.async_remove(entity_id)
 
 
 async def async_migrate_entry(

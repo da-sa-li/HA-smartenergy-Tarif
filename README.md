@@ -181,8 +181,7 @@ Löschen bleiben keine Konfigurationsreste zurück.
 | `…_durchschnittlicher_gesamtpreis_heute`  | Ø-Gesamtpreis heute (EUR/kWh)                        |
 | `…_niedrigster_gesamtpreis_heute`         | Niedrigster Gesamtpreis heute (EUR/kWh)              |
 | `…_hochster_gesamtpreis_heute`            | Höchster Gesamtpreis heute (EUR/kWh)                 |
-| `…_preisrang_heute`                       | Der wievielt-günstigste ist das laufende Intervall heute (1 = günstigstes) |
-| `…_preisquantil_heute`                    | Dasselbe normiert auf 0–100 % (je niedriger, desto günstiger) |
+| `…_preisquantil_heute`                    | Einordnung des laufenden Intervalls in den Tag, 0–100 % (je niedriger, desto günstiger) |
 | `…_grundgebuhr`                           | Grundgebühr (EUR/month)                              |
 | `binary_sensor.…_preise_fur_morgen_verfugbar` | Ob die Preise für den Folgetag vorliegen (Diagnose) |
 
@@ -191,7 +190,7 @@ Netzentgelte inkl. SNAP) und ist die richtige Wahl fürs Energie-Dashboard und
 zum Schalten; Tageskennzahlen und der Günstige-Stunde-Sensor beziehen sich
 ebenfalls darauf.
 
-**Preisrang** und **Preisquantil** ordnen den laufenden Preis in den heutigen Tag ein.
+Das **Preisquantil** ordnet den laufenden Preis in den heutigen Tag ein.
 
 Näheres im [Wiki](https://github.com/da-sa-li/HA-smartenergy-Tarif/wiki/Sensoren-und-Attribute).
 

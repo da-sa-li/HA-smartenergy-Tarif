@@ -115,7 +115,7 @@ automation:
 > ist. Bei **smartTIMES** ist zu bedenken, dass es als Zeittarif nur wenige
 > Preisstufen gibt – das Quantil nimmt dort nur wenige verschiedene Werte am
 > Tag an (höchstens sechs), siehe
-> [Sensoren und Attribute](Sensoren-und-Attribute#preisrang-und-preisquantil).
+> [Sensoren und Attribute](Sensoren-und-Attribute#preisquantil).
 
 # Gesamtpreis im Energie-Dashboard hinterlegen
 

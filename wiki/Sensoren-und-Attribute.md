@@ -14,8 +14,7 @@
 | `sensor.smarttimes_strompreishelfer_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_niedrigster_gesamtpreis_heute` | Günstigster **Gesamtpreis** heute (EUR/kWh) |
 | `sensor.smarttimes_strompreishelfer_hochster_gesamtpreis_heute` | Teuerster **Gesamtpreis** heute (EUR/kWh) |
-| `sensor.smarttimes_strompreishelfer_preisrang_heute` | Der wievielt-günstigste ist das laufende Intervall unter den heutigen **Gesamtpreisen** (1 = günstigstes) |
-| `sensor.smarttimes_strompreishelfer_preisquantil_heute` | Dieselbe Einordnung normiert auf 0–100 % (je niedriger, desto günstiger) |
+| `sensor.smarttimes_strompreishelfer_preisquantil_heute` | Einordnung des laufenden Intervalls unter den heutigen **Gesamtpreisen**, normiert auf 0–100 % (je niedriger, desto günstiger) |
 | `sensor.smarttimes_strompreishelfer_grundgebuhr` | Monatliche Grundgebühr (EUR/month) – wird nur angelegt, wenn die API eine Grundgebühr liefert (**smartTIMES** und **smartNIGHT**, nicht smartCONTROL). Meldet die API eine andere Einheit, steht der Sensor auf `unknown`: Seine Einheit ist fest hinterlegt, ein Jahreswert erschiene darunter als Monatswert |
 | `binary_sensor.smarttimes_strompreishelfer_preise_fur_morgen_verfugbar` | `on`, sobald die Preise für den Folgetag vorliegen (Diagnose) |
 
@@ -47,16 +46,15 @@ Alle Preissensoren verwenden dieselbe Einheit (**EUR/kWh**) und sind damit unmit
 >
 > Wer das in einer Automatisierung unterscheiden muss, nimmt das Attribut `prices_tomorrow_valid` oder den Binary-Sensor [Preise für morgen verfügbar](#binary-sensor-preise-für-morgen-verfügbar).
 
-# Preisrang und Preisquantil
+# Preisquantil
 
-Beide Sensoren beantworten dieselbe Frage – *ist der Strom gerade günstig?* – und ersparen die Vorlage, die den aktuellen Preis sonst von Hand gegen Minimum, Maximum und Durchschnitt rechnen müsste. Weil es eigene Entitäten sind, landen sie in der Historie und lassen sich unmittelbar als `numeric_state`-Trigger verwenden.
+Der Sensor beantwortet die Frage *ist der Strom gerade günstig?* und erspart die Vorlage, die den aktuellen Preis sonst von Hand gegen Minimum, Maximum und Durchschnitt rechnen müsste. Weil es eine eigene Entität ist, landet er in der Historie und lässt sich unmittelbar als `numeric_state`-Trigger verwenden.
 
-- **Preisrang** (`…_preisrang_heute`): Der wievielt-günstigste ist das laufende Intervall unter allen Intervallen des heutigen Kalendertages. **1 ist das günstigste.** Dimensionslos.
-- **Preisquantil** (`…_preisquantil_heute`): Dieselbe Einordnung normiert auf **0–100 %**, ebenfalls **je niedriger, desto günstiger**. Der handlichere der beiden Werte, weil er nicht davon abhängt, ob ein Tag 96 Viertelstunden- oder 24 Stundenwerte hat. Der Tagesdurchschnitt liegt immer bei genau 50 %; die Endpunkte 0 % und 100 % kommen dagegen **nie** vor (siehe [Preisgleiche Intervalle](#preisgleiche-intervalle)).
+- **Preisquantil** (`…_preisquantil_heute`): Die Einordnung des laufenden Intervalls unter allen Intervallen des heutigen Kalendertages, normiert auf **0–100 %** – **je niedriger, desto günstiger**. Die Normierung macht den Wert unabhängig davon, ob ein Tag 96 Viertelstunden- oder 24 Stundenwerte hat. Der Tagesdurchschnitt liegt immer bei genau 50 %; die Endpunkte 0 % und 100 % kommen dagegen **nie** vor (siehe [Preisgleiche Intervalle](#preisgleiche-intervalle)).
 
 Bezugsgröße ist der **Gesamtpreis** inklusive aller Nebenkosten – wie bei den Tageskennzahlen und beim Günstige-Stunde-Sensor, und **nicht** der reine Arbeitspreis. Das ist kein Detail: Das SNAP-Fenster verschiebt die Reihenfolge, siehe unten.
 
-Beide stehen auf `unknown`, solange für den aktuellen Zeitpunkt kein Preis vorliegt – etwa kurz nach einem Neustart. Dann fehlen auch die Attribute; ein Attributsatz voller `null` sähe aus wie eine Einordnung, wäre aber keine.
+Der Sensor steht auf `unknown`, solange für den aktuellen Zeitpunkt kein Preis vorliegt – etwa kurz nach einem Neustart. Dann fehlen auch die Attribute; ein Attributsatz voller `null` sähe aus wie eine Einordnung, wäre aber keine.
 
 ## Preisgleiche Intervalle
 
@@ -99,7 +97,7 @@ Bei **smartCONTROL** stellt sich die Frage kaum – der börsengekoppelte Tarif 
 
 ## Attribute
 
-Beide Sensoren tragen **dieselben** Attribute, damit jeder für sich verständlich ist – wer nur das Quantil im Dashboard hat, sieht den Rang trotzdem.
+Der Rang steht als Attribut `rank` am Sensor. Einen eigenen Preisrang-Sensor gibt es nicht mehr (siehe `CHANGELOG.md`).
 
 | Attribut | Beschreibung |
 |---|---|
