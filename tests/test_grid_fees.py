@@ -333,7 +333,16 @@ def test_wechsel_folgt_dem_lokalen_kalendertag():
 
 
 def test_luecke_faellt_nicht_auf_null_netzentgelt():
-    """Greift keine Gruppe, gilt die zeitlich nächstliegende – nie 0."""
+    """Greift keine Gruppe, gilt die nächstliegende – nie 0.
+
+    Handgerechnet: erste Gruppe bis 30.06.2027, zweite ab 01.08.2027.
+    * 15.07.: 15 Tage nach Ende der ersten, 17 Tage vor Beginn der zweiten
+      -> die erste ist näher.
+    * 20.07.: 20 Tage nach Ende der ersten, 12 Tage vor Beginn der zweiten
+      -> die zweite ist näher.
+    * 16.07.: 16 Tage nach Ende der ersten, 16 Tage vor Beginn der zweiten
+      -> Gleichstand, die frühere gilt.
+    """
     luecke = GridZone(
         "test",
         "Testgebiet",
@@ -344,7 +353,10 @@ def test_luecke_faellt_nicht_auf_null_netzentgelt():
     )
     assert luecke.total_ct_per_kwh(_dt(2027, 7, 15, 20)) > 0
     assert luecke.rates_on(date(2026, 12, 31)) is luecke.rates[0]  # vor der ersten
-    assert luecke.rates_on(date(2027, 7, 15)) is luecke.rates[-1]  # in der Lücke
+    assert luecke.rates_on(date(2027, 7, 15)) is luecke.rates[0]  # näher an der ersten
+    assert luecke.rates_on(date(2027, 7, 20)) is luecke.rates[1]  # näher an der zweiten
+    assert luecke.rates_on(date(2027, 7, 16)) is luecke.rates[0]  # Gleichstand: früher
+    assert luecke.rates_on(date(2028, 1, 1)) is luecke.rates[1]  # nach der letzten
 
 
 def test_zone_ohne_satzgruppe_wird_abgewiesen():

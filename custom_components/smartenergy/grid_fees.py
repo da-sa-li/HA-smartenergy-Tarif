@@ -132,7 +132,9 @@ class GridZone:
 
         Anders als bei den Abgaben (``Surcharge.rate_on`` liefert 0) darf eine
         Lücke nie still zu „ohne Netzentgelt“ werden: Greift keine Gruppe, gilt
-        die zeitlich nächstliegende – vor der ersten diese, sonst die letzte.
+        die Gruppe mit dem kleinsten Abstand zu den inklusiven Grenzen. Vor der
+        ersten gilt diese, nach der letzten jene; in einer inneren Lücke gilt die
+        nähere der beiden angrenzenden Gruppen, bei Gleichstand die frühere.
         Dass es im Datenjahr keine Lücken gibt, sichert ein Test.
         """
         for group in self.rates:
@@ -141,6 +143,15 @@ class GridZone:
         first = self.rates[0]
         if first.since is not None and day < first.since:
             return first
+        for previous, following in zip(self.rates, self.rates[1:], strict=False):
+            if (
+                previous.until is not None
+                and following.since is not None
+                and previous.until < day < following.since
+            ):
+                if day - previous.until <= following.since - day:
+                    return previous
+                return following
         return self.rates[-1]
 
     def _rates_at(self, moment: datetime) -> GridRates:
