@@ -250,11 +250,19 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   (Winter-Nieder-Arbeitspreis, § 7 Abs. 4 SNE-G-V: 1. Okt–31. Mär, je 23–05 Uhr des Folgetags,
   erstmals ab 1.10.2027). Beim WiNAP zählt eine Nacht zu dem Tag, an dem sie beginnt – eine
   Prüfung über den Monat läge an den Rändern um fünf Stunden daneben. Seine Höhe nennt die
-  Verordnung nicht, deshalb ist `usage_winap` ein ausdrücklicher Wert je Zone (bis zur
+  Verordnung nicht, deshalb ist `usage_winap` ein ausdrücklicher Wert je Satzgruppe (bis zur
   SNE-T-V 2027 `None` → normaler Arbeitspreis) und wird nicht aus `usage_ap` abgeleitet; wer die
   Sätze einträgt, ergänzt auch `ERWARTETE_ZONEN` in `tests/test_grid_fees.py`. Werte sind
   **„Stand 2026“** und müssen **jährlich** aktualisiert werden (gilt auch für den
   Förderbeitrag in `surcharges.py`).
+  Die Sätze eines Netzgebiets sind **datierte Satzgruppen** (`GridRates` mit `since`/`until`,
+  wie `DatedRate` in `surcharges.py`), damit ein Wechsel unter dem Jahr – etwa der Übergang
+  auf das neue Entgeltsystem der Netzebene 7, der je Netzgebiet zu einem anderen Tag greifen
+  kann (Issue #111) – ohne Release zum Stichtag greift. Anders als bei den Abgaben fällt eine
+  Lücke **nie** auf 0: `GridZone.rates_on` nimmt dann die zeitlich nächstliegende Gruppe, und
+  ein Test erzwingt, dass an jedem Tag von `TARIFF_DATA_YEAR` genau eine Gruppe gilt. Die
+  Gruppen stehen chronologisch sortiert. Die Diagnose weist die gerade geltende Gruppe über
+  `grid_rates_since` aus.
 
 - **Günstige-Stunde-Sensoren** (`binary_sensor.py`) werden als **Config Subentries** angelegt –
   einer pro Verbraucher, mit eigener Stundenzahl (`cheap_hours`) und Auswahllogik (`cheap_mode`):

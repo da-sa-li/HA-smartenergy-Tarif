@@ -5,11 +5,14 @@ Werte für Wien (Stand 2026, netto): usage_ap=6,98 · usage_snap=5,58 · loss=0,
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import zoneinfo
+from datetime import date, datetime, timedelta
 
 import pytest
 
 from custom_components.smartenergy import grid_fees
+from custom_components.smartenergy.const import TARIFF_DATA_YEAR
+from custom_components.smartenergy.grid_fees import GridRates, GridZone
 from tests.conftest import VIENNA
 
 
@@ -96,7 +99,7 @@ def test_arbeitspreis_im_winap_fenster():
     Fiktive Sätze (die echten gibt es erst mit der SNE-T-V 2027): AP 7,00 ·
     SNAP 5,60 · WiNAP 4,90 · Verlust 0,50.
     """
-    zone = grid_fees.GridZone("test", "Test", 7.00, 5.60, 0.50, usage_winap=4.90)
+    zone = GridZone("test", "Test", (GridRates(7.00, 5.60, 0.50, usage_winap=4.90),))
     assert zone.usage_rate(_dt(2028, 1, 15, 2)) == 4.90   # WiNAP
     assert zone.usage_rate(_dt(2028, 1, 15, 12)) == 7.00  # Winter, tagsüber
     assert zone.usage_rate(_dt(2028, 6, 5, 14)) == 5.60   # SNAP
@@ -104,10 +107,28 @@ def test_arbeitspreis_im_winap_fenster():
     assert zone.breakdown(_dt(2028, 1, 15, 2)) == {"grid_usage": 4.90, "grid_loss": 0.50}
 
 
+def test_winap_satz_folgt_der_satzgruppe_des_tages():
+    """Der WiNAP-Satz kommt aus der Gruppe des Kalendertags, nicht aus der Zone.
+
+    Nacht vom 30.11. auf den 1.12.2027 um 23:30 Uhr am 30.11. (alte Gruppe,
+    WiNAP 4,90) und um 00:30 Uhr am 1.12. (neue Gruppe, WiNAP 3,70).
+    """
+    zone = GridZone(
+        "test",
+        "Test",
+        (
+            GridRates(7.00, 5.60, 0.50, usage_winap=4.90, until=date(2027, 11, 30)),
+            GridRates(5.00, 4.00, 0.40, usage_winap=3.70, since=date(2027, 12, 1)),
+        ),
+    )
+    assert zone.usage_rate(_dt(2027, 11, 30, 23, 30)) == 4.90
+    assert zone.usage_rate(_dt(2027, 12, 1, 0, 30)) == 3.70
+
+
 def test_ohne_winap_satz_gilt_im_fenster_der_normale_arbeitspreis():
     """Solange kein WiNAP-Satz hinterlegt ist, bleibt es beim normalen AP."""
     zone = grid_fees.get_zone("wien")
-    assert zone.usage_winap is None
+    assert all(gruppe.usage_winap is None for gruppe in zone.rates)
     assert zone.usage_rate(_dt(2028, 1, 15, 2)) == 6.98
 
 
@@ -211,9 +232,11 @@ def test_zonenwerte_stimmen_mit_der_tabelle(schluessel: str):
 
     assert zone.key == schluessel  # der Schlüssel im dict und im Objekt selbst
     assert zone.name == name
-    assert zone.usage_ap == pytest.approx(usage_ap)
-    assert zone.usage_snap == pytest.approx(usage_snap)
-    assert zone.loss == pytest.approx(loss)
+    # Stand 2026: je Netzgebiet genau eine unbefristete Satzgruppe.
+    assert len(zone.rates) == 1
+    assert zone.rates[0].usage_ap == pytest.approx(usage_ap)
+    assert zone.rates[0].usage_snap == pytest.approx(usage_snap)
+    assert zone.rates[0].loss == pytest.approx(loss)
 
 
 @pytest.mark.parametrize("schluessel", sorted(ERWARTETE_ZONEN), ids=str)
@@ -229,7 +252,8 @@ def test_snap_liegt_20_prozent_unter_dem_arbeitspreis(schluessel: str):
     der Sollwert genauso gerundet.
     """
     zone = grid_fees.GRID_ZONES[schluessel]
-    assert zone.usage_snap == round(zone.usage_ap * 0.8, 2)
+    for gruppe in zone.rates:
+        assert gruppe.usage_snap == round(gruppe.usage_ap * 0.8, 2)
 
 
 @pytest.mark.parametrize("schluessel", sorted(ERWARTETE_ZONEN), ids=str)
@@ -253,3 +277,112 @@ def test_jede_zone_rechnet_snap_und_regelzeit(schluessel: str):
         "grid_usage": pytest.approx(usage_snap),
         "grid_loss": pytest.approx(loss),
     }
+
+
+# --- Satzgruppen mit Gültigkeitszeitraum ------------------------------------ #
+#
+# Handgerechnet, mit frei gewählten Testsätzen (keine echten Tarifwerte):
+#   alt:  AP 7,00 · SNAP 5,60 · Verlust 0,50   (bis 30.11.2027)
+#   neu:  AP 5,00 · SNAP 4,00 · Verlust 0,40   (ab  01.12.2027)
+# Außerhalb des SNAP-Fensters: alt 7,00 + 0,50 = 7,50; neu 5,00 + 0,40 = 5,40.
+# Im SNAP-Fenster (Juni, 12 Uhr): alt 5,60 + 0,50 = 6,10; neu 4,00 + 0,40 = 4,40.
+_WECHSELTAG = date(2027, 12, 1)
+_ALT = GridRates(7.00, 5.60, 0.50, until=_WECHSELTAG - timedelta(days=1))
+_NEU = GridRates(5.00, 4.00, 0.40, since=_WECHSELTAG)
+_WECHSEL_ZONE = GridZone("test", "Testgebiet", (_ALT, _NEU))
+
+
+def test_wechsel_letzter_tag_mit_alten_saetzen():
+    """Am Tag vor dem Wechsel gelten noch die alten Sätze (Ende inklusive)."""
+    moment = _dt(2027, 11, 30, 23, 45)
+    assert _WECHSEL_ZONE.total_ct_per_kwh(moment) == pytest.approx(7.50)
+    assert _WECHSEL_ZONE.breakdown(moment) == {"grid_usage": 7.00, "grid_loss": 0.50}
+
+
+def test_wechsel_erster_tag_mit_neuen_saetzen():
+    """Am Wechseltag gelten ab 00:00 Uhr die neuen Sätze (Beginn inklusive)."""
+    moment = _dt(2027, 12, 1, 0, 0)
+    assert _WECHSEL_ZONE.total_ct_per_kwh(moment) == pytest.approx(5.40)
+    assert _WECHSEL_ZONE.breakdown(moment) == {"grid_usage": 5.00, "grid_loss": 0.40}
+
+
+def test_wechsel_wirkt_auch_auf_den_snap_satz():
+    """Der SNAP-Satz kommt aus derselben Gruppe wie der Arbeitspreis."""
+    assert _WECHSEL_ZONE.total_ct_per_kwh(_dt(2027, 6, 5, 12)) == pytest.approx(6.10)
+    # Mit späterem Wechsel (hier: im Sommer) greift der neue SNAP-Satz.
+    spaet = GridZone(
+        "test",
+        "Testgebiet",
+        (
+            GridRates(7.00, 5.60, 0.50, until=date(2027, 6, 14)),
+            GridRates(5.00, 4.00, 0.40, since=date(2027, 6, 15)),
+        ),
+    )
+    assert spaet.total_ct_per_kwh(_dt(2027, 6, 14, 12)) == pytest.approx(6.10)
+    assert spaet.total_ct_per_kwh(_dt(2027, 6, 15, 12)) == pytest.approx(4.40)
+
+
+def test_wechsel_folgt_dem_lokalen_kalendertag():
+    """Maßgeblich ist der Kalendertag in Ortszeit, nicht in UTC.
+
+    00:30 Uhr Wiener Zeit am 1.12.2027 ist am 30.11. um 23:30 UTC – es gelten
+    trotzdem schon die neuen Sätze.
+    """
+    moment = _dt(2027, 12, 1, 0, 30).astimezone(zoneinfo.ZoneInfo("UTC"))
+    assert _WECHSEL_ZONE.total_ct_per_kwh(moment) == pytest.approx(5.40)
+
+
+def test_luecke_faellt_nicht_auf_null_netzentgelt():
+    """Greift keine Gruppe, gilt die nächstliegende – nie 0.
+
+    Handgerechnet: erste Gruppe bis 30.06.2027, zweite ab 01.08.2027.
+    * 15.07.: 15 Tage nach Ende der ersten, 17 Tage vor Beginn der zweiten
+      -> die erste ist näher.
+    * 20.07.: 20 Tage nach Ende der ersten, 12 Tage vor Beginn der zweiten
+      -> die zweite ist näher.
+    * 16.07.: 16 Tage nach Ende der ersten, 16 Tage vor Beginn der zweiten
+      -> Gleichstand, die frühere gilt.
+    """
+    luecke = GridZone(
+        "test",
+        "Testgebiet",
+        (
+            GridRates(7.00, 5.60, 0.50, since=date(2027, 1, 1), until=date(2027, 6, 30)),
+            GridRates(5.00, 4.00, 0.40, since=date(2027, 8, 1)),
+        ),
+    )
+    assert luecke.total_ct_per_kwh(_dt(2027, 7, 15, 20)) > 0
+    assert luecke.rates_on(date(2026, 12, 31)) is luecke.rates[0]  # vor der ersten
+    assert luecke.rates_on(date(2027, 7, 15)) is luecke.rates[0]  # näher an der ersten
+    assert luecke.rates_on(date(2027, 7, 20)) is luecke.rates[1]  # näher an der zweiten
+    assert luecke.rates_on(date(2027, 7, 16)) is luecke.rates[0]  # Gleichstand: früher
+    assert luecke.rates_on(date(2028, 1, 1)) is luecke.rates[1]  # nach der letzten
+
+
+def test_zone_ohne_satzgruppe_wird_abgewiesen():
+    """Ein Netzgebiet ohne jede Satzgruppe ist ein Tabellenfehler."""
+    with pytest.raises(ValueError):
+        GridZone("leer", "Leer", ())
+
+
+@pytest.mark.parametrize("schluessel", sorted(grid_fees.GRID_ZONES), ids=str)
+def test_satzgruppen_decken_das_datenjahr_lueckenlos_ab(schluessel: str):
+    """An jedem Tag von ``TARIFF_DATA_YEAR`` gilt je Netzgebiet genau eine Gruppe.
+
+    Eine Lücke hieße: Intervalle ohne passende Gruppe; eine Überschneidung:
+    der Satz hinge von der Reihenfolge in der Tabelle ab. Beides fiele sonst
+    erst auf, wenn ein Nutzer eine falsche Rechnung meldet.
+    """
+    zone = grid_fees.GRID_ZONES[schluessel]
+    tag = date(TARIFF_DATA_YEAR, 1, 1)
+    while tag.year == TARIFF_DATA_YEAR:
+        passend = [g for g in zone.rates if g.applies_on(tag)]
+        assert len(passend) == 1, f"{schluessel}: {len(passend)} Gruppen am {tag}"
+        tag += timedelta(days=1)
+
+
+@pytest.mark.parametrize("schluessel", sorted(grid_fees.GRID_ZONES), ids=str)
+def test_satzgruppen_sind_chronologisch_sortiert(schluessel: str):
+    """Die Gruppen stehen in zeitlicher Reihenfolge (Voraussetzung von ``rates_on``)."""
+    beginne = [g.since or date.min for g in grid_fees.GRID_ZONES[schluessel].rates]
+    assert beginne == sorted(beginne)

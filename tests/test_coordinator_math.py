@@ -19,7 +19,7 @@ import pytest
 
 from custom_components.smartenergy.api import MarketPrice
 from custom_components.smartenergy.coordinator import SmartTimesData
-from custom_components.smartenergy.grid_fees import GridZone, get_zone
+from custom_components.smartenergy.grid_fees import GridRates, GridZone, get_zone
 from tests.conftest import VIENNA
 
 
@@ -482,8 +482,8 @@ def test_preisrang_gibt_exakt_gleich_teuren_zonen_denselben_rang():
     (Wien kommt mit 0,02 netto am nächsten), deshalb hier ein eigens gebautes.
     """
     # Netto-Lücke Off-Peak -> Shoulder: 10,85 - 9,43 = 1,42
-    zone = GridZone("test", "Testgebiet", usage_ap=7.00, usage_snap=5.58, loss=0.700)
-    assert round(zone.usage_ap - zone.usage_snap, 4) == pytest.approx(1.42)
+    zone = GridZone("test", "Testgebiet", (GridRates(7.00, 5.58, 0.700),))
+    assert round(zone.rates[0].usage_ap - zone.rates[0].usage_snap, 4) == pytest.approx(1.42)
 
     beginn = datetime(2026, 6, 5, 0, 0, tzinfo=VIENNA)
     mach = lambda stunde, brutto: MarketPrice(  # noqa: E731

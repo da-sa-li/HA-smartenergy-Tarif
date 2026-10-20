@@ -15,6 +15,11 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
   Die Sätze je Netzgebiet gibt es erst mit den Netzentgelten 2027; bis dahin rechnet die
   Integration auch im WiNAP-Fenster mit dem normalen Arbeitspreis. Beim Tarif smartNIGHT zerfällt
   der Off-Peak im Winter, sobald der Satz hinterlegt ist, in zwei Preisstufen (05–07 Uhr ist teurer als davor).
+- **Netzentgelte mit Gültigkeitszeitraum:** Die Sätze eines Netzgebiets lassen sich jetzt in
+  datierten Gruppen hinterlegen (`since`/`until`). Ein Wechsel unter dem Jahr – etwa der Übergang
+  auf das neue Entgeltsystem der Netzebene 7, der je Netzgebiet zu einem anderen Tag greifen kann –
+  braucht damit kein Release zum Stichtag. Die Diagnose nennt mit `grid_rates_since`, welche Gruppe
+  gerade gilt. Die bisherigen Sätze und damit alle Preise bleiben unverändert.
 
 ## [4.4.0] - 2026-10-05
 

@@ -76,6 +76,12 @@ async def async_get_config_entry_diagnostics(
                 else None
             ),
             "snap_active": is_snap(now) if grid_zone is not None else None,
+            # Beginn der Satzgruppe, mit der gerade gerechnet wird (None bei
+            # unbefristeter Gruppe bzw. ohne Netzgebiet) – damit sich bei
+            # Rückfragen nachvollziehen lässt, welche Netzentgelte galten.
+            "grid_rates_since": (
+                grid_zone.rates_on(now.date()).since if grid_zone is not None else None
+            ),
             "winap_active": is_winap(now) if grid_zone is not None else None,
             "handling_fee_net": data.handling_fee_net,
             "last_fetch": coordinator.last_fetch,
