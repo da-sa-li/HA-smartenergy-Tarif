@@ -56,7 +56,8 @@ class PriceRank:
     wie bei allen übrigen Tageskennzahlen und bei der Günstig-Stunden-Auswahl.
     Nach dem reinen Arbeitspreis fiele die Reihenfolge anders aus: Das
     SNAP-Fenster (Sommer, 10-16 Uhr) senkt das Netzentgelt und spaltet damit
-    eine Arbeitspreis-Stufe in zwei verschieden teure Hälften.
+    eine Arbeitspreis-Stufe in zwei verschieden teure Hälften; ab Oktober 2027
+    tut das im Winter auch der WiNAP (23-05 Uhr).
     """
 
     rank: int
@@ -232,7 +233,7 @@ class SmartTimesData:
         """Gesamtpreis (Arbeitspreis + Nebenkosten) in ct/kWh.
 
         Die Nebenkosten gelten je nach Zeitpunkt des Intervalls (Abgaben nach
-        Kalendertag, Netzentgelte zusätzlich nach SNAP-Fenster). Die USt. wird
+        Kalendertag, Netzentgelte zusätzlich nach SNAP-/WiNAP-Fenster). Die USt. wird
         – wie in Österreich üblich – auf die *Summe* aus Arbeitspreis und
         Abgaben/Netzentgelten erhoben, daher wird hier netto summiert und die
         Steuer einmal am Ende angewendet.

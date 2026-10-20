@@ -15,7 +15,7 @@ Diese Sätze gelten unabhängig vom Netzgebiet und sind in der Integration als d
 
 Für das bei der Einrichtung gewählte **Netzgebiet** werden die per-kWh-[Netzentgelte](https://www.e-control.at/industrie/strom/strompreis/systemnutzungsentgelte) auf **Netzebene 7** mit **Viertelstundenmessung (IME)** in der Tarifvariante **ohne Leistungsmessung** („nicht gemessene Leistung“) berücksichtigt:
 
-- **Netznutzungsentgelt-Arbeitspreis** (normal bzw. im SNAP-Fenster reduziert)
+- **Netznutzungsentgelt-Arbeitspreis** (normal, im SNAP-Fenster bzw. ab Oktober 2027 im WiNAP-Fenster reduziert)
 - **Netzverlustentgelt** (konstant)
 
 „Kein Netzgebiet“ lässt beide Positionen weg. Das korrekte Netzgebiet steht im **Netzzugangsvertrag** des Netzbetreibers.
@@ -23,6 +23,16 @@ Für das bei der Einrichtung gewählte **Netzgebiet** werden die per-kWh-[Netzen
 ## :label: Sommer-Nieder-Arbeitspreis (SNAP)
 
 Der **[Sommer-Nieder-Arbeitspreis (SNAP)](https://www.e-control.at/sommer-nieder-arbeitspreis)** senkt den Netz-Arbeitspreis vom **1. April bis 30. September**, täglich von **10:00–16:00 Uhr**, um **20 %**. Das Attribut `snap_active` am Gesamtpreis-Sensor zeigt, ob er gerade gilt.
+
+## :label: Winter-Nieder-Arbeitspreis (WiNAP) – ab 1. Oktober 2027
+
+Aus der Systemnutzungsentgelte-Grundsatz-Verordnung (SNE-G-V, § 7 Abs. 4) folgt für Netzebene 7 ein zweiter reduzierter Arbeitspreis: der **Winter-Nieder-Arbeitspreis (WiNAP)** vom **1. Oktober bis 31. März** des Folgejahres, jeweils von **23:00 bis 05:00 Uhr** des Folgetags. Er gilt **erstmals ab 1. Oktober 2027**; der Winter 2026/27 hat noch keinen WiNAP.
+
+- Jede Nacht zählt zu dem Tag, an dem sie um 23:00 Uhr beginnt. In der Nacht auf den 1. April 2028 gilt der WiNAP also noch bis 05:00 Uhr, in der Nacht auf den 1. Oktober 2027 dagegen noch nicht.
+- Wie beim SNAP gilt die **Ortszeit** (Wanduhr) – auch in den Nächten der Zeitumstellung (31.10.2027 und 26.03.2028).
+- Die Verordnung nennt weder eine Höhe noch einen Prozentsatz; die Sätze je Netzgebiet legen die Netzbetreiber mit der Systemnutzungsentgelte-Verordnung 2027 fest. Sie werden mit der Jahresaktualisierung ergänzt. **Bis dahin rechnet die Integration auch im WiNAP-Fenster mit dem normalen Arbeitspreis.**
+- Das Attribut `winap_active` am Gesamtpreis-Sensor zeigt, ob das WiNAP-Fenster gerade gilt.
+- SNAP (Sommer, Mittag) und WiNAP (Winter, Nacht) überschneiden sich nie.
 
 > Der **Netznutzungs-Leistungspreis** (Kapazitätsentgelt, €/kW nach Spitzenlast) wird **nicht** eingerechnet – er ist keine ct/kWh-Größe.
 
@@ -32,9 +42,11 @@ Bei **smartCONTROL** kommt zusätzlich die **Abwicklungsgebühr** (1,2 ct/kWh ne
 
 # smartNIGHT: Peak-Aufschlag
 
-Bei **smartNIGHT** liegt der Arbeitspreis von **07:00 bis 23:00 Uhr** um **30 %** über dem Off-Peak-Preis; außerhalb dieses Fensters gilt der Off-Peak-Preis von smartTIMES. Der Aufschlag trifft ausschließlich den **Arbeitspreis** – Abgaben und Netzentgelte samt SNAP gelten unverändert und erscheinen daher auch nicht als eigene Position in der Aufschlüsselung. Eine Abwicklungsgebühr gibt es bei smartNIGHT nicht.
+Bei **smartNIGHT** liegt der Arbeitspreis von **07:00 bis 23:00 Uhr** um **30 %** über dem Off-Peak-Preis; außerhalb dieses Fensters gilt der Off-Peak-Preis von smartTIMES. Der Aufschlag trifft ausschließlich den **Arbeitspreis** – Abgaben und Netzentgelte samt SNAP und WiNAP gelten unverändert und erscheinen daher auch nicht als eigene Position in der Aufschlüsselung. Eine Abwicklungsgebühr gibt es bei smartNIGHT nicht.
 
 > Das SNAP-Fenster (10:00–16:00 Uhr) liegt vollständig innerhalb der Peak-Zeit. In Netzgebieten mit hohem Netz-Arbeitspreis kann die SNAP-Ermäßigung den Peak-Aufschlag daher übersteigen – dann ist der Sommermittag günstiger als die Nacht. Der „Günstige Stunde“-Sensor richtet sich nach dem **Gesamtpreis** und bildet das automatisch ab.
+
+> Ab Oktober 2027 liegt der WiNAP (23:00–05:00 Uhr) vollständig im Off-Peak (23:00–07:00 Uhr). Im Winter zerfällt der Off-Peak damit in zwei Preisstufen: 05:00–07:00 Uhr ist teurer als die Stunden davor.
 
 # Aufschlüsselung als Sensor-Attribute
 

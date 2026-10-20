@@ -1,6 +1,6 @@
-# Preiszeiten oder SNAP-Fenster verrutschen
+# Preiszeiten oder SNAP-/WiNAP-Fenster verrutschen
 
-Home Assistant muss auf die Zeitzone **`Europe/Vienna`** eingestellt sein (**Einstellungen → System → Allgemein → Zeitzone**). smartTIMES liefert lokale Zeitstempel ohne Offset – steht HA auf einer anderen Zeitzone, verschieben sich die Preisintervalle und das **SNAP-Fenster** (10:00–16:00 Uhr) entsprechend.
+Home Assistant muss auf die Zeitzone **`Europe/Vienna`** eingestellt sein (**Einstellungen → System → Allgemein → Zeitzone**). smartTIMES liefert lokale Zeitstempel ohne Offset – steht HA auf einer anderen Zeitzone, verschieben sich die Preisintervalle und die Fenster des **SNAP** (10:00–16:00 Uhr) und ab Oktober 2027 des **WiNAP** (23:00–05:00 Uhr) entsprechend.
 
 # Keine Preise / Sensor zeigt `unknown`
 
