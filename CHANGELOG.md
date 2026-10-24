@@ -7,12 +7,7 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
 
 ## [Unreleased]
 
-### Entfernt
-
-- Breaking: Der Sensor **„Preisrang heute“** (`…_preisrang_heute`) entfällt. Der Rang steht weiter
-  als Attribut `rank` am Sensor „Preisquantil heute“; wer den Sensor in Automatisierungen,
-  Vorlagen oder Dashboards verwendet, muss auf dieses Attribut oder auf das Quantil umstellen.
-  Der Registry-Eintrag des entfallenen Sensors wird beim Start automatisch entfernt.
+## [5.0.0] - 2026-10-24
 
 ### Hinzugefügt
 
@@ -40,6 +35,13 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
   bis sie vorliegen (ab Mitternacht ohne aktuellen Preis: `unknown`). Nach einem Neustart von Home Assistant fehlt der Abend vor Mitternacht; bis
   20:00 Uhr kann dann ein zweiter Block am selben Tag gewählt werden (siehe Wiki,
   „Fehlerbehebung“). Der Modus „Günstigste Einzelstunden“ wählt unverändert je Kalendertag.
+
+### Entfernt
+
+- Breaking: Der Sensor **„Preisrang heute“** (`…_preisrang_heute`) entfällt. Der Rang steht weiter
+  als Attribut `rank` am Sensor „Preisquantil heute“; wer den Sensor in Automatisierungen,
+  Vorlagen oder Dashboards verwendet, muss auf dieses Attribut oder auf das Quantil umstellen.
+  Der Registry-Eintrag des entfallenen Sensors wird beim Start automatisch entfernt.
 
 ### Behoben
 
@@ -278,7 +280,8 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
 
 - Integration in „smartTIMES Strompreishelfer“ umbenannt, Domain angepasst.
 
-[Unreleased]: https://github.com/da-sa-li/HA-smartenergy-Tarif/compare/v4.4.0...HEAD
+[Unreleased]: https://github.com/da-sa-li/HA-smartenergy-Tarif/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/da-sa-li/HA-smartenergy-Tarif/compare/v4.4.0...v5.0.0
 [4.4.0]: https://github.com/da-sa-li/HA-smartenergy-Tarif/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/da-sa-li/HA-smartenergy-Tarif/compare/v4.2.1...v4.3.0
 [4.2.1]: https://github.com/da-sa-li/HA-smartenergy-Tarif/compare/v4.2.0...v4.2.1
