@@ -641,6 +641,21 @@ def test_doppelte_zeit_in_fremder_zone_bleibt_unveraendert():
     ]
 
 
+def test_fremder_offset_neben_der_doppelten_stunde_bleibt_unveraendert():
+    """Ein fremder Offset zur selben Wanduhrzeit wird nicht mit umgedeutet.
+
+    Die ersten beiden Einträge sind die doppelte Stunde mit Wiener Offsets, der
+    dritte trägt ``+00:00`` und gehört damit nicht dazu. Er zählt nicht mit und
+    behält seinen Offset – sonst rückte er auf 02:00 Winterzeit und verdrängte
+    den Preis, der dort wirklich gilt.
+    """
+    assert _herbst("02:00:00+02:00", "02:00:00+01:00", "02:00:00+00:00") == [
+        _iso("2026-10-25T02:00:00+02:00"),
+        _iso("2026-10-25T02:00:00+01:00"),
+        _iso("2026-10-25T02:00:00+00:00"),
+    ]
+
+
 def test_fruehjahrsluecke_wird_nicht_zugeordnet():
     """Die übersprungene Stunde im Frühjahr ist nicht mehrdeutig.
 

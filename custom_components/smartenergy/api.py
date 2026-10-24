@@ -360,14 +360,18 @@ class SmartTimesApiClient:
             return len(moeglich) == 2 and start.utcoffset() in moeglich
 
         walls = [start.replace(tzinfo=None) for start in starts]
+        # Einmal je Eintrag bestimmt und für Zählung *und* Zuordnung genutzt:
+        # Ein Eintrag mit fremdem Offset zur selben Wanduhrzeit darf weder
+        # mitzählen noch umgedeutet werden.
+        betroffen = [mehrdeutig(start) for start in starts]
         haeufigkeit = Counter(
-            wand for start, wand in zip(starts, walls, strict=True) if mehrdeutig(start)
+            wand for wand, ist in zip(walls, betroffen, strict=True) if ist
         )
         gesehen: set[datetime] = set()
         result: list[datetime] = []
-        for start, wand in zip(starts, walls, strict=True):
+        for start, wand, ist in zip(starts, walls, betroffen, strict=True):
             offset = start.utcoffset()
-            if haeufigkeit[wand] >= 2:
+            if ist and haeufigkeit[wand] >= 2:
                 fold = 1 if wand in gesehen else 0
                 gesehen.add(wand)
                 offset = wand.replace(tzinfo=_API_TIME_ZONE, fold=fold).utcoffset()

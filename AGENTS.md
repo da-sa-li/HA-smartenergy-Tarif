@@ -388,18 +388,18 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   liegen damit unabhängig von der HA-Zeitzone richtig; Tagesgrenzen und Zonen-Fenster nicht.
 - **Zeitumstellung**: Am Herbst-Umstellungstag schreiben beide Endpunkte (smartTIMES und
   smartCONTROL) beide Durchläufe von 02:00–02:45 mit `+01:00` (Issue #126) und liefern für den
-  25-Stunden-Tag nur 96 Einträge – die Stunde ab 23:00 fehlt. Bei smartCONTROL kosten die
-  beiden Durchläufe verschieden viel; die Zuordnung entscheidet dort also über den Preis. `SmartTimesApiClient._ordne_doppelte_stunde_zu` ordnet eine
-  mehrfach vorkommende mehrdeutige Wanduhrzeit nach der **Reihenfolge** der Antwort zu (erstes
-  Vorkommen Sommerzeit, zweites Winterzeit) und lässt Einzelvorkommen, fremde Offsets und die
-  Frühjahrslücke unangetastet. Alle Preis-Zeitpunkte tragen danach einen **festen Offset**,
-  keine `ZoneInfo`: Python vergleicht Zeitpunkte derselben `ZoneInfo` nach Wanduhrzeit, und
-  ein mehrdeutiger Zeitpunkt ist mit einem anderer Zone nie gleich (PEP 495). Die fehlende
-  Stunde lässt sich nicht reparieren; der Live-Test meldet sie, solange der Tag in der Antwort
-  steht. Wie die API am Frühjahrstermin antwortet, ist noch nicht beobachtet. Zonen-Fenster
-  werden durchweg über die **lokale Stunde** bestimmt (`grid_fees.is_snap`/`is_winap`,
-  `smartnight.ist_peak`) – der Tarif nennt Wanduhrzeiten, also gelten sie auch an den
-  Umstellungstagen der Sommerzeit unverändert.
+  25-Stunden-Tag nur 96 Einträge – die Stunde ab 23:00 fehlt. Bei smartCONTROL kosten die beiden
+  Durchläufe verschieden viel; die Zuordnung entscheidet dort also über den Preis.
+  `SmartTimesApiClient._ordne_doppelte_stunde_zu` ordnet eine mehrfach vorkommende mehrdeutige
+  Wanduhrzeit nach der **Reihenfolge** der Antwort zu (erstes Vorkommen Sommerzeit, zweites
+  Winterzeit) und lässt Einzelvorkommen, fremde Offsets und die Frühjahrslücke unangetastet. Alle
+  Preis-Zeitpunkte tragen danach einen **festen Offset**, keine `ZoneInfo`: Python vergleicht
+  Zeitpunkte derselben `ZoneInfo` nach Wanduhrzeit, und ein mehrdeutiger Zeitpunkt ist mit einem
+  Zeitpunkt einer anderen Zone nie gleich (PEP 495). Die fehlende Stunde lässt sich nicht
+  reparieren; der Live-Test meldet sie, solange der Tag in der Antwort steht. Wie die API am
+  Frühjahrstermin antwortet, ist noch nicht beobachtet. Zonen-Fenster werden durchweg über die
+  **lokale Stunde** bestimmt (`grid_fees.is_snap`/`is_winap`, `smartnight.ist_peak`) – der Tarif
+  nennt Wanduhrzeiten, also gelten sie auch an den Umstellungstagen der Sommerzeit unverändert.
 - **Domain** ist `smartenergy` (siehe `const.py`/`manifest.json`); das Integrationsverzeichnis
   heißt entsprechend `custom_components/smartenergy/`. Die Tarif-**Schlüssel** `smarttimes`/
   `smartcontrol`/`smartnight` (Config-Werte) sind davon unabhängig.
