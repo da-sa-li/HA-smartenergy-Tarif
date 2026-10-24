@@ -45,9 +45,10 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
 
 - **Zeitumstellung im Herbst:** Die smartENERGY-API kennzeichnet in der Nacht der Rückstellung auf
   Winterzeit beide Durchläufe von 02:00–02:59 als Winterzeit. Bisher fehlte dadurch eine Stunde
-  lang der aktuelle Preis, und „Günstige Stunde“-Sensoren im Modus „Günstigste Einzelstunden“
-  liefen kürzer als eingestellt (etwa 3 statt 4 Stunden). Die Integration ordnet den ersten
-  Durchlauf jetzt der Sommerzeit zu. Weiterhin ohne Preis bleibt am Umstellungstag die Stunde
+  lang der aktuelle Preis; bei smartCONTROL galt in der folgenden Stunde zudem der Börsenpreis
+  der Stunde davor. „Günstige Stunde“-Sensoren im Modus „Günstigste Einzelstunden“ liefen
+  kürzer als eingestellt (etwa 3 statt 4 Stunden). Die Integration ordnet den ersten Durchlauf
+  jetzt der Sommerzeit zu. Weiterhin ohne Preis bleibt am Umstellungstag die Stunde
   ab 23:00 Uhr, weil die API sie nicht liefert.
 
 ## [4.4.0] - 2026-10-05

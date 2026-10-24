@@ -97,8 +97,16 @@ Code erzeugt, sonst wäre der Test eine Tautologie. Fixtures (echte API-Antworte
 in `tests/fixtures/`. Für smartNIGHT gibt es **keine eigene Fixture**, weil es keine eigene API
 gibt: Der Tarif entsteht aus `smarttimes.json`; `make_data(..., smartnight=True)` in
 `conftest.py` legt dafür dieselbe Ableitung darüber wie der Client im Betrieb.
-`smarttimes_dst_herbst.json` ist die echte Antwort über die Herbstumstellung 2026 (24./25.10.)
-samt dem Fehler der API (siehe „Zeitumstellung“ unten) – nicht „korrigieren“, sie belegt ihn.
+
+Benannt sind die Fixtures nach dem Muster **`<tarif>[_<anlass>].json`**, die zugehörige
+pytest-Fixture heißt wie die Datei plus `_payload`. Ohne Anlass sind es die Grundfixtures
+(`smarttimes.json`, `smartcontrol.json`, 05./06.06.2026), an denen die handgerechneten
+Sollwerte der meisten Tests hängen; ihr Name entspricht bewusst dem, unter dem
+`lege_antwort_ab` die Live-Antwort ablegt, damit der `diff` ohne Umbenennen gelingt. Ein
+Anlass wird deutsch benannt: `smarttimes_zeitumstellung_herbst.json` und
+`smartcontrol_zeitumstellung_herbst.json` sind die echten Antworten über die Herbstumstellung
+2026 (24./25.10.) samt dem Fehler der API (siehe „Zeitumstellung“ unten) – nicht
+„korrigieren“, sie belegen ihn.
 
 **Testnamen sind deutsch – repository-weit.** Eine Testfunktion beschreibt in
 deutscher Prosa, was sie zusagt: `test_blockmodus_behaelt_die_laenge_bei_gleichstand`,
@@ -378,9 +386,10 @@ Preis-Mathematik) → Entitäten (`sensor.py`, `binary_sensor.py`, gemeinsame Ba
   **lokale** Zeitstempel **mit** Offset (`+02:00`/`+01:00`); `api.py` (`_parse_date`) übernimmt
   ihn und fällt nur ohne Offset auf `dt_util.DEFAULT_TIME_ZONE` zurück. Die Preisintervalle
   liegen damit unabhängig von der HA-Zeitzone richtig; Tagesgrenzen und Zonen-Fenster nicht.
-- **Zeitumstellung**: Am Herbst-Umstellungstag schreibt die API beide Durchläufe von
-  02:00–02:45 mit `+01:00` (Issue #126) und liefert für den 25-Stunden-Tag nur 96 Einträge –
-  die Stunde ab 23:00 fehlt. `SmartTimesApiClient._ordne_doppelte_stunde_zu` ordnet eine
+- **Zeitumstellung**: Am Herbst-Umstellungstag schreiben beide Endpunkte (smartTIMES und
+  smartCONTROL) beide Durchläufe von 02:00–02:45 mit `+01:00` (Issue #126) und liefern für den
+  25-Stunden-Tag nur 96 Einträge – die Stunde ab 23:00 fehlt. Bei smartCONTROL kosten die
+  beiden Durchläufe verschieden viel; die Zuordnung entscheidet dort also über den Preis. `SmartTimesApiClient._ordne_doppelte_stunde_zu` ordnet eine
   mehrfach vorkommende mehrdeutige Wanduhrzeit nach der **Reihenfolge** der Antwort zu (erstes
   Vorkommen Sommerzeit, zweites Winterzeit) und lässt Einzelvorkommen, fremde Offsets und die
   Frühjahrslücke unangetastet. Alle Preis-Zeitpunkte tragen danach einen **festen Offset**,

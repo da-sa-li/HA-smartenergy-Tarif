@@ -517,18 +517,26 @@ def _herbst(*zeiten: str) -> list[datetime]:
     return [price.start for price in result.prices]
 
 
+@pytest.mark.parametrize(
+    "payload_name",
+    [
+        "smarttimes_zeitumstellung_herbst_payload",
+        "smartcontrol_zeitumstellung_herbst_payload",
+    ],
+    ids=["smarttimes", "smartcontrol"],
+)
 def test_herbstumstellung_der_echten_antwort_ergibt_ein_lueckenloses_raster(
-    smarttimes_dst_herbst_payload,
+    payload_name, request
 ):
     """Die falsch beschriftete erste Stunde wird der Sommerzeit zugeordnet.
 
-    Die Fixture (24./25.10.2026) schreibt die Einträge 104–107 (02:00–02:45 am
-    25.10., nach 96 Einträgen am 24.10. und acht von 00:00–01:45) mit
-    ``+01:00``, genau wie die folgenden 108–111. Richtig ist für den ersten
-    Durchlauf ``+02:00``. Ohne Korrektur fehlte 02:00–02:59 Sommerzeit ganz,
-    und 02:00–02:59 Winterzeit gäbe es doppelt.
+    Beide Fixtures (24./25.10.2026) sind gleich aufgebaut und schreiben die
+    Einträge 104–107 (02:00–02:45 am 25.10., nach 96 Einträgen am 24.10. und
+    acht von 00:00–01:45) mit ``+01:00``, genau wie die folgenden 108–111.
+    Richtig ist für den ersten Durchlauf ``+02:00``. Ohne Korrektur fehlte
+    02:00–02:59 Sommerzeit ganz, und 02:00–02:59 Winterzeit gäbe es doppelt.
     """
-    result = SmartTimesApiClient._parse(smarttimes_dst_herbst_payload)
+    result = SmartTimesApiClient._parse(request.getfixturevalue(payload_name))
     prices = result.prices
 
     assert len(prices) == 192
@@ -543,6 +551,24 @@ def test_herbstumstellung_der_echten_antwort_ergibt_ein_lueckenloses_raster(
     # 25-Stunden-Tag nur 96 Einträge, die Stunde ab 23:00 fehlt. Erfinden lässt
     # sich dieser Preis nicht.
     assert prices[-1].end == _iso("2026-10-25T23:00:00+01:00")
+
+
+def test_herbstumstellung_ordnet_bei_smartcontrol_den_richtigen_preis_zu(
+    smartcontrol_zeitumstellung_herbst_payload,
+):
+    """Bei smartCONTROL kosten die beiden Durchläufe verschieden viel.
+
+    Aus ``smartcontrol_zeitumstellung_herbst.json``: Der erste Block 02:00–02:45
+    (Einträge 104–107) kostet 25,339, der zweite (108–111) 25,092 ct/kWh. Nach
+    der Reihenfolge gehört 25,339 zur Sommerzeit, 25,092 zur Winterzeit. Vorher
+    galt während der Winterzeit-Stunde 25,339 – der Preis der Stunde davor.
+    """
+    prices = SmartTimesApiClient._parse(smartcontrol_zeitumstellung_herbst_payload).prices
+
+    assert prices[104].start == _iso("2026-10-25T02:00:00+02:00")
+    assert prices[104].gross_ct_per_kwh == 25.339
+    assert prices[108].start == _iso("2026-10-25T02:00:00+01:00")
+    assert prices[108].gross_ct_per_kwh == 25.092
 
 
 def test_herbstumstellung_mit_richtigen_offsets_bleibt_unveraendert():

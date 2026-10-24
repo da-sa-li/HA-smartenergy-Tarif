@@ -325,11 +325,12 @@ class SmartTimesApiClient:
         """Ordnet die doppelt durchlaufene Stunde der Herbstumstellung zu.
 
         Am letzten Oktobersonntag läuft die Uhr von 02:00 bis 02:59 zweimal. Die
-        API schreibt beide Durchläufe als Wanduhrzeit und – Stand Oktober 2026 –
-        beide mit dem Winterzeit-Offset ``+01:00`` (Issue #126). Übernommen hätte
-        die erste Stunde Sommerzeit damit keinen Preis, die erste Stunde
-        Winterzeit dagegen zwei. Ohne Offset wären die Durchläufe gar nicht zu
-        unterscheiden (Issue #75).
+        API (smartTIMES wie smartCONTROL) schreibt beide Durchläufe als
+        Wanduhrzeit und – Stand Oktober 2026 – beide mit dem Winterzeit-Offset
+        ``+01:00`` (Issue #126). Übernommen hätte die erste Stunde Sommerzeit
+        damit keinen Preis, die erste Stunde Winterzeit dagegen zwei – bei
+        smartCONTROL zwei verschiedene. Ohne Offset wären die Durchläufe gar
+        nicht zu unterscheiden (Issue #75).
 
         Kommt eine solche mehrdeutige Wanduhrzeit mehrfach vor, entscheidet
         deshalb die **Reihenfolge der Antwort**: Das erste Vorkommen ist
