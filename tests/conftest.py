@@ -108,14 +108,36 @@ def _load(name: str) -> dict:
 
 @pytest.fixture
 def smarttimes_payload() -> dict:
-    """Echte smartTIMES-API-Antwort (verschachteltes ``energyPrice``-Format)."""
+    """Echte smartTIMES-API-Antwort vom 05./06.06.2026 (``energyPrice``-Format)."""
     return _load("smarttimes.json")
 
 
 @pytest.fixture
 def smartcontrol_payload() -> dict:
-    """Echte smartCONTROL-API-Antwort (flaches ``data``-Format mit Offset)."""
+    """Echte smartCONTROL-API-Antwort vom 05./06.06.2026 (flaches ``data``-Format)."""
     return _load("smartcontrol.json")
+
+
+@pytest.fixture
+def smarttimes_zeitumstellung_herbst_payload() -> dict:
+    """Echte smartTIMES-API-Antwort über die Herbstumstellung (24./25.10.2026).
+
+    Abgerufen am 24.10.2026 (Issue #126). Die API schreibt darin **beide**
+    Durchläufe von 02:00–02:45 am 25.10. mit ``+01:00`` und liefert für den
+    25-Stunden-Tag nur 96 Einträge: Es endet um 23:00 Uhr.
+    """
+    return _load("smarttimes_zeitumstellung_herbst.json")
+
+
+@pytest.fixture
+def smartcontrol_zeitumstellung_herbst_payload() -> dict:
+    """Echte smartCONTROL-API-Antwort über die Herbstumstellung (24./25.10.2026).
+
+    Abgerufen am 24.10.2026, derselbe Fehler wie bei smartTIMES – nur kosten
+    die beiden Durchläufe von 02:00–02:45 hier verschieden viel (25,339 und
+    25,092 ct/kWh). Die Zuordnung entscheidet also über den Preis.
+    """
+    return _load("smartcontrol_zeitumstellung_herbst.json")
 
 
 @pytest.fixture
