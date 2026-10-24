@@ -10,10 +10,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections import Counter
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Final
+from zoneinfo import ZoneInfo
 
 import aiohttp
 from homeassistant.util import dt as dt_util
@@ -27,6 +29,12 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Zeitzone, in der die API ihre Wanduhrzeiten schreibt. Gebraucht wird sie nur,
+# um die doppelte Stunde der Herbstumstellung zuzuordnen (siehe
+# `SmartTimesApiClient._ordne_doppelte_stunde_zu`); sonst gilt der Offset der
+# Antwort.
+_API_TIME_ZONE: Final = ZoneInfo("Europe/Vienna")
 
 
 def _build_user_agent(
@@ -249,7 +257,9 @@ class SmartTimesApiClient:
         ``energyPrice`` mit Einträgen ``values`` / ``dateTimeFrom``. Das flache
         Format (``data`` / ``date`` auf oberster Ebene) – wie es auch der
         smartCONTROL-Markt-Endpunkt liefert – wird als Fallback unterstützt.
-        ``_parse_date`` respektiert dabei einen vorhandenen Zeitzonen-Offset.
+        ``_parse_date`` respektiert dabei einen vorhandenen Zeitzonen-Offset;
+        nur die doppelte Stunde der Herbstumstellung ordnet
+        ``_ordne_doppelte_stunde_zu`` nach der Reihenfolge der Einträge zu.
         """
         if not isinstance(payload, dict):
             raise SmartTimesApiPayloadError("Unerwartetes Antwortformat der API")
@@ -277,19 +287,22 @@ class SmartTimesApiClient:
             )
 
         delta = timedelta(minutes=interval_minutes)
-        prices: list[MarketPrice] = []
-        for entry in raw_values:
-            parsed = SmartTimesApiClient._parse_entry(entry)
-            if parsed is None:
-                continue
-            start, value = parsed
-            prices.append(
-                MarketPrice(
-                    start=start,
-                    end=start + delta,
-                    gross_ct_per_kwh=round(value, 4),
-                )
+        entries = [
+            parsed
+            for parsed in map(SmartTimesApiClient._parse_entry, raw_values)
+            if parsed is not None
+        ]
+        starts = SmartTimesApiClient._ordne_doppelte_stunde_zu(
+            [start for start, _ in entries]
+        )
+        prices = [
+            MarketPrice(
+                start=start,
+                end=start + delta,
+                gross_ct_per_kwh=round(value, 4),
             )
+            for start, (_, value) in zip(starts, entries, strict=True)
+        ]
 
         if not prices:
             raise SmartTimesApiPayloadError("Keine gültigen Preisdaten in der API-Antwort")
@@ -306,6 +319,65 @@ class SmartTimesApiClient:
             basic_fees=basic_fees,
             basic_fee_unit=basic_fee_unit,
         )
+
+    @staticmethod
+    def _ordne_doppelte_stunde_zu(starts: list[datetime]) -> list[datetime]:
+        """Ordnet die doppelt durchlaufene Stunde der Herbstumstellung zu.
+
+        Am letzten Oktobersonntag läuft die Uhr von 02:00 bis 02:59 zweimal. Die
+        API schreibt beide Durchläufe als Wanduhrzeit und – Stand Oktober 2026 –
+        beide mit dem Winterzeit-Offset ``+01:00`` (Issue #126). Übernommen hätte
+        die erste Stunde Sommerzeit damit keinen Preis, die erste Stunde
+        Winterzeit dagegen zwei. Ohne Offset wären die Durchläufe gar nicht zu
+        unterscheiden (Issue #75).
+
+        Kommt eine solche mehrdeutige Wanduhrzeit mehrfach vor, entscheidet
+        deshalb die **Reihenfolge der Antwort**: Das erste Vorkommen ist
+        Sommerzeit, das zweite Winterzeit. Ein Offset, der dazu passt, bleibt
+        so unverändert; die Korrektur ändert nur, was ohnehin nicht stimmt.
+        Einzeln vorkommende Zeiten und Zeitstempel, deren Offset nicht zu
+        Europe/Vienna gehört, bleiben, wie sie sind.
+
+        Alle Zeitpunkte tragen danach einen **festen Offset** statt einer Zone,
+        auch die ohne Offset gelieferten. Zwei Zeitpunkte derselben ``ZoneInfo``
+        vergleicht Python nach Wanduhrzeit und übergeht ``fold``; mit einem
+        Zeitpunkt einer anderen Zone ist ein mehrdeutiger nie gleich (PEP 495).
+        Beides bräche an der doppelten Stunde den Abgleich „Ende = nächster
+        Beginn“. Für Antworten mit Offset, den Normalfall, ändert das nichts.
+        """
+
+        def mehrdeutig(start: datetime) -> bool:
+            wand = start.replace(tzinfo=None)
+            moeglich = set()
+            for fold in (0, 1):
+                lokal = wand.replace(tzinfo=_API_TIME_ZONE, fold=fold)
+                # Wanduhrzeiten der Frühjahrslücke gibt es nicht: Sie kämen
+                # verschoben zurück und sind hier nicht gemeint.
+                zurueck = lokal.astimezone(UTC).astimezone(_API_TIME_ZONE)
+                if zurueck.replace(tzinfo=None) == wand:
+                    moeglich.add(lokal.utcoffset())
+            return len(moeglich) == 2 and start.utcoffset() in moeglich
+
+        walls = [start.replace(tzinfo=None) for start in starts]
+        haeufigkeit = Counter(
+            wand for start, wand in zip(starts, walls, strict=True) if mehrdeutig(start)
+        )
+        gesehen: set[datetime] = set()
+        result: list[datetime] = []
+        for start, wand in zip(starts, walls, strict=True):
+            offset = start.utcoffset()
+            if haeufigkeit[wand] >= 2:
+                fold = 1 if wand in gesehen else 0
+                gesehen.add(wand)
+                offset = wand.replace(tzinfo=_API_TIME_ZONE, fold=fold).utcoffset()
+                if offset != start.utcoffset():
+                    _LOGGER.debug(
+                        "Doppelte Stunde der Zeitumstellung zugeordnet: %s -> %s",
+                        start.isoformat(),
+                        offset,
+                    )
+            result.append(wand.replace(tzinfo=timezone(offset)))
+        return result
 
     @staticmethod
     def _parse_basic_fee(payload: dict) -> tuple[list[FeeEntry], str | None]:

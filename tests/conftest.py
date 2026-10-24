@@ -119,6 +119,17 @@ def smartcontrol_payload() -> dict:
 
 
 @pytest.fixture
+def smarttimes_dst_herbst_payload() -> dict:
+    """Echte smartTIMES-API-Antwort über die Herbstumstellung (24./25.10.2026).
+
+    Abgerufen am 24.10.2026 (Issue #126). Die API schreibt darin **beide**
+    Durchläufe von 02:00–02:45 am 25.10. mit ``+01:00`` und liefert für den
+    25-Stunden-Tag nur 96 Einträge: Es endet um 23:00 Uhr.
+    """
+    return _load("smarttimes_dst_herbst.json")
+
+
+@pytest.fixture
 def make_data():
     """Factory: baut ``SmartTimesData`` aus einer API-Antwort (wie der Koordinator).
 

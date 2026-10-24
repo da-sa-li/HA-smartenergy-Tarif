@@ -41,6 +41,15 @@ und das Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/)
   20:00 Uhr kann dann ein zweiter Block am selben Tag gewählt werden (siehe Wiki,
   „Fehlerbehebung“). Der Modus „Günstigste Einzelstunden“ wählt unverändert je Kalendertag.
 
+### Behoben
+
+- **Zeitumstellung im Herbst:** Die smartENERGY-API kennzeichnet in der Nacht der Rückstellung auf
+  Winterzeit beide Durchläufe von 02:00–02:59 als Winterzeit. Bisher fehlte dadurch eine Stunde
+  lang der aktuelle Preis, und „Günstige Stunde“-Sensoren im Modus „Günstigste Einzelstunden“
+  liefen kürzer als eingestellt (etwa 3 statt 4 Stunden). Die Integration ordnet den ersten
+  Durchlauf jetzt der Sommerzeit zu. Weiterhin ohne Preis bleibt am Umstellungstag die Stunde
+  ab 23:00 Uhr, weil die API sie nicht liefert.
+
 ## [4.4.0] - 2026-10-05
 
 ### Hinzugefügt

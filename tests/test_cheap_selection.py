@@ -537,3 +537,78 @@ def test_smartnight_block_beginnt_am_vorabend(make_data, smarttimes_payload):
     assert [block[:2] for block in blocks] == [
         (_iso("2026-06-05T23:00:00+02:00"), _iso("2026-06-06T05:00:00+02:00"))
     ]
+
+
+# --- Herbstumstellung mit der echten Antwort (Issue #126) ------------------- #
+#
+# Fixture smarttimes_dst_herbst.json, 25.10.2026 (Bruttopreise in ct/kWh, ohne
+# Netzgebiet ist die Rangfolge monoton darin):
+#   00:00-02:00 Sommerzeit                25,476
+#   02:00 Sommerzeit - 04:00 Winterzeit   22,152  (drei echte Stunden: Die Uhr
+#                                                  läuft 02:00-02:59 zweimal)
+#   04:00-06:00 25,476 | 06:00-09:00 31,02 | 09:00-10:00 25,476
+#   10:00-16:00                           22,152
+#   16:00-17:00 25,476 | 17:00-22:00 31,02 | 22:00-23:00 25,476 (dann endet sie)
+DST_TAG = date(2026, 10, 25)
+
+
+def test_aktueller_preis_deckt_die_doppelte_stunde_ab(
+    make_data, smarttimes_dst_herbst_payload
+):
+    """In beiden Durchläufen von 02:30 gilt ein Preis – je ein eigener Eintrag.
+
+    02:30 Sommerzeit ist 00:30 UTC, 02:30 Winterzeit 01:30 UTC. Vor der
+    Korrektur hatte der erste Zeitpunkt keinen Preis.
+    """
+    data = make_data(smarttimes_dst_herbst_payload)
+
+    sommer = data.current(datetime(2026, 10, 25, 0, 30, tzinfo=UTC))
+    winter = data.current(datetime(2026, 10, 25, 1, 30, tzinfo=UTC))
+
+    assert sommer is not None and winter is not None
+    assert sommer.gross_ct_per_kwh == winter.gross_ct_per_kwh == 22.152
+    assert sommer.start == _iso("2026-10-25T02:30:00+02:00")
+    assert winter.start == _iso("2026-10-25T02:30:00+01:00")
+    assert len(data.for_day(DST_TAG)) == len({p.start for p in data.for_day(DST_TAG)})
+
+
+def test_einzelmodus_haelt_die_stundenzahl_an_der_herbstumstellung(
+    make_data, smarttimes_dst_herbst_payload
+):
+    """4 Stunden bleiben 4 Stunden, auch über die doppelte Stunde.
+
+    4 h = 16 Viertelstunden zu 22,152. Bei Gleichstand entscheidet die
+    Startzeit: zuerst die 12 der Nacht (02:00 Sommerzeit bis 04:00
+    Winterzeit), dann 10:00-11:00. Vorher zählten die vier doppelt
+    beschrifteten Einträge zweimal, und der Sensor lief nur 3 Stunden.
+    """
+    data = make_data(smarttimes_dst_herbst_payload)
+
+    blocks = data._cheap_blocks(DST_TAG, 4.0, "individual", True)
+
+    assert [block[:2] for block in blocks] == [
+        (_iso("2026-10-25T02:00:00+02:00"), _iso("2026-10-25T04:00:00+01:00")),
+        (_iso("2026-10-25T10:00:00+01:00"), _iso("2026-10-25T11:00:00+01:00")),
+    ]
+    assert sum((ende - start for start, ende, _ in blocks), timedelta()) == timedelta(
+        hours=4
+    )
+
+
+def test_blockmodus_laeuft_ueber_die_doppelte_stunde(
+    make_data, smarttimes_dst_herbst_payload
+):
+    """Ein Block darf durch die Zeitumstellung hindurch laufen.
+
+    1,5 h zu 22,152 sind nachts wie mittags gleich teuer, gewählt wird das
+    früheste Fenster: ab 02:00 Sommerzeit (00:00 UTC) bis 01:30 UTC, also
+    02:30 Winterzeit. Vorher galten die doppelt beschrifteten Einträge als
+    Lücke, und der Block wich auf 10:00 aus.
+    """
+    data = make_data(smarttimes_dst_herbst_payload)
+
+    blocks = data._cheap_blocks(DST_TAG, 1.5, "consecutive")
+
+    assert [block[:2] for block in blocks] == [
+        (_iso("2026-10-25T02:00:00+02:00"), _iso("2026-10-25T02:30:00+01:00"))
+    ]

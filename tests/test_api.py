@@ -9,7 +9,8 @@ dokumentiert.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
@@ -490,3 +491,149 @@ def test_grundgebuehr_falscher_form_wird_ignoriert():
 
     assert result.basic_fees == []
     assert result.basic_fee_unit is None
+
+
+# --- Herbstumstellung: doppelte Stunde 02:00–02:59 (Issues #75, #126) ------- #
+#
+# In der Nacht auf den 25.10.2026 wird die Uhr um 03:00 Sommerzeit (+02:00)
+# auf 02:00 Winterzeit (+01:00) zurückgestellt. Die Wanduhrzeiten 02:00–02:45
+# kommen deshalb zweimal vor: zuerst als 00:00–00:45 UTC, dann als 01:00–01:45
+# UTC.
+
+
+def _herbst(*zeiten: str) -> list[datetime]:
+    """Parst Viertelstunden des 25.10.2026 und liefert ihre Startzeitpunkte."""
+    result = SmartTimesApiClient._parse(
+        {
+            "energyPrice": {
+                "interval": 15,
+                "values": [
+                    {"dateTimeFrom": f"2026-10-25T{zeit}", "value": 22.152}
+                    for zeit in zeiten
+                ],
+            }
+        }
+    )
+    return [price.start for price in result.prices]
+
+
+def test_herbstumstellung_der_echten_antwort_ergibt_ein_lueckenloses_raster(
+    smarttimes_dst_herbst_payload,
+):
+    """Die falsch beschriftete erste Stunde wird der Sommerzeit zugeordnet.
+
+    Die Fixture (24./25.10.2026) schreibt die Einträge 104–107 (02:00–02:45 am
+    25.10., nach 96 Einträgen am 24.10. und acht von 00:00–01:45) mit
+    ``+01:00``, genau wie die folgenden 108–111. Richtig ist für den ersten
+    Durchlauf ``+02:00``. Ohne Korrektur fehlte 02:00–02:59 Sommerzeit ganz,
+    und 02:00–02:59 Winterzeit gäbe es doppelt.
+    """
+    result = SmartTimesApiClient._parse(smarttimes_dst_herbst_payload)
+    prices = result.prices
+
+    assert len(prices) == 192
+    assert len({p.start for p in prices}) == 192
+    for vorher, nachher in pairwise(prices):
+        assert vorher.end == nachher.start, vorher
+    assert prices[103].start == _iso("2026-10-25T01:45:00+02:00")
+    assert prices[104].start == _iso("2026-10-25T02:00:00+02:00")
+    assert prices[107].end == _iso("2026-10-25T02:00:00+01:00")
+    assert prices[108].start == _iso("2026-10-25T02:00:00+01:00")
+    # Unverändert bleibt die zweite API-Lücke: Die API liefert für den
+    # 25-Stunden-Tag nur 96 Einträge, die Stunde ab 23:00 fehlt. Erfinden lässt
+    # sich dieser Preis nicht.
+    assert prices[-1].end == _iso("2026-10-25T23:00:00+01:00")
+
+
+def test_herbstumstellung_mit_richtigen_offsets_bleibt_unveraendert():
+    """Stimmen die Offsets schon, ändert die Zuordnung nach Reihenfolge nichts."""
+    starts = _herbst("02:00:00+02:00", "02:45:00+02:00", "02:00:00+01:00")
+
+    assert starts == [
+        _iso("2026-10-25T02:00:00+02:00"),
+        _iso("2026-10-25T02:45:00+02:00"),
+        _iso("2026-10-25T02:00:00+01:00"),
+    ]
+    assert [s.utcoffset() for s in starts] == [
+        timedelta(hours=2),
+        timedelta(hours=2),
+        timedelta(hours=1),
+    ]
+
+
+def test_herbstumstellung_ohne_offset_folgt_der_reihenfolge():
+    """Ohne Offset ist der erste Durchlauf Sommerzeit, der zweite Winterzeit.
+
+    Der in Issue #75 befürchtete Fall: Ohne Offset sind beide Durchläufe nicht
+    unterscheidbar. Die zehn Viertelstunden ab 01:45 Wanduhrzeit sind in echter
+    Zeit 23:45 UTC (24.10.) bis 01:00 UTC – ein lückenloses Raster.
+    """
+    result = SmartTimesApiClient._parse(
+        {
+            "energyPrice": {
+                "interval": 15,
+                "values": [
+                    {"dateTimeFrom": f"2026-10-25T{zeit}:00", "value": 22.152}
+                    for zeit in (
+                        "01:45", "02:00", "02:15", "02:30", "02:45",
+                        "02:00", "02:15", "02:30", "02:45", "03:00",
+                    )
+                ],
+            }
+        }
+    )
+    prices = result.prices
+
+    erwartet = [
+        datetime(2026, 10, 24, 23, 45, tzinfo=UTC) + timedelta(minutes=15 * i)
+        for i in range(10)
+    ]
+    assert [p.start for p in prices] == erwartet
+    for vorher, nachher in pairwise(prices):
+        assert vorher.end == nachher.start, vorher
+
+
+def test_einzelne_mehrdeutige_zeit_behaelt_ihren_offset():
+    """Kommt die Wanduhrzeit nur einmal vor, gilt der Offset der Antwort.
+
+    Ohne zweites Vorkommen gibt es keine Reihenfolge, aus der etwas folgte –
+    eine allein gelieferte Winterzeit-Viertelstunde bleibt Winterzeit.
+    """
+    assert _herbst("02:30:00+01:00") == [_iso("2026-10-25T02:30:00+01:00")]
+
+
+def test_doppelte_zeit_in_fremder_zone_bleibt_unveraendert():
+    """Gehört der Offset nicht zu Europe/Vienna, wird nichts zugeordnet.
+
+    02:00 ist nur in Wiener Wanduhrzeit mehrdeutig. Mit ``+00:00`` sind beide
+    Einträge derselbe Zeitpunkt; das ist dann ein Fehler der Antwort, den der
+    Parser nicht still umdeutet.
+    """
+    assert _herbst("02:00:00+00:00", "02:00:00+00:00") == [
+        _iso("2026-10-25T02:00:00+00:00"),
+        _iso("2026-10-25T02:00:00+00:00"),
+    ]
+
+
+def test_fruehjahrsluecke_wird_nicht_zugeordnet():
+    """Die übersprungene Stunde im Frühjahr ist nicht mehrdeutig.
+
+    Am 28.03.2027 springt die Uhr von 02:00 auf 03:00; die Wanduhrzeit 02:00 gibt
+    es nicht. Sie fällt deshalb nicht unter die Zuordnung, die Offsets der
+    Antwort bleiben stehen.
+    """
+    result = SmartTimesApiClient._parse(
+        {
+            "energyPrice": {
+                "values": [
+                    {"dateTimeFrom": "2027-03-28T02:00:00+01:00", "value": 22.152},
+                    {"dateTimeFrom": "2027-03-28T02:00:00+02:00", "value": 22.152},
+                ]
+            }
+        }
+    )
+
+    assert sorted(p.start.utcoffset() for p in result.prices) == [
+        timedelta(hours=1),
+        timedelta(hours=2),
+    ]
