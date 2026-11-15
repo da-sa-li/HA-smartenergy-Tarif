@@ -10,4 +10,4 @@ pytest-homeassistant-custom-component==0.13.375
 # gibt: Der Lint-Job in der CI zieht die Version aus dieser Zeile, Dependabot
 # hebt sie mit den übrigen Test-Abhängigkeiten an. Die Regelauswahl und ihre
 # Begründungen stehen in ruff.toml.
-ruff==0.17.3
+ruff==0.17.4
